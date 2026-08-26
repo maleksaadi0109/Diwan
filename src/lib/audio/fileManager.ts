@@ -116,5 +116,8 @@ export function resolveAudioSrc(audioPath: string): string {
     }
   }
 
+  if (!audioPath.startsWith("/") && !audioPath.startsWith("./")) {
+    return `/${audioPath}`;
+  }
   return audioPath;
 }
