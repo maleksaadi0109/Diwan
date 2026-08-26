@@ -9,7 +9,7 @@ describe("Diwan SQLite Repository", () => {
   let repo: DiwanRepository;
 
   beforeEach(async () => {
-    adapter = new BetterSqliteAdapter(":memory:");
+    adapter = await BetterSqliteAdapter.create(":memory:");
     repo = new DiwanRepository(adapter);
     await repo.init();
   });
