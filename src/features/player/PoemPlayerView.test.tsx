@@ -9,11 +9,8 @@ describe("PoemPlayerView component", () => {
     render(<PoemPlayerView poem={samplePoem} />);
 
     expect(screen.getByRole("heading", { level: 2, name: samplePoem.title })).toBeInTheDocument();
-    expect(
-      screen.getAllByText(samplePoem.verses[0].firstHemistich).length
-    ).toBeGreaterThan(0);
-    expect(
-      screen.getByText(samplePoem.verses[0].secondHemistich)
-    ).toBeInTheDocument();
+    expect(screen.getAllByText("واحَرَّ").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("شَبِمُ").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("سَقَمُ").length).toBeGreaterThan(0);
   });
 });

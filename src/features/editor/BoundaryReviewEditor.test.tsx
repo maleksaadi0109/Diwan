@@ -42,13 +42,13 @@ describe("BoundaryReviewEditor", () => {
       />
     );
 
-    const reviewedBtn = screen.getByText("مدقق");
-    fireEvent.click(reviewedBtn);
+    const manualBtn = screen.getByRole("button", { name: "يدوي" });
+    fireEvent.click(manualBtn);
     expect(onUpdate).toHaveBeenCalledWith(
       expect.any(String),
       expect.any(Number),
       expect.any(Number),
-      "reviewed"
+      "manual"
     );
   });
 });

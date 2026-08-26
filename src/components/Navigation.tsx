@@ -1,3 +1,4 @@
+import React from "react";
 import { BookOpen, PlayCircle, Sliders, PlusCircle, Settings, Feather } from "lucide-react";
 import { ActiveTab } from "@/types";
 import { cn } from "@/lib/utils";

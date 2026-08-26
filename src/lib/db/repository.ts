@@ -9,7 +9,9 @@ import {
   ImportJob,
   Era,
   Bahr,
+  AlignmentStatus,
 } from "@/types";
+import { normalizeArabic } from "@/lib/utils";
 import { DatabaseAdapter, getDatabase } from "./adapter";
 import {
   INITIAL_SCHEMA_SQL,
@@ -327,7 +329,7 @@ export class DiwanRepository {
     id: string,
     startMs: number,
     endMs: number,
-    status: 'reviewed' | 'manual' = 'reviewed',
+    status: AlignmentStatus = 'reviewed',
     confidence = 1.0
   ): Promise<void> {
     const sql = `
@@ -356,8 +358,8 @@ export class DiwanRepository {
 
   async getDefinition(normalizedWord: string): Promise<WordDefinition | null> {
     const rows = await this.adapter.select<WordDefinitionRow>(
-      `SELECT * FROM word_definitions WHERE normalized_word = ? LIMIT 1;`,
-      [normalizedWord]
+      `SELECT * FROM word_definitions WHERE normalized_word = ? OR word = ? LIMIT 1;`,
+      [normalizedWord, normalizedWord]
     );
     if (rows.length === 0) return null;
     const r = rows[0];
@@ -369,6 +371,11 @@ export class DiwanRepository {
       meaning: r.meaning,
       source: r.source,
     };
+  }
+
+  async getWordDefinition(word: string): Promise<WordDefinition | null> {
+    const normalized = normalizeArabic(word);
+    return this.getDefinition(normalized);
   }
 
   // --- Meter Analyses ---

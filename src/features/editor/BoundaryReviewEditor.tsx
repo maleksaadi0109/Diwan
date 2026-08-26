@@ -1,17 +1,11 @@
 import React, { useState, useRef, useEffect } from "react";
-import { Poem, Verse, AlignmentStatus } from "@/types";
+import { Poem, AlignmentStatus } from "@/types";
 import { formatTime, toArabicDigits } from "@/lib/utils";
 import {
   Play,
   Pause,
-  RotateCcw,
-  CheckCircle2,
   AlertTriangle,
-  ChevronRight,
-  ChevronLeft,
   Split,
-  Combine,
-  Save,
 } from "lucide-react";
 
 interface BoundaryReviewEditorProps {

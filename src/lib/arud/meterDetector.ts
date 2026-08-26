@@ -1,4 +1,4 @@
-import { Bahr, MeterAnalysis } from "@/types";
+import { Bahr } from "@/types";
 import { normalizeArabic } from "@/lib/utils";
 
 export interface VerseArudResult {

@@ -72,6 +72,24 @@ export interface TranscribeOptions {
   mock?: boolean;
 }
 
+export interface VerseAlignmentItem {
+  verse_id: string;
+  order_index: number;
+  start_ms: number;
+  end_ms: number;
+  confidence: number;
+  status: "auto" | "reviewed" | "manual";
+  first_hemistich_end_ms?: number;
+  second_hemistich_start_ms?: number;
+}
+
+export interface PoemAlignmentResponse {
+  poem_id: string;
+  recording_id: string;
+  overall_confidence: number;
+  alignments: VerseAlignmentItem[];
+}
+
 export async function checkWorkerHealth(): Promise<WorkerHealthData> {
   const isTauri = typeof window !== "undefined" && ("__TAURI_INTERNALS__" in window || "__TAURI__" in window);
 
@@ -247,22 +265,40 @@ export async function transcribeArabicAudio(
     throw new Error(resp.error_message || "Arabic transcription failed");
   }
 
-export interface VerseAlignmentItem {
-  verse_id: string;
-  order_index: number;
-  start_ms: number;
-  end_ms: number;
-  confidence: number;
-  status: "auto" | "reviewed" | "manual";
-  first_hemistich_end_ms?: number;
-  second_hemistich_start_ms?: number;
-}
-
-export interface PoemAlignmentResponse {
-  poem_id: string;
-  recording_id: string;
-  overall_confidence: number;
-  alignments: VerseAlignmentItem[];
+  // Fallback for development / mock preview
+  return {
+    transcript: {
+      schema_version: "1.0",
+      language: "ar",
+      raw_text: "واحر قلباه ممن قلبه شبم ومن بجسمي وحالي عنده سقم",
+      duration_ms: 15000,
+      model_used: options.model_size || "small",
+      device_used: options.device || "cpu",
+      segments: [
+        {
+          id: 1,
+          text: "واحر قلباه ممن قلبه شبم ومن بجسمي وحالي عنده سقم",
+          start_ms: 2500,
+          end_ms: 9800,
+          words: [
+            { word: "واحر", start_ms: 2500, end_ms: 3100, probability: 0.97 },
+            { word: "قلباه", start_ms: 3200, end_ms: 4000, probability: 0.95 },
+            { word: "ممن", start_ms: 4100, end_ms: 4500, probability: 0.98 },
+            { word: "قلبه", start_ms: 4600, end_ms: 5200, probability: 0.94 },
+            { word: "شبم", start_ms: 5300, end_ms: 6100, probability: 0.92 },
+          ],
+        },
+      ],
+      words: [
+        { word: "واحر", start_ms: 2500, end_ms: 3100, probability: 0.97 },
+        { word: "قلباه", start_ms: 3200, end_ms: 4000, probability: 0.95 },
+        { word: "ممن", start_ms: 4100, end_ms: 4500, probability: 0.98 },
+        { word: "قلبه", start_ms: 4600, end_ms: 5200, probability: 0.94 },
+        { word: "شبم", start_ms: 5300, end_ms: 6100, probability: 0.92 },
+      ],
+    },
+    outputJsonPath,
+  };
 }
 
 export async function alignPoemAudio(
@@ -322,4 +358,3 @@ export async function alignPoemAudio(
     })),
   };
 }
-

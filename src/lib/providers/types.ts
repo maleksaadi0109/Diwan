@@ -1,4 +1,4 @@
-import { Poem, Era, Bahr } from "@/types";
+import { Era, Bahr } from "@/types";
 
 export interface ParsedVersePayload {
   orderIndex: number;

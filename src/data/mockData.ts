@@ -363,3 +363,7 @@ export const MOCK_POEMS: Poem[] = [
     ],
   },
 ];
+
+export const mockPoems = MOCK_POEMS;
+export const mockPoets = MOCK_POETS;
+

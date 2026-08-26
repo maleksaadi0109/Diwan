@@ -29,7 +29,7 @@ export const VerseItem: React.FC<VerseItemProps> = ({
         onClick={(e) => {
           if (onWordClick) {
             e.stopPropagation();
-            onWordClick(w.replace(/[،؛؟\.\!\(\)]/g, ""));
+            onWordClick(w.replace(/[،؛؟.!]/g, ""));
           }
         }}
         className="inline-block mx-1 hover:text-gold-400 hover:underline cursor-pointer transition-colors"
