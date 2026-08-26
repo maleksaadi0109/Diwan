@@ -8,7 +8,7 @@ export interface WorkerHealthData {
 
 export interface WorkerAudioMetadata {
   duration_ms: number;
-  duration_seconds: float;
+  duration_seconds: number;
   channels: number;
   sample_rate: number;
   codec: string;
@@ -29,6 +29,34 @@ export interface WorkerSpeechDetectionData {
   total_speech_duration_ms: number;
 }
 
+export interface TimedWord {
+  word: string;
+  start_ms: number;
+  end_ms: number;
+  probability: number;
+}
+
+export interface TranscriptSegment {
+  id: number;
+  text: string;
+  start_ms: number;
+  end_ms: number;
+  words: TimedWord[];
+  avg_logprob?: number;
+  no_speech_prob?: number;
+}
+
+export interface TranscriptResult {
+  schema_version: string;
+  language: string;
+  raw_text: string;
+  duration_ms: number;
+  model_used: string;
+  device_used: string;
+  segments: TranscriptSegment[];
+  words: TimedWord[];
+}
+
 export interface WorkerResponse<T> {
   id: string;
   success: boolean;
@@ -37,7 +65,12 @@ export interface WorkerResponse<T> {
   error_message?: string;
 }
 
-type float = number;
+export interface TranscribeOptions {
+  model_size?: "tiny" | "base" | "small" | "medium" | "large-v3";
+  device?: "cpu" | "cuda" | "auto";
+  compute_type?: "int8" | "float32" | "float16" | "default";
+  mock?: boolean;
+}
 
 export async function checkWorkerHealth(): Promise<WorkerHealthData> {
   const isTauri = typeof window !== "undefined" && ("__TAURI_INTERNALS__" in window || "__TAURI__" in window);
@@ -175,5 +208,77 @@ export async function detectSpeechIntervals(
     ],
     speech_count: 2,
     total_speech_duration_ms: 15500,
+  };
+}
+
+export async function transcribeArabicAudio(
+  audioPath: string,
+  outputJsonPath?: string,
+  options: TranscribeOptions = {}
+): Promise<{ transcript: TranscriptResult; outputJsonPath?: string }> {
+  const isTauri = typeof window !== "undefined" && ("__TAURI_INTERNALS__" in window || "__TAURI__" in window);
+
+  if (isTauri) {
+    const { invoke } = await import("@tauri-apps/api/core");
+    const resp = await invoke<WorkerResponse<{ transcript: TranscriptResult; output_json_path?: string }>>(
+      "execute_worker_command",
+      {
+        request: {
+          id: `req-transcribe-${Date.now()}`,
+          command: "transcribe",
+          payload: {
+            audio_path: audioPath,
+            model_size: options.model_size || "small",
+            device: options.device || "cpu",
+            compute_type: options.compute_type || "default",
+            output_json_path: outputJsonPath,
+            mock: options.mock || false,
+          },
+        },
+      }
+    );
+
+    if (resp.success && resp.data) {
+      return {
+        transcript: resp.data.transcript,
+        outputJsonPath: resp.data.output_json_path,
+      };
+    }
+    throw new Error(resp.error_message || "Arabic transcription failed");
+  }
+
+  // Fallback for development / mock preview
+  return {
+    transcript: {
+      schema_version: "1.0",
+      language: "ar",
+      raw_text: "واحر قلباه ممن قلبه شبم ومن بجسمي وحالي عنده سقم",
+      duration_ms: 15000,
+      model_used: options.model_size || "small",
+      device_used: options.device || "cpu",
+      segments: [
+        {
+          id: 1,
+          text: "واحر قلباه ممن قلبه شبم ومن بجسمي وحالي عنده سقم",
+          start_ms: 2500,
+          end_ms: 9800,
+          words: [
+            { word: "واحر", start_ms: 2500, end_ms: 3100, probability: 0.97 },
+            { word: "قلباه", start_ms: 3200, end_ms: 4000, probability: 0.95 },
+            { word: "ممن", start_ms: 4100, end_ms: 4500, probability: 0.98 },
+            { word: "قلبه", start_ms: 4600, end_ms: 5200, probability: 0.94 },
+            { word: "شبم", start_ms: 5300, end_ms: 6100, probability: 0.92 },
+          ],
+        },
+      ],
+      words: [
+        { word: "واحر", start_ms: 2500, end_ms: 3100, probability: 0.97 },
+        { word: "قلباه", start_ms: 3200, end_ms: 4000, probability: 0.95 },
+        { word: "ممن", start_ms: 4100, end_ms: 4500, probability: 0.98 },
+        { word: "قلبه", start_ms: 4600, end_ms: 5200, probability: 0.94 },
+        { word: "شبم", start_ms: 5300, end_ms: 6100, probability: 0.92 },
+      ],
+    },
+    outputJsonPath,
   };
 }

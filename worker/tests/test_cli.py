@@ -1,4 +1,5 @@
 import json
+import os
 import subprocess
 import sys
 
@@ -63,6 +64,25 @@ def test_cli_detect_speech(synthetic_wav):
     resp = resp_msgs[0]
     assert resp["success"] is True
     assert resp["data"]["speech_count"] >= 2
+
+def test_cli_transcribe(synthetic_wav, tmp_path):
+    out_json = str(tmp_path / "cli_transcript.json")
+    req = json.dumps({
+        "id": "req-5",
+        "command": "transcribe",
+        "payload": {
+            "audio_path": synthetic_wav,
+            "output_json_path": out_json,
+            "mock": True,
+        }
+    })
+    messages = run_worker_cli([req])
+    resp_msgs = [m for m in messages if m.get("type") == "response"]
+    assert len(resp_msgs) == 1
+    resp = resp_msgs[0]
+    assert resp["success"] is True
+    assert "transcript" in resp["data"]
+    assert os.path.exists(out_json)
 
 def test_cli_malformed_json_never_crashes():
     messages = run_worker_cli(["not a valid json", "{}"])

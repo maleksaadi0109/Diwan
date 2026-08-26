@@ -214,6 +214,75 @@ def handle_detect_speech(req: WorkerRequest) -> None:
             )
         )
 
+def handle_transcribe(req: WorkerRequest) -> None:
+    audio_path = req.payload.get("audio_path")
+    model_size = req.payload.get("model_size", "small")
+    device = req.payload.get("device", "cpu")
+    compute_type = req.payload.get("compute_type", "default")
+    output_json_path = req.payload.get("output_json_path")
+    mock = bool(req.payload.get("mock", False))
+
+    if not audio_path or not isinstance(audio_path, str):
+        emit_response(
+            WorkerResponse(
+                id=req.id,
+                success=False,
+                error_code="INVALID_COMMAND",
+                error_message="Missing or invalid 'audio_path' in payload",
+            )
+        )
+        return
+
+    def on_prog(pct: float, msg: str) -> None:
+        emit_event(WorkerProgressEvent(id=req.id, stage="transcribing", progress=pct, message=msg))
+
+    try:
+        from .asr.transcriber import transcribe_arabic_audio
+        transcript = transcribe_arabic_audio(
+            audio_path=audio_path,
+            model_size=model_size,
+            device=device,
+            compute_type=compute_type,
+            on_progress=on_prog,
+            mock=mock,
+        )
+
+        if output_json_path and isinstance(output_json_path, str):
+            out_dir = os.path.dirname(output_json_path)
+            if out_dir:
+                os.makedirs(out_dir, exist_ok=True)
+            transcript.save_to_file(output_json_path)
+
+        emit_response(
+            WorkerResponse(
+                id=req.id,
+                success=True,
+                data={
+                    "transcript": transcript.to_dict(),
+                    "output_json_path": output_json_path,
+                },
+            )
+        )
+    except FileNotFoundError as e:
+        emit_response(
+            WorkerResponse(
+                id=req.id,
+                success=False,
+                error_code="FILE_NOT_FOUND",
+                error_message=str(e),
+            )
+        )
+    except Exception as e:
+        log(f"Transcription error: {e}")
+        emit_response(
+            WorkerResponse(
+                id=req.id,
+                success=False,
+                error_code="INTERNAL_ERROR",
+                error_message=f"Transcription failed: {str(e)}",
+            )
+        )
+
 def process_line(line: str) -> None:
     line = line.strip()
     if not line:
@@ -240,6 +309,8 @@ def process_line(line: str) -> None:
         handle_convert_audio(req)
     elif req.command == "detect_speech":
         handle_detect_speech(req)
+    elif req.command == "transcribe":
+        handle_transcribe(req)
     else:
         emit_response(
             WorkerResponse(

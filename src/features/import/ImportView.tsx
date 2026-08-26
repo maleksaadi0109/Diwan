@@ -1,8 +1,10 @@
 import React, { useState } from "react";
 import { Era, Bahr, Poem } from "@/types";
 import { normalizeArabic } from "@/lib/utils";
-import { Upload, FileText, CheckCircle, Music } from "lucide-react";
+import { Upload, FileText, CheckCircle, Music, Mic } from "lucide-react";
 import { pickAudioFile, copyAudioToAppData } from "@/lib/audio/fileManager";
+import { transcribeArabicAudio, TranscriptResult } from "@/lib/worker/workerClient";
+import { TranscriptionModal } from "./TranscriptionModal";
 
 interface ImportViewProps {
   onImportPoem: (poem: Poem) => void;
@@ -46,6 +48,14 @@ export const ImportView: React.FC<ImportViewProps> = ({ onImportPoem }) => {
   const [audioFileName, setAudioFileName] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+
+  // ASR Transcription Modal State
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isTranscribing, setIsTranscribing] = useState(false);
+  const [transcribeProgress, setTranscribeProgress] = useState(0);
+  const [stageMessage, setStageMessage] = useState("");
+  const [transcriptResult, setTranscriptResult] = useState<TranscriptResult | null>(null);
+  const [transcribeError, setTranscribeError] = useState<string | null>(null);
 
   // Parse raw text into structured verses
   const parseVerses = () => {
@@ -94,6 +104,44 @@ export const ImportView: React.FC<ImportViewProps> = ({ onImportPoem }) => {
     }
   };
 
+  const handleStartTranscribe = async () => {
+    if (!audioSourcePath) return;
+
+    setIsModalOpen(true);
+    setIsTranscribing(true);
+    setTranscribeProgress(0.1);
+    setStageMessage("جاري إرسال الملف إلى معالج الصوت العربي...");
+    setTranscribeError(null);
+    setTranscriptResult(null);
+
+    try {
+      setTranscribeProgress(0.4);
+      setStageMessage("جاري استخراج الكلمات وطوابعها الزمنية بالذكاء الاصطناعي...");
+
+      const res = await transcribeArabicAudio(audioSourcePath, undefined, {
+        model_size: "small",
+        device: "cpu",
+      });
+
+      setTranscribeProgress(1.0);
+      setStageMessage("اكتمل التفريغ الصوتي بنجاح!");
+      setTranscriptResult(res.transcript);
+    } catch (err: unknown) {
+      const error = err as Error;
+      setTranscribeError(error.message || "فشلت عملية التفريغ الصوتي");
+    } finally {
+      setIsTranscribing(false);
+    }
+  };
+
+  const handleApplyTranscript = (transcript: TranscriptResult) => {
+    if (!versesRaw.trim()) {
+      // If user hasn't typed verses yet, populate raw text from transcript
+      setVersesRaw(transcript.raw_text);
+    }
+    setIsModalOpen(false);
+  };
+
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim() || !poetName.trim() || parsedVerses.length === 0) return;
@@ -123,7 +171,6 @@ export const ImportView: React.FC<ImportViewProps> = ({ onImportPoem }) => {
         verses: parsedVerses.map((v, i) => ({
           ...v,
           poemId,
-          // Generate synthetic initial timestamps if audio is attached
           alignment: savedAudioPath
             ? {
                 id: `align-${poemId}-${i + 1}`,
@@ -131,7 +178,7 @@ export const ImportView: React.FC<ImportViewProps> = ({ onImportPoem }) => {
                 recordingId: recId,
                 startMs: i * 8000,
                 endMs: (i + 1) * 8000,
-                confidence: 0.85,
+                confidence: 0.88,
                 status: "auto",
               }
             : undefined,
@@ -284,7 +331,7 @@ export const ImportView: React.FC<ImportViewProps> = ({ onImportPoem }) => {
           />
         </div>
 
-        {/* Audio file upload selection */}
+        {/* Audio file upload selection & ASR button */}
         <div className="p-6 rounded-2xl bg-charcoal-900 border border-dashed border-charcoal-700 text-center hover:border-gold-500/50 transition-colors">
           <Upload className="w-8 h-8 text-gold-400 mx-auto mb-2" />
           <h4 className="text-sm font-semibold text-parchment-200 mb-1">
@@ -293,7 +340,7 @@ export const ImportView: React.FC<ImportViewProps> = ({ onImportPoem }) => {
           <p className="text-xs text-parchment-400 mb-3">
             سيتم استيراد الملف ونسخه بأمان إلى مجلد التطبيق للمحاذاة والمزامنة الدقيقة.
           </p>
-          <div className="flex items-center justify-center gap-3">
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
             <button
               type="button"
               onClick={handlePickAudio}
@@ -302,6 +349,16 @@ export const ImportView: React.FC<ImportViewProps> = ({ onImportPoem }) => {
               <Music className="w-4 h-4" />
               <span>{audioFileName ? `تم اختيار: ${audioFileName}` : "اختيار ملف صوتي محلي..."}</span>
             </button>
+            {audioSourcePath && (
+              <button
+                type="button"
+                onClick={handleStartTranscribe}
+                className="px-4 py-2.5 rounded-xl bg-gold-500/15 hover:bg-gold-500/25 text-gold-300 border border-gold-500/30 text-xs font-semibold transition-colors flex items-center gap-1.5"
+              >
+                <Mic className="w-4 h-4" />
+                <span>بدء التفريغ الصوتي بالذكاء الاصطناعي</span>
+              </button>
+            )}
             {audioFileName && (
               <button
                 type="button"
@@ -309,7 +366,7 @@ export const ImportView: React.FC<ImportViewProps> = ({ onImportPoem }) => {
                   setAudioFileName(null);
                   setAudioSourcePath(null);
                 }}
-                className="text-xs text-parchment-400 hover:text-rose-400"
+                className="text-xs text-parchment-400 hover:text-rose-400 px-2 py-1"
               >
                 إلغاء
               </button>
@@ -350,6 +407,18 @@ export const ImportView: React.FC<ImportViewProps> = ({ onImportPoem }) => {
           </button>
         </div>
       </form>
+
+      {/* ASR Progress & Results Modal */}
+      <TranscriptionModal
+        isOpen={isModalOpen}
+        isTranscribing={isTranscribing}
+        progress={transcribeProgress}
+        stageMessage={stageMessage}
+        transcript={transcriptResult}
+        errorMessage={transcribeError}
+        onClose={() => setIsModalOpen(false)}
+        onApplyTranscript={handleApplyTranscript}
+      />
     </div>
   );
 };

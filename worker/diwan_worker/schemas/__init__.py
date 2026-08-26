@@ -5,6 +5,11 @@ from .protocol import (
     SpeechInterval,
     ErrorCode,
 )
+from .transcript import (
+    TimedWord,
+    TranscriptSegment,
+    TranscriptResult,
+)
 
 __all__ = [
     "WorkerRequest",
@@ -12,4 +17,7 @@ __all__ = [
     "WorkerProgressEvent",
     "SpeechInterval",
     "ErrorCode",
+    "TimedWord",
+    "TranscriptSegment",
+    "TranscriptResult",
 ]
