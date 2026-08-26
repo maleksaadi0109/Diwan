@@ -4,7 +4,7 @@ import { VerseItem } from "./VerseItem";
 import { AudioControlsBar } from "./AudioControlsBar";
 import { PoemMetadataDrawer } from "./PoemMetadataDrawer";
 import { usePoemPlayback } from "@/hooks/usePoemPlayback";
-import { Info, BookOpen } from "lucide-react";
+import { Info, BookOpen, AlertCircle } from "lucide-react";
 
 interface PoemPlayerViewProps {
   poem: Poem;
@@ -29,6 +29,9 @@ export const PoemPlayerView: React.FC<PoemPlayerViewProps> = ({ poem }) => {
     volume,
     activeVerseIndex,
     activeVerse,
+    errorMessage,
+    isUserScrolling,
+    handleUserScroll,
     togglePlay,
     seekTo,
     seekToVerse,
@@ -38,9 +41,9 @@ export const PoemPlayerView: React.FC<PoemPlayerViewProps> = ({ poem }) => {
     setVolume,
   } = usePoemPlayback(poem);
 
-  // Auto-scroll to active verse smoothly
+  // Auto-scroll to active verse smoothly, respecting manual user scrolling
   useEffect(() => {
-    if (activeVerse && isPlaying) {
+    if (activeVerse && isPlaying && !isUserScrolling) {
       const el = verseElementsRef.current.get(activeVerse.id);
       if (el && containerRef.current) {
         el.scrollIntoView({
@@ -49,34 +52,7 @@ export const PoemPlayerView: React.FC<PoemPlayerViewProps> = ({ poem }) => {
         });
       }
     }
-  }, [activeVerse, isPlaying]);
-
-  // Global keyboard shortcuts
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      // Don't trigger if user is typing in an input or textarea
-      if (
-        e.target instanceof HTMLInputElement ||
-        e.target instanceof HTMLTextAreaElement
-      ) {
-        return;
-      }
-
-      if (e.code === "Space") {
-        e.preventDefault();
-        togglePlay();
-      } else if (e.code === "ArrowRight") {
-        e.preventDefault();
-        prevVerse(); // In RTL, right arrow goes backward / previous
-      } else if (e.code === "ArrowLeft") {
-        e.preventDefault();
-        nextVerse(); // In RTL, left arrow goes forward / next
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [togglePlay, prevVerse, nextVerse]);
+  }, [activeVerse, isPlaying, isUserScrolling]);
 
   return (
     <div className="h-full flex flex-col justify-between overflow-hidden bg-charcoal-950">
@@ -105,11 +81,20 @@ export const PoemPlayerView: React.FC<PoemPlayerViewProps> = ({ poem }) => {
         </button>
       </div>
 
+      {/* Error banner if audio fails to load or unsupported codec */}
+      {errorMessage && (
+        <div className="mx-8 mt-4 p-3.5 bg-rose-500/15 border border-rose-500/40 rounded-xl text-rose-300 text-xs flex items-center gap-2.5 select-text animate-fadeIn">
+          <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" />
+          <span>{errorMessage}</span>
+        </div>
+      )}
+
       {/* Main content: Verses stream + Metadata Sidebar */}
       <div className="flex-1 flex overflow-hidden">
-        {/* Verses List */}
+        {/* Verses List with user-scroll detection */}
         <div
           ref={containerRef}
+          onScroll={handleUserScroll}
           className="flex-1 overflow-y-auto px-6 py-6 space-y-4 max-w-4xl mx-auto w-full"
         >
           {poem.verses.map((verse, index) => (

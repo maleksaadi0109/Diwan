@@ -1,7 +1,8 @@
 import React, { useState } from "react";
 import { Era, Bahr, Poem } from "@/types";
 import { normalizeArabic } from "@/lib/utils";
-import { Upload, FileText, CheckCircle } from "lucide-react";
+import { Upload, FileText, CheckCircle, Music } from "lucide-react";
+import { pickAudioFile, copyAudioToAppData } from "@/lib/audio/fileManager";
 
 interface ImportViewProps {
   onImportPoem: (poem: Poem) => void;
@@ -41,8 +42,10 @@ export const ImportView: React.FC<ImportViewProps> = ({ onImportPoem }) => {
   const [versesRaw, setVersesRaw] = useState("");
   const [rhyme, setRhyme] = useState("");
   const [delimiter, setDelimiter] = useState("...");
+  const [audioSourcePath, setAudioSourcePath] = useState<string | null>(null);
   const [audioFileName, setAudioFileName] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [isProcessing, setIsProcessing] = useState(false);
 
   // Parse raw text into structured verses
   const parseVerses = () => {
@@ -83,42 +86,78 @@ export const ImportView: React.FC<ImportViewProps> = ({ onImportPoem }) => {
 
   const parsedVerses = parseVerses();
 
-  const handleSave = (e: React.FormEvent) => {
+  const handlePickAudio = async () => {
+    const picked = await pickAudioFile();
+    if (picked) {
+      setAudioSourcePath(picked.path);
+      setAudioFileName(picked.name);
+    }
+  };
+
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim() || !poetName.trim() || parsedVerses.length === 0) return;
 
-    const newPoem: Poem = {
-      id: `poem-custom-${Date.now()}`,
-      title: title.trim(),
-      poet: {
-        id: `poet-${Date.now()}`,
-        name: poetName.trim(),
-        era,
-      },
-      era,
-      bahr,
-      rhyme: rhyme.trim() || "غير محدد",
-      versesCount: parsedVerses.length,
-      verses: parsedVerses.map((v) => ({ ...v, poemId: `poem-custom-${Date.now()}` })),
-      recordings: audioFileName
-        ? [
-            {
-              id: `rec-${Date.now()}`,
-              poemId: `poem-custom-${Date.now()}`,
-              title: audioFileName,
-              reciter: poetName,
-              audioPath: audioFileName,
-              durationMs: parsedVerses.length * 8000,
-              createdAt: new Date().toISOString().split("T")[0],
-            },
-          ]
-        : [],
-      tags: ["مستورد يدوياً"],
-    };
+    setIsProcessing(true);
+    try {
+      let savedAudioPath = "";
+      if (audioSourcePath && audioFileName) {
+        savedAudioPath = await copyAudioToAppData(audioSourcePath, audioFileName);
+      }
 
-    onImportPoem(newPoem);
-    setSuccessMessage("تم حفظ القصيدة بنجاح في المكتبة المحلية!");
-    setTimeout(() => setSuccessMessage(null), 4000);
+      const poemId = `poem-custom-${Date.now()}`;
+      const recId = `rec-${Date.now()}`;
+
+      const newPoem: Poem = {
+        id: poemId,
+        title: title.trim(),
+        poet: {
+          id: `poet-${Date.now()}`,
+          name: poetName.trim(),
+          era,
+        },
+        era,
+        bahr,
+        rhyme: rhyme.trim() || "غير محدد",
+        versesCount: parsedVerses.length,
+        verses: parsedVerses.map((v, i) => ({
+          ...v,
+          poemId,
+          // Generate synthetic initial timestamps if audio is attached
+          alignment: savedAudioPath
+            ? {
+                id: `align-${poemId}-${i + 1}`,
+                verseId: v.id,
+                recordingId: recId,
+                startMs: i * 8000,
+                endMs: (i + 1) * 8000,
+                confidence: 0.85,
+                status: "auto",
+              }
+            : undefined,
+        })),
+        recordings: savedAudioPath
+          ? [
+              {
+                id: recId,
+                poemId,
+                title: audioFileName || "تسجيل صوتي",
+                reciter: poetName.trim(),
+                audioPath: savedAudioPath,
+                durationMs: parsedVerses.length * 8000,
+                createdAt: new Date().toISOString().split("T")[0],
+              },
+            ]
+          : [],
+        tags: ["مستورد يدوياً"],
+      };
+
+      onImportPoem(newPoem);
+      setSuccessMessage("تم حفظ القصيدة وإدراج التسجيل الصوتي بنجاح في ديوان!");
+      setTimeout(() => setSuccessMessage(null), 4000);
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   return (
@@ -245,22 +284,37 @@ export const ImportView: React.FC<ImportViewProps> = ({ onImportPoem }) => {
           />
         </div>
 
-        {/* Audio file upload placeholder */}
+        {/* Audio file upload selection */}
         <div className="p-6 rounded-2xl bg-charcoal-900 border border-dashed border-charcoal-700 text-center hover:border-gold-500/50 transition-colors">
           <Upload className="w-8 h-8 text-gold-400 mx-auto mb-2" />
           <h4 className="text-sm font-semibold text-parchment-200 mb-1">
-            إرفاق ملف صوتي للقصيدة (MP3, WAV, M4A, OGG)
+            إرفاق ملف صوتي للقصيدة (MP3, WAV, M4A, OGG, FLAC)
           </h4>
           <p className="text-xs text-parchment-400 mb-3">
-            سيتم استيراد الملف إلى مجلد التطبيق المحلي للتحليل والمحاذاة التلقائية.
+            سيتم استيراد الملف ونسخه بأمان إلى مجلد التطبيق للمحاذاة والمزامنة الدقيقة.
           </p>
-          <button
-            type="button"
-            onClick={() => setAudioFileName("تسجيل_تجريبي_مستورد.mp3")}
-            className="px-4 py-2 rounded-xl bg-charcoal-800 hover:bg-charcoal-700 text-gold-400 border border-charcoal-700 text-xs font-medium transition-colors"
-          >
-            {audioFileName ? `تم اختيار: ${audioFileName}` : "اختيار ملف صوتي..."}
-          </button>
+          <div className="flex items-center justify-center gap-3">
+            <button
+              type="button"
+              onClick={handlePickAudio}
+              className="px-5 py-2.5 rounded-xl bg-charcoal-800 hover:bg-charcoal-700 text-gold-400 border border-charcoal-700 text-xs font-semibold transition-colors flex items-center gap-2"
+            >
+              <Music className="w-4 h-4" />
+              <span>{audioFileName ? `تم اختيار: ${audioFileName}` : "اختيار ملف صوتي محلي..."}</span>
+            </button>
+            {audioFileName && (
+              <button
+                type="button"
+                onClick={() => {
+                  setAudioFileName(null);
+                  setAudioSourcePath(null);
+                }}
+                className="text-xs text-parchment-400 hover:text-rose-400"
+              >
+                إلغاء
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Live Preview */}
@@ -289,10 +343,10 @@ export const ImportView: React.FC<ImportViewProps> = ({ onImportPoem }) => {
         <div className="flex justify-end gap-3 pt-2">
           <button
             type="submit"
-            disabled={parsedVerses.length === 0 || !title.trim() || !poetName.trim()}
-            className="px-6 py-2.5 rounded-xl bg-gold-500 hover:bg-gold-400 disabled:opacity-50 disabled:cursor-not-allowed text-charcoal-950 font-bold text-sm transition-all shadow-md"
+            disabled={parsedVerses.length === 0 || !title.trim() || !poetName.trim() || isProcessing}
+            className="px-6 py-2.5 rounded-xl bg-gold-500 hover:bg-gold-400 disabled:opacity-50 disabled:cursor-not-allowed text-charcoal-950 font-bold text-sm transition-all shadow-md flex items-center gap-2"
           >
-            حفظ القصيدة في المكتبة
+            {isProcessing ? "جاري الحفظ..." : "حفظ القصيدة في المكتبة"}
           </button>
         </div>
       </form>
