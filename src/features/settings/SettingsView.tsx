@@ -1,11 +1,30 @@
 import React, { useState } from "react";
-import { Type, Cpu, ShieldCheck } from "lucide-react";
+import { Type, Cpu, ShieldCheck, Activity, CheckCircle2, AlertCircle } from "lucide-react";
+import { checkWorkerHealth, WorkerHealthData } from "@/lib/worker/workerClient";
 
 export const SettingsView: React.FC = () => {
   const [poetryFontSize, setPoetryFontSize] = useState("24px");
   const [asrModel, setAsrModel] = useState("small");
   const [computeDevice, setComputeDevice] = useState("cpu");
   const [autoScroll, setAutoScroll] = useState(true);
+
+  const [healthStatus, setHealthStatus] = useState<WorkerHealthData | null>(null);
+  const [isCheckingHealth, setIsCheckingHealth] = useState(false);
+  const [healthError, setHealthError] = useState<string | null>(null);
+
+  const handleCheckHealth = async () => {
+    setIsCheckingHealth(true);
+    setHealthError(null);
+    try {
+      const data = await checkWorkerHealth();
+      setHealthStatus(data);
+    } catch (err: unknown) {
+      const error = err as Error;
+      setHealthError(error.message || "فشل الاتصال بمعالج الصوت");
+    } finally {
+      setIsCheckingHealth(false);
+    }
+  };
 
   return (
     <div className="h-full overflow-y-auto px-8 py-6 max-w-4xl mx-auto w-full select-none space-y-6">
@@ -14,7 +33,7 @@ export const SettingsView: React.FC = () => {
           إعدادات ديوان
         </h2>
         <p className="text-sm text-parchment-400 mt-1">
-          تخصيص الخطوط والتشغيل ونموذج الذكاء الاصطناعي للمحاذاة الصوتية
+          تخصيص الخطوط والتشغيل ومعالج الصوتيات والذكاء الاصطناعي
         </p>
       </div>
 
@@ -115,6 +134,46 @@ export const SettingsView: React.FC = () => {
             </select>
           </div>
         </div>
+      </section>
+
+      {/* Python Worker Diagnostics */}
+      <section className="bg-charcoal-900 border border-charcoal-800 rounded-2xl p-6 space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2 text-gold-400 font-semibold text-sm">
+            <Activity className="w-4 h-4" />
+            <span>فحص صحة معالج الصوتيات (Python Worker Health)</span>
+          </div>
+          <button
+            onClick={handleCheckHealth}
+            disabled={isCheckingHealth}
+            className="px-3.5 py-1.5 rounded-xl bg-gold-500/15 hover:bg-gold-500/25 text-gold-300 border border-gold-500/30 text-xs font-semibold transition-all flex items-center gap-1.5"
+          >
+            <span>{isCheckingHealth ? "جاري الفحص..." : "تشغيل فحص الصحة"}</span>
+          </button>
+        </div>
+
+        {healthStatus && (
+          <div className="p-4 rounded-xl bg-charcoal-950 border border-charcoal-800 text-xs space-y-2 select-text">
+            <div className="flex items-center gap-2 text-emerald-400 font-semibold">
+              <CheckCircle2 className="w-4 h-4" />
+              <span>معالج بايثون متصل وجاهز للعمل</span>
+            </div>
+            <div className="grid grid-cols-2 gap-2 text-parchment-300 pt-2 font-mono text-[11px]">
+              <div>إصدار المعالج: {healthStatus.worker_version}</div>
+              <div>إصدار بايثون: {healthStatus.python_version}</div>
+              <div className="col-span-2 text-parchment-400 truncate">
+                FFmpeg: {healthStatus.ffmpeg}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {healthError && (
+          <div className="p-3 bg-rose-500/15 border border-rose-500/40 rounded-xl text-rose-300 text-xs flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 text-rose-400" />
+            <span>{healthError}</span>
+          </div>
+        )}
       </section>
 
       {/* System diagnostics & privacy */}
