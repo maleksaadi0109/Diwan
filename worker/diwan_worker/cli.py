@@ -350,6 +350,57 @@ def handle_align(req: WorkerRequest) -> None:
             )
         )
 
+def handle_segment_audio(req: WorkerRequest) -> None:
+    input_path = req.payload.get("input_path")
+    output_dir = req.payload.get("output_dir")
+    segments = req.payload.get("segments", [])
+    output_format = req.payload.get("output_format", "wav")
+
+    if not input_path or not output_dir or not segments:
+        emit_response(
+            WorkerResponse(
+                id=req.id,
+                success=False,
+                error_code="INVALID_COMMAND",
+                error_message="'input_path', 'output_dir', and 'segments' are required",
+            )
+        )
+        return
+
+    def on_prog(pct: float, msg: str) -> None:
+        emit_event(WorkerProgressEvent(id=req.id, stage="segmenting", progress=pct, message=msg))
+
+    try:
+        from .audio.segmenter import segment_audio_clips
+        files = segment_audio_clips(
+            input_path=input_path,
+            output_dir=output_dir,
+            segments=segments,
+            output_format=output_format,
+            on_progress=on_prog,
+        )
+
+        emit_response(
+            WorkerResponse(
+                id=req.id,
+                success=True,
+                data={
+                    "generated_files": files,
+                    "count": len(files),
+                },
+            )
+        )
+    except Exception as e:
+        log(f"Segmentation error: {e}")
+        emit_response(
+            WorkerResponse(
+                id=req.id,
+                success=False,
+                error_code="INTERNAL_ERROR",
+                error_message=f"Segmentation failed: {str(e)}",
+            )
+        )
+
 def process_line(line: str) -> None:
     line = line.strip()
     if not line:
@@ -380,6 +431,8 @@ def process_line(line: str) -> None:
         handle_transcribe(req)
     elif req.command == "align":
         handle_align(req)
+    elif req.command == "segment_audio":
+        handle_segment_audio(req)
     else:
         emit_response(
             WorkerResponse(

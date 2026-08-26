@@ -4,8 +4,9 @@ import { VerseItem } from "./VerseItem";
 import { AudioControlsBar } from "./AudioControlsBar";
 import { PoemMetadataDrawer } from "./PoemMetadataDrawer";
 import { DictionaryWordModal } from "./DictionaryWordModal";
+import { ExportModal } from "../export/ExportModal";
 import { usePoemPlayback } from "@/hooks/usePoemPlayback";
-import { Info, BookOpen, AlertCircle, Feather } from "lucide-react";
+import { Info, BookOpen, AlertCircle, Download } from "lucide-react";
 import { analyzeVerseMeter } from "@/lib/arud/meterDetector";
 import { DiwanRepository } from "@/lib/db/repository";
 
@@ -21,6 +22,7 @@ interface PoemPlayerViewProps {
 
 export const PoemPlayerView: React.FC<PoemPlayerViewProps> = ({ poem }) => {
   const [showMetadata, setShowMetadata] = useState(true);
+  const [showExport, setShowExport] = useState(false);
   const [selectedWord, setSelectedWord] = useState<string | null>(null);
   const [wordDefinition, setWordDefinition] = useState<WordDefinition | null>(null);
   const [isLoadingWord, setIsLoadingWord] = useState(false);
@@ -98,18 +100,29 @@ export const PoemPlayerView: React.FC<PoemPlayerViewProps> = ({ poem }) => {
           </p>
         </div>
 
-        <button
-          onClick={() => setShowMetadata(!showMetadata)}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium border transition-colors ${
-            showMetadata
-              ? "bg-gold-500/15 text-gold-300 border-gold-500/30"
-              : "bg-charcoal-850 text-parchment-400 border-charcoal-700 hover:text-parchment-200"
-          }`}
-          title="معلومات القصيدة والشاعر"
-        >
-          <Info className="w-4 h-4" />
-          <span>بيانات القصيدة</span>
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowExport(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-gold-500/15 text-gold-300 border border-gold-500/30 hover:bg-gold-500/25 transition-colors"
+            title="تصدير القصيدة والكلمات المتزامنة (LRC, SRT, JSON)"
+          >
+            <Download className="w-4 h-4" />
+            <span>تصدير</span>
+          </button>
+
+          <button
+            onClick={() => setShowMetadata(!showMetadata)}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium border transition-colors ${
+              showMetadata
+                ? "bg-gold-500/15 text-gold-300 border-gold-500/30"
+                : "bg-charcoal-850 text-parchment-400 border-charcoal-700 hover:text-parchment-200"
+            }`}
+            title="معلومات القصيدة والشاعر"
+          >
+            <Info className="w-4 h-4" />
+            <span>بيانات القصيدة</span>
+          </button>
+        </div>
       </div>
 
       {/* Error banner if audio fails to load or unsupported codec */}
@@ -183,6 +196,13 @@ export const PoemPlayerView: React.FC<PoemPlayerViewProps> = ({ poem }) => {
           setSelectedWord(null);
           setWordDefinition(null);
         }}
+      />
+
+      {/* Export Modal */}
+      <ExportModal
+        poem={poem}
+        isOpen={showExport}
+        onClose={() => setShowExport(false)}
       />
     </div>
   );
