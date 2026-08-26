@@ -1,4 +1,10 @@
 import { Verse } from "@/types";
+import {
+  SyncAnchor,
+  CalibrationResult,
+  calculateCalibration,
+  calibrateVerses,
+} from "./calibration";
 
 export type AudioPlayerStatus = "idle" | "loading" | "playing" | "paused" | "ended" | "error";
 
@@ -13,6 +19,7 @@ export interface AudioPlayerState {
   activeVerseIndex: number;
   activeVerse: Verse | null;
   errorMessage: string | null;
+  calibration?: CalibrationResult;
 }
 
 export type StateListener = (state: AudioPlayerState) => void;
@@ -24,6 +31,8 @@ export class AudioController {
   private listeners: Set<StateListener> = new Set();
   private rafId: number | null = null;
   private simulatedTimer: ReturnType<typeof setInterval> | null = null;
+  private anchor1: SyncAnchor | null = null;
+  private anchor2: SyncAnchor | null = null;
 
   constructor() {
     this.state = {
@@ -45,23 +54,28 @@ export class AudioController {
   }
 
   private initAudioElement() {
+    if (this.audio) return;
+
     this.audio = new Audio();
     this.audio.preload = "auto";
 
+    // Strictly read loadedmetadata duration in milliseconds from real audio element
     this.audio.addEventListener("loadedmetadata", () => {
-      if (this.audio) {
-        const dur = Math.round(this.audio.duration * 1000) || 0;
+      if (this.audio && isFinite(this.audio.duration)) {
+        const durMs = Math.round(this.audio.duration * 1000);
         this.updateState({
-          durationMs: dur,
+          durationMs: durMs,
           status: "paused",
           errorMessage: null,
         });
       }
     });
 
+    // Time update when not playing actively via precision RAF loop
     this.audio.addEventListener("timeupdate", () => {
       if (this.audio && !this.state.isPlaying) {
-        this.updateCurrentTime(Math.round(this.audio.currentTime * 1000));
+        const currentMs = Math.round(this.audio.currentTime * 1000);
+        this.updateCurrentTime(currentMs);
       }
     });
 
@@ -102,7 +116,7 @@ export class AudioController {
     });
   }
 
-  public loadAudio(src: string, defaultDurationMs?: number) {
+  public loadAudio(src: string, fallbackDurationMs?: number) {
     this.stopPrecisionLoop();
     this.clearSimulation();
 
@@ -111,7 +125,7 @@ export class AudioController {
         status: "idle",
         isPlaying: false,
         currentTimeMs: 0,
-        durationMs: defaultDurationMs || 0,
+        durationMs: fallbackDurationMs || 0,
         errorMessage: null,
       });
       return;
@@ -124,16 +138,15 @@ export class AudioController {
       this.updateState({
         status: "loading",
         currentTimeMs: 0,
-        durationMs: defaultDurationMs || 0,
+        durationMs: fallbackDurationMs || 0,
         errorMessage: null,
       });
       this.audio.load();
     } else {
-      // Fallback in environments without HTML5 Audio
       this.updateState({
         status: "paused",
         currentTimeMs: 0,
-        durationMs: defaultDurationMs || 60000,
+        durationMs: fallbackDurationMs || 60000,
         errorMessage: null,
       });
     }
@@ -160,12 +173,10 @@ export class AudioController {
             errorMessage: "التشغيل التلقائي محظور حتى يتفاعل المستخدم مع الصفحة",
           });
         } else {
-          // If local test audio cannot play or in mock mode, simulate playback
           this.startSimulation();
         }
       }
     } else {
-      // Simulation mode for tests / mock audio
       this.startSimulation();
     }
   }
@@ -191,11 +202,12 @@ export class AudioController {
   }
 
   public seekTo(timeMs: number): void {
-    const clamped = Math.max(0, Math.min(timeMs, this.state.durationMs || Infinity));
+    const clampedMs = Math.max(0, Math.min(timeMs, this.state.durationMs || Infinity));
     if (this.audio && isFinite(this.audio.duration)) {
-      this.audio.currentTime = clamped / 1000;
+      // HTML Audio boundary conversion: seconds = ms / 1000
+      this.audio.currentTime = clampedMs / 1000;
     }
-    this.updateCurrentTime(clamped);
+    this.updateCurrentTime(clampedMs);
   }
 
   public seekToVerse(verse: Verse): void {
@@ -247,10 +259,13 @@ export class AudioController {
     this.updateState({ isMuted: nextMuted });
   }
 
+  /**
+   * Diagnostic active verse lookup using exact millisecond boundaries
+   */
   public findActiveVerseIndex(timeMs: number): number {
     if (this.verses.length === 0) return -1;
 
-    // Check exact alignment boundaries first
+    // Check exact alignment boundaries
     for (let i = 0; i < this.verses.length; i++) {
       const v = this.verses[i];
       if (v.alignment) {
@@ -260,7 +275,7 @@ export class AudioController {
       }
     }
 
-    // If in gap between verses with alignments, find nearest preceding verse
+    // Nearest preceding verse boundary
     for (let i = this.verses.length - 1; i >= 0; i--) {
       const v = this.verses[i];
       if (v.alignment && timeMs >= v.alignment.startMs) {
@@ -268,7 +283,7 @@ export class AudioController {
       }
     }
 
-    // Fallback heuristic if no verse has alignments
+    // Heuristic fallback if no alignment
     const hasAnyAlignment = this.verses.some((v) => !!v.alignment);
     if (!hasAnyAlignment) {
       const fallbackIdx = Math.floor(timeMs / 8000);
@@ -278,13 +293,67 @@ export class AudioController {
     return -1;
   }
 
+  /**
+   * Updates current time and logs synchronization metrics
+   */
   private updateCurrentTime(timeMs: number) {
     const activeIndex = this.findActiveVerseIndex(timeMs);
+    const activeVerse = activeIndex >= 0 ? this.verses[activeIndex] : null;
+
+    // Diagnostic logging for synchronization verification
+    if (activeVerse?.alignment && typeof console !== "undefined") {
+      const startMs = activeVerse.alignment.startMs;
+      const endMs = activeVerse.alignment.endMs;
+      const offsetMs = timeMs - startMs;
+      const audioSec = this.audio ? this.audio.currentTime : timeMs / 1000;
+
+      // Structured sync diagnostic log
+      if (Math.abs(offsetMs) % 1000 < 50 || timeMs === startMs) {
+        console.debug(
+          `[AudioSync] currentTime=${audioSec.toFixed(3)}s (${timeMs}ms) | verse=${activeIndex + 1} [${startMs}ms - ${endMs}ms] | offset=${offsetMs >= 0 ? "+" : ""}${offsetMs}ms`
+        );
+      }
+    }
+
     this.updateState({
       currentTimeMs: timeMs,
       activeVerseIndex: activeIndex,
-      activeVerse: activeIndex >= 0 ? this.verses[activeIndex] : null,
+      activeVerse,
     });
+  }
+
+  // --- Calibration Tooling ---
+
+  /**
+   * Sets a calibration anchor point (user marks current audio position for a verse)
+   */
+  public setCalibrationAnchor(verseId: string, actualAudioMs: number): CalibrationResult {
+    const verse = this.verses.find((v) => v.id === verseId);
+    const originalStartMs = verse?.alignment?.startMs ?? 0;
+
+    const anchor: SyncAnchor = {
+      verseId,
+      originalStartMs,
+      actualAudioMs,
+    };
+
+    if (!this.anchor1) {
+      this.anchor1 = anchor;
+    } else {
+      this.anchor2 = anchor;
+    }
+
+    const calibration = calculateCalibration(this.anchor1, this.anchor2 || undefined);
+    this.verses = calibrateVerses(this.verses, calibration);
+    this.updateState({ calibration });
+
+    return calibration;
+  }
+
+  public clearCalibration(): void {
+    this.anchor1 = null;
+    this.anchor2 = null;
+    this.updateState({ calibration: undefined });
   }
 
   private startPrecisionLoop() {
@@ -294,11 +363,11 @@ export class AudioController {
     let lastUpdateTime = 0;
     const tick = (now: number) => {
       if (this.audio && this.state.isPlaying) {
+        // HTML Audio boundary: currentMs = Math.round(audio.currentTime * 1000)
         const current = Math.round(this.audio.currentTime * 1000);
         const activeIdx = this.findActiveVerseIndex(current);
         const verseChanged = activeIdx !== this.state.activeVerseIndex;
 
-        // Update immediately on verse change, or throttle to ~35ms intervals (30fps) for smooth progress
         if (verseChanged || now - lastUpdateTime >= 35) {
           lastUpdateTime = now;
           this.updateCurrentTime(current);
@@ -353,7 +422,6 @@ export class AudioController {
 
   public subscribe(listener: StateListener): () => void {
     this.listeners.add(listener);
-    // Send initial state immediately
     listener(this.state);
     return () => {
       this.listeners.delete(listener);
