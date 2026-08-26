@@ -7,6 +7,7 @@ interface VerseItemProps {
   verse: Verse;
   isActive: boolean;
   onSeekToVerse: (verse: Verse) => void;
+  onWordClick?: (word: string) => void;
   verseRef?: (el: HTMLDivElement | null) => void;
 }
 
@@ -14,10 +15,30 @@ export const VerseItem: React.FC<VerseItemProps> = ({
   verse,
   isActive,
   onSeekToVerse,
+  onWordClick,
   verseRef,
 }) => {
   const [showExplanation, setShowExplanation] = useState(false);
   const alignment = verse.alignment;
+
+  const renderWords = (text: string) => {
+    const words = text.split(/\s+/).filter(Boolean);
+    return words.map((w, idx) => (
+      <span
+        key={idx}
+        onClick={(e) => {
+          if (onWordClick) {
+            e.stopPropagation();
+            onWordClick(w.replace(/[،؛؟\.\!\(\)]/g, ""));
+          }
+        }}
+        className="inline-block mx-1 hover:text-gold-400 hover:underline cursor-pointer transition-colors"
+        title="انقر لعرض المعنى من المعجم"
+      >
+        {w}
+      </span>
+    ));
+  };
 
   return (
     <div
@@ -106,7 +127,7 @@ export const VerseItem: React.FC<VerseItemProps> = ({
                   : "text-parchment-100 group-hover:text-parchment-50"
               )}
             >
-              {verse.firstHemistich}
+              {renderWords(verse.firstHemistich)}
             </span>
           </div>
 
@@ -125,7 +146,7 @@ export const VerseItem: React.FC<VerseItemProps> = ({
                   : "text-parchment-100 group-hover:text-parchment-50"
               )}
             >
-              {verse.secondHemistich}
+              {renderWords(verse.secondHemistich)}
             </span>
           </div>
         </div>

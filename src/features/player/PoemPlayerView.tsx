@@ -1,10 +1,13 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Poem, Verse } from "@/types";
+import { Poem, Verse, WordDefinition } from "@/types";
 import { VerseItem } from "./VerseItem";
 import { AudioControlsBar } from "./AudioControlsBar";
 import { PoemMetadataDrawer } from "./PoemMetadataDrawer";
+import { DictionaryWordModal } from "./DictionaryWordModal";
 import { usePoemPlayback } from "@/hooks/usePoemPlayback";
-import { Info, BookOpen, AlertCircle } from "lucide-react";
+import { Info, BookOpen, AlertCircle, Feather } from "lucide-react";
+import { analyzeVerseMeter } from "@/lib/arud/meterDetector";
+import { DiwanRepository } from "@/lib/db/repository";
 
 interface PoemPlayerViewProps {
   poem: Poem;
@@ -18,6 +21,10 @@ interface PoemPlayerViewProps {
 
 export const PoemPlayerView: React.FC<PoemPlayerViewProps> = ({ poem }) => {
   const [showMetadata, setShowMetadata] = useState(true);
+  const [selectedWord, setSelectedWord] = useState<string | null>(null);
+  const [wordDefinition, setWordDefinition] = useState<WordDefinition | null>(null);
+  const [isLoadingWord, setIsLoadingWord] = useState(false);
+
   const verseElementsRef = useRef<Map<string, HTMLDivElement>>(new Map());
   const containerRef = useRef<HTMLDivElement | null>(null);
 
@@ -54,6 +61,26 @@ export const PoemPlayerView: React.FC<PoemPlayerViewProps> = ({ poem }) => {
     }
   }, [activeVerse, isPlaying, isUserScrolling]);
 
+  const handleWordClick = async (word: string) => {
+    setSelectedWord(word);
+    setIsLoadingWord(true);
+    try {
+      const repo = await DiwanRepository.create();
+      const def = await repo.getWordDefinition(word);
+      setWordDefinition(def);
+    } catch {
+      setWordDefinition(null);
+    } finally {
+      setIsLoadingWord(false);
+    }
+  };
+
+  const meterInfo = analyzeVerseMeter(
+    poem.verses[0]?.firstHemistich || "",
+    poem.verses[0]?.secondHemistich || "",
+    poem.bahr
+  );
+
   return (
     <div className="h-full flex flex-col justify-between overflow-hidden bg-charcoal-950">
       {/* Header bar within Player */}
@@ -62,8 +89,12 @@ export const PoemPlayerView: React.FC<PoemPlayerViewProps> = ({ poem }) => {
           <h2 className="font-poetry text-2xl font-bold text-parchment-50">
             {poem.title}
           </h2>
-          <p className="text-xs text-gold-400 font-medium mt-0.5">
-            {poem.poet.name} — بحر {poem.bahr}
+          <p className="text-xs text-gold-400 font-medium mt-0.5 flex items-center gap-2">
+            <span>{poem.poet.name}</span>
+            <span>•</span>
+            <span>بحر {poem.bahr} ({meterInfo.pattern})</span>
+            <span>•</span>
+            <span>الروي: {meterInfo.rawiyy}</span>
           </p>
         </div>
 
@@ -103,6 +134,7 @@ export const PoemPlayerView: React.FC<PoemPlayerViewProps> = ({ poem }) => {
               verse={verse}
               isActive={index === activeVerseIndex}
               onSeekToVerse={(v: Verse) => seekToVerse(v)}
+              onWordClick={handleWordClick}
               verseRef={(el) => {
                 if (el) {
                   verseElementsRef.current.set(verse.id, el);
@@ -140,6 +172,17 @@ export const PoemPlayerView: React.FC<PoemPlayerViewProps> = ({ poem }) => {
         onNextVerse={nextVerse}
         onChangeSpeed={setPlaybackRate}
         onChangeVolume={setVolume}
+      />
+
+      {/* Dictionary Word Modal */}
+      <DictionaryWordModal
+        word={selectedWord}
+        definition={wordDefinition}
+        isLoading={isLoadingWord}
+        onClose={() => {
+          setSelectedWord(null);
+          setWordDefinition(null);
+        }}
       />
     </div>
   );
