@@ -110,4 +110,16 @@ export interface MeterAnalysis {
   tafeelaBreakdown: string[];
 }
 
+export interface ImportJob {
+  id: string;
+  status: 'pending' | 'processing' | 'completed' | 'failed';
+  jobType: 'audio_transcription' | 'verse_alignment' | 'poem_import';
+  inputPath?: string;
+  outputPath?: string;
+  progress: number; // 0.0 to 1.0
+  errorMessage?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export type ActiveTab = 'library' | 'player' | 'import' | 'settings';

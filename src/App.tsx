@@ -1,28 +1,97 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { ActiveTab, Poem } from "./types";
-import { MOCK_POEMS } from "./data/mockData";
 import { Navigation } from "./components/Navigation";
 import { Header } from "./components/Header";
 import { LibraryView } from "./features/library/LibraryView";
 import { PoemPlayerView } from "./features/player/PoemPlayerView";
 import { ImportView } from "./features/import/ImportView";
 import { SettingsView } from "./features/settings/SettingsView";
+import { DiwanRepository } from "./lib/db/repository";
 
 export function App() {
-  const [poems, setPoems] = useState<Poem[]>(MOCK_POEMS);
+  const [repo, setRepo] = useState<DiwanRepository | null>(null);
+  const [poems, setPoems] = useState<Poem[]>([]);
   const [activeTab, setActiveTab] = useState<ActiveTab>("library");
-  const [activePoem, setActivePoem] = useState<Poem | null>(MOCK_POEMS[0] || null);
+  const [activePoem, setActivePoem] = useState<Poem | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Initialize DB and load initial data
+  useEffect(() => {
+    let isMounted = true;
+
+    async function initDb() {
+      try {
+        const repository = await DiwanRepository.create();
+        if (!isMounted) return;
+        setRepo(repository);
+
+        let loadedPoems = await repository.getAllPoems();
+        if (loadedPoems.length === 0) {
+          // Idempotent seed if database is empty on first run
+          await repository.seed();
+          loadedPoems = await repository.getAllPoems();
+        }
+
+        if (isMounted) {
+          setPoems(loadedPoems);
+          if (loadedPoems.length > 0) {
+            setActivePoem(loadedPoems[0]);
+          }
+          setIsLoading(false);
+        }
+      } catch (err) {
+        console.error("Failed to initialize database:", err);
+        if (isMounted) setIsLoading(false);
+      }
+    }
+
+    initDb();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const handleOpenPoem = (poem: Poem) => {
     setActivePoem(poem);
     setActiveTab("player");
   };
 
-  const handleImportPoem = (newPoem: Poem) => {
-    setPoems((prev) => [newPoem, ...prev]);
-    setActivePoem(newPoem);
-    setActiveTab("player");
-  };
+  const handleImportPoem = useCallback(
+    async (newPoem: Poem) => {
+      if (repo) {
+        await repo.savePoem(newPoem);
+        const updatedPoems = await repo.getAllPoems();
+        setPoems(updatedPoems);
+        setActivePoem(newPoem);
+      } else {
+        setPoems((prev) => [newPoem, ...prev]);
+        setActivePoem(newPoem);
+      }
+      setActiveTab("player");
+    },
+    [repo]
+  );
+
+  const handleUpdateBoundary = useCallback(
+    async (
+      alignmentId: string,
+      startMs: number,
+      endMs: number,
+      status: "reviewed" | "manual" = "reviewed"
+    ) => {
+      if (!repo || !activePoem) return;
+      await repo.updateAlignmentBoundary(alignmentId, startMs, endMs, status);
+      const refreshed = await repo.getPoemById(activePoem.id);
+      if (refreshed) {
+        setActivePoem(refreshed);
+        setPoems((prev) =>
+          prev.map((p) => (p.id === refreshed.id ? refreshed : p))
+        );
+      }
+    },
+    [repo, activePoem]
+  );
 
   return (
     <div className="h-screen w-screen flex bg-charcoal-950 text-parchment-100 overflow-hidden select-none min-w-[900px] min-h-[600px]">
@@ -42,23 +111,34 @@ export function App() {
         />
 
         <main className="flex-1 overflow-hidden relative">
-          {activeTab === "library" && (
-            <LibraryView
-              poems={poems}
-              onOpenPoem={handleOpenPoem}
-              onNavigateToImport={() => setActiveTab("import")}
-            />
-          )}
+          {isLoading ? (
+            <div className="h-full flex items-center justify-center text-gold-400 font-poetry text-lg">
+              جاري تحميل ديوان الشعر...
+            </div>
+          ) : (
+            <>
+              {activeTab === "library" && (
+                <LibraryView
+                  poems={poems}
+                  onOpenPoem={handleOpenPoem}
+                  onNavigateToImport={() => setActiveTab("import")}
+                />
+              )}
 
-          {activeTab === "player" && activePoem && (
-            <PoemPlayerView poem={activePoem} />
-          )}
+              {activeTab === "player" && activePoem && (
+                <PoemPlayerView
+                  poem={activePoem}
+                  onUpdateBoundary={handleUpdateBoundary}
+                />
+              )}
 
-          {activeTab === "import" && (
-            <ImportView onImportPoem={handleImportPoem} />
-          )}
+              {activeTab === "import" && (
+                <ImportView onImportPoem={handleImportPoem} />
+              )}
 
-          {activeTab === "settings" && <SettingsView />}
+              {activeTab === "settings" && <SettingsView />}
+            </>
+          )}
         </main>
       </div>
     </div>

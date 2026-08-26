@@ -8,6 +8,12 @@ import { Info, BookOpen } from "lucide-react";
 
 interface PoemPlayerViewProps {
   poem: Poem;
+  onUpdateBoundary?: (
+    alignmentId: string,
+    startMs: number,
+    endMs: number,
+    status?: "reviewed" | "manual"
+  ) => void;
 }
 
 export const PoemPlayerView: React.FC<PoemPlayerViewProps> = ({ poem }) => {
