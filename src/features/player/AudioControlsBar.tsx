@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useRef } from "react";
 import {
   Play,
   Pause,
@@ -38,31 +38,62 @@ export const AudioControlsBar: React.FC<AudioControlsBarProps> = ({
   onChangeSpeed,
   onChangeVolume,
 }) => {
-  const progressPercent = durationMs > 0 ? (currentTimeMs / durationMs) * 100 : 0;
+  const progressBarRef = useRef<HTMLDivElement>(null);
+  const progressPercent = durationMs > 0 ? Math.min(100, Math.max(0, (currentTimeMs / durationMs) * 100)) : 0;
+
+  const handleSeekFromClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!progressBarRef.current || durationMs <= 0) return;
+    const rect = progressBarRef.current.getBoundingClientRect();
+    const clickX = e.clientX - rect.left;
+    const ratio = Math.max(0, Math.min(1, clickX / rect.width));
+    onSeek(Math.round(ratio * durationMs));
+  };
 
   return (
     <div className="bg-charcoal-900 border-t border-charcoal-800 px-6 py-3 select-none flex flex-col gap-2 shrink-0">
-      {/* Timeline Slider & Time Stamps */}
-      <div className="flex items-center gap-3">
-        <span className="text-xs font-mono text-parchment-400 min-w-[45px] ltr-num text-left">
+      {/* Timeline Slider & Time Stamps (Strict LTR for universal media timeline standard) */}
+      <div className="flex items-center gap-3" dir="ltr">
+        {/* Current Time */}
+        <span className="text-xs font-mono text-gold-400 min-w-[45px] text-left select-none font-semibold">
           {formatTime(currentTimeMs)}
         </span>
 
-        <div className="relative flex-1 group py-1 flex items-center">
+        {/* Interactive Custom Progress Bar */}
+        <div
+          ref={progressBarRef}
+          onClick={handleSeekFromClick}
+          className="relative flex-1 group py-2 flex items-center cursor-pointer"
+        >
+          {/* Base Track */}
+          <div className="w-full h-1.5 group-hover:h-2 bg-charcoal-800 rounded-full overflow-hidden transition-all relative">
+            {/* Gold Progress Fill */}
+            <div
+              className="h-full bg-gold-500 rounded-full transition-all duration-75 relative shadow-sm shadow-gold-500/50"
+              style={{ width: `${progressPercent}%` }}
+            />
+          </div>
+
+          {/* Scrubber Thumb Circle */}
+          <div
+            className="absolute top-1/2 -translate-y-1/2 w-3.5 h-3.5 bg-gold-400 border-2 border-charcoal-950 rounded-full shadow-md transition-all duration-75 pointer-events-none group-hover:scale-125"
+            style={{ left: `calc(${progressPercent}% - 7px)` }}
+          />
+
+          {/* Accessible Native Range Slider (Invisible overlay for native touch/keyboard/drag support) */}
           <input
             type="range"
+            dir="ltr"
             min={0}
             max={durationMs || 100}
             value={currentTimeMs}
             onChange={(e) => onSeek(Number(e.target.value))}
-            className="w-full h-1.5 bg-charcoal-800 rounded-lg appearance-none cursor-pointer accent-gold-500 hover:h-2 transition-all"
-            style={{
-              background: `linear-gradient(to left, #272e3c ${100 - progressPercent}%, #d4af37 ${100 - progressPercent}%)`,
-            }}
+            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+            aria-label="موقع التشغيل الزمني"
           />
         </div>
 
-        <span className="text-xs font-mono text-parchment-400 min-w-[45px] ltr-num text-right">
+        {/* Total Duration */}
+        <span className="text-xs font-mono text-parchment-400 min-w-[45px] text-right select-none">
           {formatTime(durationMs)}
         </span>
       </div>
@@ -131,12 +162,13 @@ export const AudioControlsBar: React.FC<AudioControlsBarProps> = ({
           </button>
           <input
             type="range"
+            dir="ltr"
             min={0}
             max={1}
             step={0.05}
             value={volume}
             onChange={(e) => onChangeVolume(Number(e.target.value))}
-            className="w-20 h-1 bg-charcoal-800 rounded-lg appearance-none cursor-pointer accent-gold-500"
+            className="w-20 h-1.5 bg-charcoal-800 rounded-lg appearance-none cursor-pointer accent-gold-500"
           />
         </div>
       </div>
