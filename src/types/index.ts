@@ -53,6 +53,8 @@ export interface Verse {
   explanation?: string;
 }
 
+export type AlignmentStatus = 'auto' | 'reviewed' | 'manual';
+
 export interface VerseAlignment {
   id: string;
   verseId: string;
@@ -60,7 +62,7 @@ export interface VerseAlignment {
   startMs: number;
   endMs: number;
   confidence: number; // 0.0 to 1.0
-  status: 'auto' | 'reviewed' | 'manual';
+  status: AlignmentStatus;
   transcriptRange?: {
     startTokenIndex: number;
     endTokenIndex: number;
@@ -122,4 +124,5 @@ export interface ImportJob {
   updatedAt: string;
 }
 
-export type ActiveTab = 'library' | 'player' | 'import' | 'settings';
+export type ActiveTab = 'library' | 'player' | 'editor' | 'import' | 'settings';
+

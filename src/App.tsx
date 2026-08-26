@@ -1,9 +1,10 @@
 import { useState, useEffect, useCallback } from "react";
-import { ActiveTab, Poem } from "./types";
+import { ActiveTab, Poem, AlignmentStatus } from "./types";
 import { Navigation } from "./components/Navigation";
 import { Header } from "./components/Header";
 import { LibraryView } from "./features/library/LibraryView";
 import { PoemPlayerView } from "./features/player/PoemPlayerView";
+import { BoundaryReviewEditor } from "./features/editor/BoundaryReviewEditor";
 import { ImportView } from "./features/import/ImportView";
 import { SettingsView } from "./features/settings/SettingsView";
 import { DiwanRepository } from "./lib/db/repository";
@@ -78,7 +79,7 @@ export function App() {
       alignmentId: string,
       startMs: number,
       endMs: number,
-      status: "reviewed" | "manual" = "reviewed"
+      status: AlignmentStatus = "reviewed"
     ) => {
       if (!repo || !activePoem) return;
       await repo.updateAlignmentBoundary(alignmentId, startMs, endMs, status);
@@ -129,6 +130,17 @@ export function App() {
                 <PoemPlayerView
                   poem={activePoem}
                   onUpdateBoundary={handleUpdateBoundary}
+                />
+              )}
+
+              {activeTab === "editor" && activePoem && (
+                <BoundaryReviewEditor
+                  poem={activePoem}
+                  onUpdateBoundary={handleUpdateBoundary}
+                  onSelectPoem={(id) => {
+                    const p = poems.find((x) => x.id === id);
+                    if (p) setActivePoem(p);
+                  }}
                 />
               )}
 
