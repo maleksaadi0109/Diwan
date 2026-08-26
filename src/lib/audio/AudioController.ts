@@ -60,7 +60,7 @@ export class AudioController {
     });
 
     this.audio.addEventListener("timeupdate", () => {
-      if (this.audio) {
+      if (this.audio && !this.state.isPlaying) {
         this.updateCurrentTime(Math.round(this.audio.currentTime * 1000));
       }
     });
@@ -291,10 +291,16 @@ export class AudioController {
     this.stopPrecisionLoop();
     if (typeof window === "undefined" || typeof requestAnimationFrame === "undefined") return;
 
-    const tick = () => {
+    let lastUpdateTime = 0;
+    const tick = (now: number) => {
       if (this.audio && this.state.isPlaying) {
         const current = Math.round(this.audio.currentTime * 1000);
-        if (Math.abs(current - this.state.currentTimeMs) > 10) {
+        const activeIdx = this.findActiveVerseIndex(current);
+        const verseChanged = activeIdx !== this.state.activeVerseIndex;
+
+        // Update immediately on verse change, or throttle to ~35ms intervals (30fps) for smooth progress
+        if (verseChanged || now - lastUpdateTime >= 35) {
+          lastUpdateTime = now;
           this.updateCurrentTime(current);
         }
         this.rafId = requestAnimationFrame(tick);

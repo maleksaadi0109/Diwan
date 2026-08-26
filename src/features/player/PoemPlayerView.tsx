@@ -50,15 +50,20 @@ export const PoemPlayerView: React.FC<PoemPlayerViewProps> = ({ poem }) => {
     setVolume,
   } = usePoemPlayback(poem);
 
-  // Auto-scroll to active verse smoothly, respecting manual user scrolling
+  const lastScrolledVerseIdRef = useRef<string | null>(null);
+
+  // Auto-scroll to active verse smoothly once per verse transition, respecting manual user scrolling
   useEffect(() => {
     if (activeVerse && isPlaying && !isUserScrolling) {
-      const el = verseElementsRef.current.get(activeVerse.id);
-      if (el && containerRef.current) {
-        el.scrollIntoView({
-          behavior: "smooth",
-          block: "center",
-        });
+      if (lastScrolledVerseIdRef.current !== activeVerse.id) {
+        lastScrolledVerseIdRef.current = activeVerse.id;
+        const el = verseElementsRef.current.get(activeVerse.id);
+        if (el && containerRef.current) {
+          el.scrollIntoView({
+            behavior: "smooth",
+            block: "center",
+          });
+        }
       }
     }
   }, [activeVerse, isPlaying, isUserScrolling]);

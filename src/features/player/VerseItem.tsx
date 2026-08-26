@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, memo } from "react";
 import { Verse } from "@/types";
 import { cn, formatTime, toArabicDigits } from "@/lib/utils";
 import { Info, Sparkles, CheckCircle2 } from "lucide-react";
@@ -11,7 +11,7 @@ interface VerseItemProps {
   verseRef?: (el: HTMLDivElement | null) => void;
 }
 
-export const VerseItem: React.FC<VerseItemProps> = ({
+const VerseItemComponent: React.FC<VerseItemProps> = ({
   verse,
   isActive,
   onSeekToVerse,
@@ -45,7 +45,7 @@ export const VerseItem: React.FC<VerseItemProps> = ({
       ref={verseRef}
       onClick={() => onSeekToVerse(verse)}
       className={cn(
-        "group relative p-5 rounded-2xl border transition-all duration-300 cursor-pointer select-text",
+        "group relative p-5 rounded-2xl border transition-all duration-200 cursor-pointer select-text",
         isActive
           ? "bg-charcoal-850/95 border-gold-500/60 shadow-lg shadow-gold-500/5 ring-1 ring-gold-500/40"
           : "bg-charcoal-900/50 hover:bg-charcoal-850/70 border-charcoal-800/80 hover:border-charcoal-700"
@@ -121,7 +121,7 @@ export const VerseItem: React.FC<VerseItemProps> = ({
           <div className="flex-1 text-center md:text-right">
             <span
               className={cn(
-                "font-poetry text-xl md:text-2xl leading-relaxed tracking-wide transition-all",
+                "font-poetry text-xl md:text-2xl leading-relaxed tracking-wide transition-colors",
                 isActive
                   ? "text-gold-300 font-bold text-shadow-gold"
                   : "text-parchment-100 group-hover:text-parchment-50"
@@ -140,7 +140,7 @@ export const VerseItem: React.FC<VerseItemProps> = ({
           <div className="flex-1 text-center md:text-left">
             <span
               className={cn(
-                "font-poetry text-xl md:text-2xl leading-relaxed tracking-wide transition-all",
+                "font-poetry text-xl md:text-2xl leading-relaxed tracking-wide transition-colors",
                 isActive
                   ? "text-gold-300 font-bold text-shadow-gold"
                   : "text-parchment-100 group-hover:text-parchment-50"
@@ -168,3 +168,13 @@ export const VerseItem: React.FC<VerseItemProps> = ({
     </div>
   );
 };
+
+export const VerseItem = memo(VerseItemComponent, (prev, next) => {
+  return (
+    prev.isActive === next.isActive &&
+    prev.verse.id === next.verse.id &&
+    prev.verse.text === next.verse.text &&
+    prev.verse.alignment?.startMs === next.verse.alignment?.startMs &&
+    prev.verse.alignment?.endMs === next.verse.alignment?.endMs
+  );
+});
