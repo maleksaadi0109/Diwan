@@ -283,6 +283,73 @@ def handle_transcribe(req: WorkerRequest) -> None:
             )
         )
 
+def handle_align(req: WorkerRequest) -> None:
+    audio_path = req.payload.get("audio_path")
+    verses = req.payload.get("verses", [])
+    transcript_payload = req.payload.get("transcript")
+    poem_id = req.payload.get("poem_id", "poem")
+    recording_id = req.payload.get("recording_id", "rec")
+    mock = bool(req.payload.get("mock", False))
+
+    if not audio_path or not isinstance(audio_path, str):
+        emit_response(
+            WorkerResponse(
+                id=req.id,
+                success=False,
+                error_code="INVALID_COMMAND",
+                error_message="Missing 'audio_path' in payload",
+            )
+        )
+        return
+
+    def on_prog(pct: float, msg: str) -> None:
+        emit_event(WorkerProgressEvent(id=req.id, stage="aligning", progress=pct, message=msg))
+
+    try:
+        from .alignment.aligner import align_transcript_to_verses
+        from .asr.transcriber import transcribe_arabic_audio
+        from .schemas.transcript import TranscriptResult
+
+        on_prog(0.2, "جاري استخراج الكلمات والتفريغ الصوتي...")
+        if transcript_payload:
+            transcript = TranscriptResult.from_json(
+                json.dumps(transcript_payload) if isinstance(transcript_payload, dict) else transcript_payload
+            )
+        else:
+            transcript = transcribe_arabic_audio(
+                audio_path=audio_path,
+                on_progress=lambda p, m: on_prog(0.2 + (p * 0.5), m),
+                mock=mock,
+            )
+
+        on_prog(0.8, "جاري مطابقة الأبيات مع الطوابع الصوتية (Forced Alignment)...")
+        alignment_res = align_transcript_to_verses(
+            verses=verses,
+            transcript_words=transcript.words,
+            audio_duration_ms=transcript.duration_ms,
+            poem_id=poem_id,
+            recording_id=recording_id,
+        )
+
+        on_prog(1.0, "اكتملت المحاذاة الدقيقة بنجاح!")
+        emit_response(
+            WorkerResponse(
+                id=req.id,
+                success=True,
+                data=alignment_res.to_dict(),
+            )
+        )
+    except Exception as e:
+        log(f"Alignment error: {e}")
+        emit_response(
+            WorkerResponse(
+                id=req.id,
+                success=False,
+                error_code="INTERNAL_ERROR",
+                error_message=f"Alignment failed: {str(e)}",
+            )
+        )
+
 def process_line(line: str) -> None:
     line = line.strip()
     if not line:
@@ -311,6 +378,8 @@ def process_line(line: str) -> None:
         handle_detect_speech(req)
     elif req.command == "transcribe":
         handle_transcribe(req)
+    elif req.command == "align":
+        handle_align(req)
     else:
         emit_response(
             WorkerResponse(

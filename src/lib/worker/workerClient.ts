@@ -247,38 +247,79 @@ export async function transcribeArabicAudio(
     throw new Error(resp.error_message || "Arabic transcription failed");
   }
 
-  // Fallback for development / mock preview
-  return {
-    transcript: {
-      schema_version: "1.0",
-      language: "ar",
-      raw_text: "واحر قلباه ممن قلبه شبم ومن بجسمي وحالي عنده سقم",
-      duration_ms: 15000,
-      model_used: options.model_size || "small",
-      device_used: options.device || "cpu",
-      segments: [
-        {
-          id: 1,
-          text: "واحر قلباه ممن قلبه شبم ومن بجسمي وحالي عنده سقم",
-          start_ms: 2500,
-          end_ms: 9800,
-          words: [
-            { word: "واحر", start_ms: 2500, end_ms: 3100, probability: 0.97 },
-            { word: "قلباه", start_ms: 3200, end_ms: 4000, probability: 0.95 },
-            { word: "ممن", start_ms: 4100, end_ms: 4500, probability: 0.98 },
-            { word: "قلبه", start_ms: 4600, end_ms: 5200, probability: 0.94 },
-            { word: "شبم", start_ms: 5300, end_ms: 6100, probability: 0.92 },
-          ],
+export interface VerseAlignmentItem {
+  verse_id: string;
+  order_index: number;
+  start_ms: number;
+  end_ms: number;
+  confidence: number;
+  status: "auto" | "reviewed" | "manual";
+  first_hemistich_end_ms?: number;
+  second_hemistich_start_ms?: number;
+}
+
+export interface PoemAlignmentResponse {
+  poem_id: string;
+  recording_id: string;
+  overall_confidence: number;
+  alignments: VerseAlignmentItem[];
+}
+
+export async function alignPoemAudio(
+  audioPath: string,
+  verses: Array<{ id: string; orderIndex: number; text: string; firstHemistich?: string; secondHemistich?: string }>,
+  poemId: string = "poem",
+  recordingId: string = "rec",
+  options: TranscribeOptions = {}
+): Promise<PoemAlignmentResponse> {
+  const isTauri = typeof window !== "undefined" && ("__TAURI_INTERNALS__" in window || "__TAURI__" in window);
+
+  if (isTauri) {
+    const { invoke } = await import("@tauri-apps/api/core");
+    const resp = await invoke<WorkerResponse<PoemAlignmentResponse>>(
+      "execute_worker_command",
+      {
+        request: {
+          id: `req-align-${Date.now()}`,
+          command: "align",
+          payload: {
+            audio_path: audioPath,
+            verses: verses.map((v) => ({
+              id: v.id,
+              order_index: v.orderIndex,
+              text: v.text,
+              first_hemistich: v.firstHemistich,
+              second_hemistich: v.secondHemistich,
+            })),
+            poem_id: poemId,
+            recording_id: recordingId,
+            mock: options.mock || false,
+          },
         },
-      ],
-      words: [
-        { word: "واحر", start_ms: 2500, end_ms: 3100, probability: 0.97 },
-        { word: "قلباه", start_ms: 3200, end_ms: 4000, probability: 0.95 },
-        { word: "ممن", start_ms: 4100, end_ms: 4500, probability: 0.98 },
-        { word: "قلبه", start_ms: 4600, end_ms: 5200, probability: 0.94 },
-        { word: "شبم", start_ms: 5300, end_ms: 6100, probability: 0.92 },
-      ],
-    },
-    outputJsonPath,
+      }
+    );
+
+    if (resp.success && resp.data) {
+      return resp.data;
+    }
+    throw new Error(resp.error_message || "Poem alignment failed");
+  }
+
+  // Web fallback simulation
+  return {
+    poem_id: poemId,
+    recording_id: recordingId,
+    overall_confidence: 0.92,
+    alignments: verses.map((v, i) => ({
+      verse_id: v.id,
+      order_index: v.orderIndex,
+      start_ms: i * 7500,
+      end_ms: (i + 1) * 7500,
+      confidence: 0.92,
+      status: "auto",
+      first_hemistich_end_ms: i * 7500 + 3500,
+      second_hemistich_start_ms: i * 7500 + 3600,
+    })),
   };
 }
+
