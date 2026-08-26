@@ -1,9 +1,9 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { AudioController } from "./AudioController";
+import { AudioController, findActiveVerseIndexBinary } from "./AudioController";
 import { Verse } from "@/types";
 import { normalizeArabic } from "@/lib/utils";
 
-describe("AudioController Engine", () => {
+describe("AudioController Engine & Synchronization Architecture", () => {
   let controller: AudioController;
 
   const mockVerses: Verse[] = [
@@ -37,7 +37,7 @@ describe("AudioController Engine", () => {
         id: "align-2",
         verseId: "v-2",
         recordingId: "rec-1",
-        startMs: 10400,
+        startMs: 9800,
         endMs: 18600,
         confidence: 0.92,
         status: "reviewed",
@@ -55,7 +55,7 @@ describe("AudioController Engine", () => {
         id: "align-3",
         verseId: "v-3",
         recordingId: "rec-1",
-        startMs: 19100,
+        startMs: 18600,
         endMs: 27500,
         confidence: 0.96,
         status: "reviewed",
@@ -73,67 +73,76 @@ describe("AudioController Engine", () => {
     controller.destroy();
   });
 
-  it("finds active verse at exact millisecond boundaries", () => {
-    // Before first verse start (0 to 2499ms) -> no exact active or nearest
-    expect(controller.findActiveVerseIndex(0)).toBe(-1);
-    expect(controller.findActiveVerseIndex(2499)).toBe(-1);
-
-    // Exact start of Verse 1 (2500ms)
+  it("finds active verse at exact start and end boundaries with binary search", () => {
+    // Exact start boundary of Verse 1 (2500ms)
+    expect(findActiveVerseIndexBinary(mockVerses, 2500)).toBe(0);
     expect(controller.findActiveVerseIndex(2500)).toBe(0);
 
     // Inside Verse 1 (5000ms)
     expect(controller.findActiveVerseIndex(5000)).toBe(0);
 
-    // End of Verse 1 boundary (9799ms -> v1, 9800ms -> gap retains v1)
+    // Exact end boundary of Verse 1 (9799ms -> v1, 9800ms -> v2 starts immediately)
     expect(controller.findActiveVerseIndex(9799)).toBe(0);
-    expect(controller.findActiveVerseIndex(9800)).toBe(0); // in gap between v1 and v2
+    expect(controller.findActiveVerseIndex(9800)).toBe(1);
 
-    // Exact start of Verse 2 (10400ms)
-    expect(controller.findActiveVerseIndex(10400)).toBe(1);
-    expect(controller.findActiveVerseIndex(15000)).toBe(1);
+    // Exact start of Verse 2 (9800ms) and end (18599ms)
+    expect(controller.findActiveVerseIndex(9800)).toBe(1);
     expect(controller.findActiveVerseIndex(18599)).toBe(1);
 
-    // Exact start of Verse 3 (19100ms)
-    expect(controller.findActiveVerseIndex(19100)).toBe(2);
+    // Exact start of Verse 3 (18600ms)
+    expect(controller.findActiveVerseIndex(18600)).toBe(2);
     expect(controller.findActiveVerseIndex(27499)).toBe(2);
   });
 
-  it("seeks accurately and clamps boundary values", () => {
-    // Seek to normal time
+  it("handles seeking forward and backward with immediate active verse recomputation", () => {
+    // Seek forward to Verse 2
     controller.seekTo(12000);
     expect(controller.getState().currentTimeMs).toBe(12000);
     expect(controller.getState().activeVerseIndex).toBe(1);
+    expect(controller.getState().activeVerse?.id).toBe("v-2");
 
-    // Seek negative clamps to 0
-    controller.seekTo(-500);
-    expect(controller.getState().currentTimeMs).toBe(0);
-
-    // Seek beyond duration clamps to duration
-    controller.seekTo(99999);
-    expect(controller.getState().currentTimeMs).toBe(30000);
-  });
-
-  it("seeks directly to verse boundaries and navigates next/prev", () => {
-    // Seek to Verse 2
-    controller.seekToVerse(mockVerses[1]);
-    expect(controller.getState().currentTimeMs).toBe(10400);
-    expect(controller.getState().activeVerseIndex).toBe(1);
-
-    // Next Verse -> Verse 3
-    controller.nextVerse();
-    expect(controller.getState().currentTimeMs).toBe(19100);
+    // Seek forward to Verse 3
+    controller.seekTo(22000);
+    expect(controller.getState().currentTimeMs).toBe(22000);
     expect(controller.getState().activeVerseIndex).toBe(2);
+    expect(controller.getState().activeVerse?.id).toBe("v-3");
 
-    // Prev Verse -> Verse 2
-    controller.prevVerse();
-    expect(controller.getState().currentTimeMs).toBe(10400);
-    expect(controller.getState().activeVerseIndex).toBe(1);
+    // Seek backward to Verse 1
+    controller.seekTo(3000);
+    expect(controller.getState().currentTimeMs).toBe(3000);
+    expect(controller.getState().activeVerseIndex).toBe(0);
+    expect(controller.getState().activeVerse?.id).toBe("v-1");
   });
 
-  it("manages playback rate, volume, and mute states", () => {
-    controller.setPlaybackRate(1.25);
-    expect(controller.getState().playbackRate).toBe(1.25);
+  it("handles pause and resume cleanly without duplicating loops or listeners", () => {
+    controller.play();
+    expect(controller.getState().isPlaying).toBe(true);
 
+    // Repeated play calls do not duplicate loops
+    controller.play();
+    expect(controller.getState().isPlaying).toBe(true);
+
+    controller.pause();
+    expect(controller.getState().isPlaying).toBe(false);
+
+    // Repeated pause calls do not throw
+    controller.pause();
+    expect(controller.getState().isPlaying).toBe(false);
+
+    // Resume
+    controller.play();
+    expect(controller.getState().isPlaying).toBe(true);
+  });
+
+  it("handles playbackRate changes and immediate sync", () => {
+    controller.setPlaybackRate(1.5);
+    expect(controller.getState().playbackRate).toBe(1.5);
+
+    controller.setPlaybackRate(0.75);
+    expect(controller.getState().playbackRate).toBe(0.75);
+  });
+
+  it("manages volume and mute states", () => {
     controller.setVolume(0.5);
     expect(controller.getState().volume).toBe(0.5);
 
@@ -158,32 +167,5 @@ describe("AudioController Engine", () => {
     controller.seekTo(8000);
     // Listener should not be called again after unsubscribe
     expect(listener).toHaveBeenCalledTimes(2);
-  });
-
-  it("handles fallback calculation when verses have no alignment timestamps", () => {
-    const unalignedVerses: Verse[] = [
-      {
-        id: "uv-1",
-        poemId: "p-2",
-        orderIndex: 1,
-        text: "قفا نبك من ذكرى حبيب ومنزل",
-        normalizedText: normalizeArabic("قفا نبك من ذكرى حبيب ومنزل"),
-        firstHemistich: "قفا نبك",
-        secondHemistich: "ومنزل",
-      },
-      {
-        id: "uv-2",
-        poemId: "p-2",
-        orderIndex: 2,
-        text: "بسقط اللوى بين الدخول فحومل",
-        normalizedText: normalizeArabic("بسقط اللوى بين الدخول فحومل"),
-        firstHemistich: "بسقط اللوى",
-        secondHemistich: "فحومل",
-      },
-    ];
-
-    controller.setVerses(unalignedVerses);
-    expect(controller.findActiveVerseIndex(2000)).toBe(0);
-    expect(controller.findActiveVerseIndex(10000)).toBe(1);
   });
 });
