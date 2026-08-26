@@ -4,6 +4,8 @@ from typing import List, Dict, Any, Optional
 from difflib import SequenceMatcher
 from .normalizer import normalize_arabic, tokenize_normalized
 from ..schemas.transcript import TimedWord
+from ..audio.vad import AudioRegion
+from .silence_aligner import refine_boundaries_with_silence, VerseSyncDiagnostic
 
 @dataclass
 class VerseAlignmentResult:
@@ -19,6 +21,7 @@ class VerseAlignmentResult:
     total_words_count: int = 0
     first_word_start_ms: Optional[int] = None
     last_word_end_ms: Optional[int] = None
+    diagnostic: Optional[Dict[str, Any]] = None
 
     def to_dict(self) -> Dict[str, Any]:
         d: Dict[str, Any] = {
@@ -39,6 +42,8 @@ class VerseAlignmentResult:
             d["first_word_start_ms"] = self.first_word_start_ms
         if self.last_word_end_ms is not None:
             d["last_word_end_ms"] = self.last_word_end_ms
+        if self.diagnostic is not None:
+            d["diagnostic"] = self.diagnostic
         return d
 
 @dataclass
@@ -48,6 +53,7 @@ class PoemAlignmentResult:
     overall_confidence: float
     alignments: List[VerseAlignmentResult] = field(default_factory=list)
     intro_offset_ms: int = 0
+    diagnostics: List[VerseSyncDiagnostic] = field(default_factory=list)
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -56,6 +62,7 @@ class PoemAlignmentResult:
             "overall_confidence": round(self.overall_confidence, 3),
             "intro_offset_ms": self.intro_offset_ms,
             "alignments": [a.to_dict() for a in self.alignments],
+            "diagnostics": [d.to_dict() for d in self.diagnostics],
         }
 
 def token_similarity(a: str, b: str) -> float:
@@ -83,7 +90,6 @@ def find_first_reliable_match(
     best_idx = 0
     best_score = 0.0
 
-    # Search within the first 30 transcribed words
     search_limit = min(len(norm_transcript), 35)
     for i in range(search_limit):
         window = [norm_transcript[j]["norm"] for j in range(i, min(len(norm_transcript), i + n_sample))]
@@ -104,6 +110,7 @@ def align_transcript_to_verses(
     audio_duration_ms: int,
     poem_id: str = "poem",
     recording_id: str = "rec",
+    silence_regions: Optional[List[AudioRegion]] = None,
 ) -> PoemAlignmentResult:
     if not verses:
         return PoemAlignmentResult(poem_id=poem_id, recording_id=recording_id, overall_confidence=0.0)
@@ -179,7 +186,6 @@ def align_transcript_to_verses(
 
     curr_t_idx = intro_start_idx
     raw_alignments: List[Dict[str, Any]] = []
-    total_confidence_sum = 0.0
 
     for v_idx, v_info in enumerate(verse_token_data):
         tokens = v_info["tokens"]
@@ -230,7 +236,6 @@ def align_transcript_to_verses(
             best_score = 0.5
 
         confidence = max(0.5, min(1.0, best_score))
-        total_confidence_sum += confidence
 
         raw_alignments.append({
             "info": v_info,
@@ -242,61 +247,38 @@ def align_transcript_to_verses(
             "matched_count": best_matched_count,
         })
 
-    # 4. Refine boundaries: Set midpoint boundary between adjacent verses
-    # boundary = (lastWordEnd + nextVerseFirstWordStart) / 2
+    # 4. Refine boundaries using nearby VAD silence detection
+    refined_raw, diagnostics = refine_boundaries_with_silence(
+        raw_verse_alignments=raw_alignments,
+        silence_regions=silence_regions or [],
+        audio_duration_ms=audio_duration_ms,
+    )
+
     final_alignments: List[VerseAlignmentResult] = []
+    total_conf = 0.0
 
-    for i in range(len(raw_alignments)):
-        curr = raw_alignments[i]
-        v_info = curr["info"]
-
-        # Calculate start_ms
-        if i == 0:
-            # Verse 1 starts at its first spoken word (or 0 if intro is negligible)
-            start_ms = curr["first_word_start_ms"]
-        else:
-            prev = raw_alignments[i - 1]
-            # Midpoint boundary between previous verse end and current verse start
-            midpoint = (prev["last_word_end_ms"] + curr["first_word_start_ms"]) // 2
-            start_ms = midpoint
-
-        # Calculate end_ms
-        if i < len(raw_alignments) - 1:
-            nxt = raw_alignments[i + 1]
-            midpoint = (curr["last_word_end_ms"] + nxt["first_word_start_ms"]) // 2
-            end_ms = midpoint
-        else:
-            # Final verse extends to max of its last word end and audio duration
-            end_ms = max(curr["last_word_end_ms"] + 500, min(audio_duration_ms, curr["last_word_end_ms"] + 2000))
-            if audio_duration_ms > 0 and end_ms > audio_duration_ms:
-                end_ms = audio_duration_ms
-
-        duration = max(1000, end_ms - start_ms)
-        h1_len = len(v_info["first_tokens"])
-        h2_len = len(v_info["second_tokens"])
-        h1_ratio = h1_len / (h1_len + h2_len) if (h1_len + h2_len) > 0 else 0.5
-
-        h1_end_ms = int(start_ms + (duration * h1_ratio))
-        h2_start_ms = h1_end_ms
-
+    for r in refined_raw:
+        conf = r["confidence"]
+        total_conf += conf
         final_alignments.append(
             VerseAlignmentResult(
-                verse_id=v_info["id"],
-                order_index=v_info["order_index"],
-                start_ms=start_ms,
-                end_ms=end_ms,
-                confidence=curr["confidence"],
+                verse_id=r["verse_id"],
+                order_index=r["order_index"],
+                start_ms=r["start_ms"],
+                end_ms=r["end_ms"],
+                confidence=conf,
                 status="auto",
-                first_hemistich_end_ms=h1_end_ms,
-                second_hemistich_start_ms=h2_start_ms,
-                matched_words_count=curr["matched_count"],
-                total_words_count=len(v_info["tokens"]),
-                first_word_start_ms=curr["first_word_start_ms"],
-                last_word_end_ms=curr["last_word_end_ms"],
+                first_hemistich_end_ms=r["first_hemistich_end_ms"],
+                second_hemistich_start_ms=r["second_hemistich_start_ms"],
+                matched_words_count=r["matched_words_count"],
+                total_words_count=r["total_words_count"],
+                first_word_start_ms=r["first_word_start_ms"],
+                last_word_end_ms=r["last_word_end_ms"],
+                diagnostic=r.get("diagnostic"),
             )
         )
 
-    overall_conf = total_confidence_sum / len(final_alignments) if final_alignments else 0.0
+    overall_conf = total_conf / len(final_alignments) if final_alignments else 0.0
 
     return PoemAlignmentResult(
         poem_id=poem_id,
@@ -304,4 +286,5 @@ def align_transcript_to_verses(
         overall_confidence=overall_conf,
         intro_offset_ms=intro_offset_ms,
         alignments=final_alignments,
+        diagnostics=diagnostics,
     )

@@ -5,8 +5,9 @@ import { AudioControlsBar } from "./AudioControlsBar";
 import { PoemMetadataDrawer } from "./PoemMetadataDrawer";
 import { DictionaryWordModal } from "./DictionaryWordModal";
 import { ExportModal } from "../export/ExportModal";
+import { WaveformDebugView } from "./WaveformDebugView";
 import { usePoemPlayback } from "@/hooks/usePoemPlayback";
-import { Info, BookOpen, AlertCircle, Download, Activity } from "lucide-react";
+import { Info, BookOpen, AlertCircle, Download, Activity, AudioWaveform } from "lucide-react";
 import { analyzeVerseMeter } from "@/lib/arud/meterDetector";
 import { DiwanRepository } from "@/lib/db/repository";
 
@@ -24,6 +25,7 @@ export const PoemPlayerView: React.FC<PoemPlayerViewProps> = ({ poem }) => {
   const [showMetadata, setShowMetadata] = useState(true);
   const [showExport, setShowExport] = useState(false);
   const [showDebugOverlay, setShowDebugOverlay] = useState(false);
+  const [showWaveformDebug, setShowWaveformDebug] = useState(false);
   const [selectedWord, setSelectedWord] = useState<string | null>(null);
   const [wordDefinition, setWordDefinition] = useState<WordDefinition | null>(null);
   const [isLoadingWord, setIsLoadingWord] = useState(false);
@@ -112,12 +114,26 @@ export const PoemPlayerView: React.FC<PoemPlayerViewProps> = ({ poem }) => {
         </div>
 
         <div className="flex items-center gap-2">
+          {/* Waveform VAD Debug Toggle */}
+          <button
+            onClick={() => setShowWaveformDebug(!showWaveformDebug)}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border transition-colors ${
+              showWaveformDebug
+                ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/40"
+                : "bg-charcoal-850 text-parchment-400 border-charcoal-700 hover:text-parchment-200"
+            }`}
+            title="مخطط فترات الصمت والكلام (VAD Waveform Map)"
+          >
+            <AudioWaveform className="w-3.5 h-3.5" />
+            <span>مخطط VAD</span>
+          </button>
+
           {/* Debug Telemetry Toggle */}
           <button
             onClick={() => setShowDebugOverlay(!showDebugOverlay)}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border transition-colors ${
               showDebugOverlay
-                ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/40"
+                ? "bg-gold-500/20 text-gold-300 border-gold-500/40"
                 : "bg-charcoal-850 text-parchment-400 border-charcoal-700 hover:text-parchment-200"
             }`}
             title="مؤشرات التزامن المباشرة (Sync Telemetry)"
@@ -230,6 +246,16 @@ export const PoemPlayerView: React.FC<PoemPlayerViewProps> = ({ poem }) => {
           onToggle={() => setShowMetadata(!showMetadata)}
         />
       </div>
+
+      {/* Waveform VAD & Boundaries Debug View */}
+      <WaveformDebugView
+        poem={poem}
+        currentTimeMs={currentTimeMs}
+        durationMs={durationMs}
+        activeVerseIndex={activeVerseIndex}
+        isOpen={showWaveformDebug}
+        onClose={() => setShowWaveformDebug(false)}
+      />
 
       {/* Audio Controls Bar */}
       <AudioControlsBar

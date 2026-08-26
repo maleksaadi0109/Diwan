@@ -308,6 +308,7 @@ def handle_align(req: WorkerRequest) -> None:
     try:
         from .alignment.aligner import align_transcript_to_verses
         from .asr.transcriber import transcribe_arabic_audio
+        from .audio.vad import analyze_audio_vad
         from .schemas.transcript import TranscriptResult
 
         on_prog(0.2, "جاري استخراج الكلمات والتفريغ الصوتي...")
@@ -318,17 +319,26 @@ def handle_align(req: WorkerRequest) -> None:
         else:
             transcript = transcribe_arabic_audio(
                 audio_path=audio_path,
-                on_progress=lambda p, m: on_prog(0.2 + (p * 0.5), m),
+                on_progress=lambda p, m: on_prog(0.2 + (p * 0.4), m),
                 mock=mock,
             )
 
-        on_prog(0.8, "جاري مطابقة الأبيات مع الطوابع الصوتية (Forced Alignment)...")
+        on_prog(0.7, "جاري فحص فترات الصمت ونقاط التوقف (VAD Silence Analysis)...")
+        silence_regions = []
+        try:
+            vad_res = analyze_audio_vad(audio_path)
+            silence_regions = vad_res.silence_regions
+        except Exception as e_vad:
+            log(f"VAD warning (falling back to ASR): {e_vad}")
+
+        on_prog(0.85, "جاري مطابقة الأبيات مع الطوابع الصوتية (Forced Alignment)...")
         alignment_res = align_transcript_to_verses(
             verses=verses,
             transcript_words=transcript.words,
             audio_duration_ms=transcript.duration_ms,
             poem_id=poem_id,
             recording_id=recording_id,
+            silence_regions=silence_regions,
         )
 
         on_prog(1.0, "اكتملت المحاذاة الدقيقة بنجاح!")
