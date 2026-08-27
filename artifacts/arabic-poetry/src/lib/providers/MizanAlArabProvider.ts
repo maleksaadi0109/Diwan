@@ -259,7 +259,8 @@ export class MizanAlArabProvider implements PoemImportProvider {
    */
   public async fetchClassicalExplanations(
     verseId: string | number,
-    fetchFn: typeof fetch = fetch
+    fetchFn: typeof fetch = fetch,
+    strict = false
   ): Promise<VerseExplanationItem[]> {
     const key = `classical-${verseId}`;
     if (this.explanationCache.has(key)) {
@@ -290,6 +291,7 @@ export class MizanAlArabProvider implements PoemImportProvider {
       this.explanationCache.set(key, mapped);
       return mapped;
     } catch (err) {
+      if (strict) throw err;
       console.warn(`Could not fetch classical explanations for verse ${verseId}:`, err);
       return [];
     }
@@ -300,7 +302,8 @@ export class MizanAlArabProvider implements PoemImportProvider {
    */
   public async fetchVerseExplanation(
     verseId: string | number,
-    fetchFn: typeof fetch = fetch
+    fetchFn: typeof fetch = fetch,
+    strict = false
   ): Promise<VerseExplanationItem[]> {
     const key = `verse-${verseId}`;
     if (this.explanationCache.has(key)) {
@@ -327,9 +330,43 @@ export class MizanAlArabProvider implements PoemImportProvider {
 
       this.explanationCache.set(key, [mapped]);
       return [mapped];
-    } catch {
+    } catch (err) {
+      if (strict) throw err;
       return [];
     }
+  }
+
+  /**
+   * Loads every available explanation for one Mizan verse while preserving
+   * the distinction between an empty result and a failed request.
+   */
+  public async fetchExplanations(
+    verseId: string | number,
+    fetchFn: typeof fetch = fetch
+  ): Promise<VerseExplanationItem[]> {
+    const key = `all-${verseId}`;
+    if (this.explanationCache.has(key)) {
+      return this.explanationCache.get(key)!;
+    }
+
+    const results = await Promise.allSettled([
+      this.fetchClassicalExplanations(verseId, fetchFn, true),
+      this.fetchVerseExplanation(verseId, fetchFn, true),
+    ]);
+    const failed = results.find(
+      (result): result is PromiseRejectedResult => result.status === "rejected"
+    );
+    if (failed && results.every((result) => result.status === "rejected")) {
+      throw failed.reason instanceof Error
+        ? failed.reason
+        : new Error("تعذر تحميل شرح البيت من ميزان العرب");
+    }
+
+    const items = results.flatMap((result) =>
+      result.status === "fulfilled" ? result.value : []
+    );
+    this.explanationCache.set(key, items);
+    return items;
   }
 
   /**
@@ -387,6 +424,7 @@ export class MizanAlArabProvider implements PoemImportProvider {
       const { first, second } = this.splitHemistichs(v.text);
 
       return {
+        externalId: String(v.id),
         orderIndex,
         text: v.text,
         firstHemistich: v.first_hemistich || first,

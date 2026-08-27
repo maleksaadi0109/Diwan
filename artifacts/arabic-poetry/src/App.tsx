@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { ActiveTab, Poem, AlignmentStatus } from "./types";
+import { ActiveTab, Poem, AlignmentStatus, VerseExplanationItem } from "./types";
 import { Navigation } from "./components/Navigation";
 import { Header } from "./components/Header";
 import { LibraryView } from "./features/library/LibraryView";
@@ -82,6 +82,24 @@ export function App() {
       status: AlignmentStatus = "reviewed"
     ) => {
       if (!repo || !activePoem) return;
+      const verse = activePoem.verses.find((item) => item.alignment?.id === alignmentId);
+      if (!verse?.alignment) throw new Error("تعذر العثور على محاذاة البيت.");
+      const recording = activePoem.recordings.find((item) => item.id === verse.alignment?.recordingId);
+      const index = activePoem.verses.findIndex((item) => item.id === verse.id);
+      const previous = index > 0 ? activePoem.verses[index - 1]?.alignment : undefined;
+      const next = activePoem.verses[index + 1]?.alignment;
+      if (!Number.isFinite(startMs) || !Number.isFinite(endMs) || startMs < 0 || endMs <= startMs + 300) {
+        throw new Error("يجب أن تكون حدود البيت صحيحة ومدة البيت أكثر من 300 مللي ثانية.");
+      }
+      if (recording && endMs > recording.durationMs) {
+        throw new Error("نهاية البيت تتجاوز مدة التسجيل.");
+      }
+      if (previous?.recordingId === verse.alignment.recordingId && startMs < previous.endMs) {
+        throw new Error("بداية البيت تتداخل مع البيت السابق.");
+      }
+      if (next?.recordingId === verse.alignment.recordingId && endMs > next.startMs) {
+        throw new Error("نهاية البيت تتداخل مع البيت التالي.");
+      }
       await repo.updateAlignmentBoundary(alignmentId, startMs, endMs, status);
       const refreshed = await repo.getPoemById(activePoem.id);
       if (refreshed) {
@@ -89,6 +107,75 @@ export function App() {
         setPoems((prev) =>
           prev.map((p) => (p.id === refreshed.id ? refreshed : p))
         );
+      }
+    },
+    [repo, activePoem]
+  );
+
+  const handleSaveExplanations = useCallback(
+    async (verseId: string, items: VerseExplanationItem[]) => {
+      if (repo) await repo.saveVerseExplanations(verseId, items);
+      const mergeExplanations = (poem: Poem) => ({
+        ...poem,
+        verses: poem.verses.map((verse) =>
+          verse.id === verseId ? { ...verse, explanations: items } : verse
+        ),
+      });
+      setPoems((current) =>
+        current.map((poem) => (poem.verses.some((verse) => verse.id === verseId) ? mergeExplanations(poem) : poem))
+      );
+    },
+    [repo]
+  );
+
+  const handleApplyOffset = useCallback(
+    async (verseId: string, offsetMs: number, includeFollowing: boolean) => {
+      if (!repo || !activePoem) return;
+      if (!Number.isFinite(offsetMs) || offsetMs === 0) {
+        throw new Error("مقدار الانزياح يجب أن يكون رقمًا غير صفري.");
+      }
+      const startIndex = activePoem.verses.findIndex((verse) => verse.id === verseId);
+      if (startIndex < 0) throw new Error("تعذر العثور على البيت المحدد.");
+      const selectedVerse = activePoem.verses[startIndex];
+      const sourceRecordingId = selectedVerse.alignment?.recordingId;
+      if (!sourceRecordingId) throw new Error("لا توجد محاذاة مرتبطة بالتسجيل لهذا البيت.");
+      const affected = activePoem.verses.filter((verse, index) =>
+        Boolean(
+          verse.alignment
+          && verse.alignment.recordingId === sourceRecordingId
+          && (index === startIndex || (includeFollowing && index >= startIndex))
+        )
+      );
+      const recording = activePoem.recordings.find((item) => item.id === sourceRecordingId);
+      const updates = affected.map((verse) => {
+        const alignment = verse.alignment!;
+        const startMs = Math.round(alignment.startMs + offsetMs);
+        const endMs = Math.round(alignment.endMs + offsetMs);
+        if (startMs < 0 || endMs <= startMs + 300 || (recording && endMs > recording.durationMs)) {
+          throw new Error(`التصحيح يجعل توقيت البيت ${verse.orderIndex} خارج حدود التسجيل.`);
+        }
+        return { id: alignment.id, startMs, endMs };
+      });
+      const updatedBounds = new Map(updates.map((update) => [update.id, update]));
+      const recordingVerses = activePoem.verses.filter(
+        (verse) => verse.alignment?.recordingId === sourceRecordingId
+      );
+      for (let index = 1; index < recordingVerses.length; index++) {
+        const previous = recordingVerses[index - 1].alignment!;
+        const current = recordingVerses[index].alignment!;
+        const previousEnd = updatedBounds.get(previous.id)?.endMs ?? previous.endMs;
+        const currentStart = updatedBounds.get(current.id)?.startMs ?? current.startMs;
+        if (currentStart < previousEnd) {
+          throw new Error("التصحيح يسبب تداخلاً بين حدود الأبيات.");
+        }
+      }
+      for (const update of updates) {
+        await repo.updateAlignmentBoundary(update.id, update.startMs, update.endMs, "manual");
+      }
+      const refreshed = await repo.getPoemById(activePoem.id);
+      if (refreshed) {
+        setActivePoem(refreshed);
+        setPoems((current) => current.map((poem) => poem.id === refreshed.id ? refreshed : poem));
       }
     },
     [repo, activePoem]
@@ -130,6 +217,8 @@ export function App() {
                 <PoemPlayerView
                   poem={activePoem}
                   onUpdateBoundary={handleUpdateBoundary}
+                  onSaveExplanations={handleSaveExplanations}
+                  onApplyOffset={handleApplyOffset}
                 />
               )}
 

@@ -42,6 +42,12 @@ export class DiwanRepository {
 
   async init(): Promise<void> {
     await this.adapter.execute(INITIAL_SCHEMA_SQL);
+    try {
+      await this.adapter.execute("ALTER TABLE poems ADD COLUMN default_recording_id TEXT;");
+    } catch {
+      // Existing databases already have this migration, or the adapter handles
+      // schema creation without SQL column migrations.
+    }
   }
 
   // --- Seeding ---
@@ -109,19 +115,19 @@ export class DiwanRepository {
 
     // Check if poem already has existing verses with alignments to preserve
     const existingVerses = await this.getVersesByPoemId(poem.id);
-    const existingAlignmentMap = new Map<number, VerseAlignment>();
+    const existingAlignmentMap = new Map<string, VerseAlignment>();
     for (const ev of existingVerses) {
       if (ev.alignment) {
-        existingAlignmentMap.set(ev.orderIndex, ev.alignment);
+        existingAlignmentMap.set(`${ev.id}:${ev.alignment.recordingId}`, ev.alignment);
       }
     }
 
     const sql = `
       INSERT OR REPLACE INTO poems (
         id, title, poet_id, era, bahr, rhyme, description, verses_count, tags,
-        external_provider, external_id, source_url, theme, verified, updated_at
+        default_recording_id, external_provider, external_id, source_url, theme, verified, updated_at
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP);
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP);
     `;
     await this.adapter.execute(sql, [
       poem.id,
@@ -133,6 +139,7 @@ export class DiwanRepository {
       poem.description || null,
       poem.versesCount,
       JSON.stringify(poem.tags || []),
+      poem.defaultRecordingId || poem.recordings[0]?.id || null,
       poem.externalProvider || null,
       poem.externalId || null,
       poem.sourceUrl || null,
@@ -149,11 +156,16 @@ export class DiwanRepository {
     for (const verse of poem.verses) {
       await this.saveVerse(verse);
 
-      // If new verse has alignment, save it. Otherwise check if existing alignment can be preserved.
+      // If new verse has alignment, save it. Otherwise preserve only an alignment
+      // belonging to the same verse and recording; order alone is unsafe after edits.
       if (verse.alignment) {
         await this.saveAlignment(verse.alignment);
-      } else if (existingAlignmentMap.has(verse.orderIndex)) {
-        const preserved = existingAlignmentMap.get(verse.orderIndex)!;
+      } else {
+        const previous = existingVerses.find((existing) => existing.id === verse.id);
+        const preserved = previous?.alignment
+          ? existingAlignmentMap.get(`${previous.id}:${previous.alignment.recordingId}`)
+          : undefined;
+        if (!preserved) continue;
         await this.saveAlignment({
           ...preserved,
           verseId: verse.id,
@@ -188,8 +200,11 @@ export class DiwanRepository {
     const poet = await this.getPoetById(r.poet_id);
     if (!poet) return null;
 
-    const verses = await this.getVersesByPoemId(r.id);
     const recordings = await this.getRecordingsByPoemId(r.id);
+    const defaultRecordingId = recordings.some((recording) => recording.id === r.default_recording_id)
+      ? r.default_recording_id || undefined
+      : recordings[0]?.id;
+    const verses = await this.getVersesByPoemId(r.id, defaultRecordingId);
 
     return {
       id: r.id,
@@ -208,7 +223,7 @@ export class DiwanRepository {
       verified: r.verified === 1,
       verses,
       recordings,
-      defaultRecordingId: recordings[0]?.id,
+      defaultRecordingId,
     };
   }
 
@@ -251,7 +266,7 @@ export class DiwanRepository {
     ]);
   }
 
-  async getVersesByPoemId(poemId: string): Promise<Verse[]> {
+  async getVersesByPoemId(poemId: string, recordingId?: string): Promise<Verse[]> {
     const rows = await this.adapter.select<VerseRow>(
       `SELECT * FROM verses WHERE poem_id = ? ORDER BY order_index ASC;`,
       [poemId]
@@ -259,7 +274,7 @@ export class DiwanRepository {
 
     const verses: Verse[] = [];
     for (const r of rows) {
-      const alignment = await this.getAlignmentByVerseId(r.id);
+      const alignment = await this.getAlignmentByVerseId(r.id, recordingId);
       const explanations = await this.getVerseExplanationsByVerseId(r.id);
 
       verses.push({
@@ -399,11 +414,16 @@ export class DiwanRepository {
     await this.adapter.execute(sql, [startMs, endMs, status, confidence ?? null, alignmentId]);
   }
 
-  async getAlignmentByVerseId(verseId: string): Promise<VerseAlignment | null> {
-    const rows = await this.adapter.select<VerseAlignmentRow>(
-      `SELECT * FROM verse_alignments WHERE verse_id = ? LIMIT 1;`,
-      [verseId]
-    );
+  async getAlignmentByVerseId(verseId: string, recordingId?: string): Promise<VerseAlignment | null> {
+    const rows = recordingId
+      ? await this.adapter.select<VerseAlignmentRow>(
+          `SELECT * FROM verse_alignments WHERE verse_id = ? AND recording_id = ? LIMIT 1;`,
+          [verseId, recordingId]
+        )
+      : await this.adapter.select<VerseAlignmentRow>(
+          `SELECT * FROM verse_alignments WHERE verse_id = ? ORDER BY CASE status WHEN 'manual' THEN 0 WHEN 'reviewed' THEN 1 ELSE 2 END LIMIT 1;`,
+          [verseId]
+        );
     if (rows.length === 0) return null;
     const r = rows[0];
     return {

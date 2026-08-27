@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { Poem, Era, Bahr } from "@/types";
 import { MizanAlArabProvider } from "@/lib/providers/MizanAlArabProvider";
+import type { ParsedPoemPayload, ParsedVersePayload } from "@/lib/providers/types";
 import {
   fetchYoutubeVideoInfo,
   downloadYoutubeAudio,
@@ -80,6 +81,9 @@ export const NewPoemWizard: React.FC<NewPoemWizardProps> = ({ onFinishWizard }) 
   const [mizanUrl, setMizanUrl] = useState("");
   const [mizanLoading, setMizanLoading] = useState(false);
   const [mizanError, setMizanError] = useState<string | null>(null);
+  const [mizanPayload, setMizanPayload] = useState<ParsedPoemPayload | null>(null);
+  const [mizanSourceText, setMizanSourceText] = useState("");
+  const [mizanPoemId, setMizanPoemId] = useState<string | null>(null);
 
   const [title, setTitle] = useState("");
   const [poetName, setPoetName] = useState("");
@@ -110,7 +114,11 @@ export const NewPoemWizard: React.FC<NewPoemWizardProps> = ({ onFinishWizard }) 
   const [generatedPoem, setGeneratedPoem] = useState<Poem | null>(null);
 
   // Parse raw verses
-  const getParsedVerses = (): Array<{ orderIndex: number; text: string; firstHemistich: string; secondHemistich: string }> => {
+  const getParsedVerses = (): ParsedVersePayload[] => {
+    if (poemSourceMode === "mizan" && mizanPayload && versesRaw === mizanSourceText) {
+      return mizanPayload.verses;
+    }
+
     const provider = new MizanAlArabProvider();
     const lines = versesRaw.split("\n").map((l) => l.trim()).filter((l) => l.length > 0);
     return lines.map((line, idx) => {
@@ -134,13 +142,19 @@ export const NewPoemWizard: React.FC<NewPoemWizardProps> = ({ onFinishWizard }) 
       const poemId = provider.extractPoemIdFromUrl(mizanUrl.trim());
       const data = await provider.fetchPoemById(poemId);
       const parsed = provider.mapApiResponseToPayload(data);
+      const sourceText = parsed.verses
+        .map((v) => `${v.firstHemistich} — ${v.secondHemistich}`)
+        .join("\n");
 
       setTitle(parsed.title);
       setPoetName(parsed.poetName);
       setEra(parsed.era);
       setBahr(parsed.bahr);
       setRhyme(parsed.rhyme);
-      setVersesRaw(parsed.verses.map((v) => `${v.firstHemistich} — ${v.secondHemistich}`).join("\n"));
+      setVersesRaw(sourceText);
+      setMizanPayload(parsed);
+      setMizanSourceText(sourceText);
+      setMizanPoemId(String(data.id));
     } catch (err: unknown) {
       setMizanError((err as Error).message || "تعذر جلب القصيدة من ميزان العرب");
     } finally {
@@ -180,6 +194,10 @@ export const NewPoemWizard: React.FC<NewPoemWizardProps> = ({ onFinishWizard }) 
     };
 
     const parsedVerses = getParsedVerses();
+    const importedFromMizan = poemSourceMode === "mizan"
+      && mizanPayload !== null
+      && mizanPoemId !== null
+      && versesRaw === mizanSourceText;
     const poemId = `poem-wiz-${Date.now()}`;
     const recId = `rec-wiz-${Date.now()}`;
 
@@ -250,6 +268,9 @@ export const NewPoemWizard: React.FC<NewPoemWizardProps> = ({ onFinishWizard }) 
         rhyme: rhyme || "الميم",
         versesCount: parsedVerses.length,
         tags: ["مستورد عبر المعالج", `بحر ${bahr}`],
+        externalProvider: importedFromMizan ? "mizan_al_arab" : undefined,
+        externalId: importedFromMizan ? mizanPoemId : undefined,
+        sourceUrl: importedFromMizan ? mizanUrl.trim() : undefined,
         verses: parsedVerses.map((v) => {
           const alignmentItem = alignRes.alignments.find((a) => a.order_index === v.orderIndex);
           return {
@@ -260,6 +281,7 @@ export const NewPoemWizard: React.FC<NewPoemWizardProps> = ({ onFinishWizard }) 
             normalizedText: normalizeArabic(v.text),
             firstHemistich: v.firstHemistich,
             secondHemistich: v.secondHemistich,
+            externalId: importedFromMizan ? v.externalId : undefined,
             alignment: alignmentItem
               ? {
                   id: `align-${poemId}-${v.orderIndex}`,

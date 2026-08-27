@@ -9,6 +9,7 @@ export interface DatabaseAdapter {
 
 // In-Memory Database Adapter for Web browser mode and Unit Tests
 export class WebMemoryAdapter implements DatabaseAdapter {
+  private static readonly STORAGE_KEY = "diwan-web-database-v1";
   private poets = new Map<string, PoetRow>();
   private poems = new Map<string, PoemRow>();
   private verses = new Map<string, VerseRow>();
@@ -19,7 +20,51 @@ export class WebMemoryAdapter implements DatabaseAdapter {
   private importJobs = new Map<string, ImportJobRow>();
 
   constructor() {
-    this.seedDefaultData();
+    if (!this.restore()) this.seedDefaultData();
+  }
+
+  private restore(): boolean {
+    if (typeof localStorage === "undefined") return false;
+    try {
+      const raw = localStorage.getItem(WebMemoryAdapter.STORAGE_KEY);
+      if (!raw) return false;
+      const data = JSON.parse(raw) as Record<string, unknown>;
+      const restoreMap = <T>(key: string) =>
+        new Map<string, T>(Array.isArray(data[key]) ? data[key] as [string, T][] : []);
+      this.poets = restoreMap<PoetRow>("poets");
+      this.poems = restoreMap<PoemRow>("poems");
+      this.verses = restoreMap<VerseRow>("verses");
+      this.recordings = restoreMap<RecordingRow>("recordings");
+      this.alignments = restoreMap<VerseAlignmentRow>("alignments");
+      this.definitions = restoreMap<WordDefinitionRow>("definitions");
+      this.explanations = restoreMap<VerseExplanationRow>("explanations");
+      this.importJobs = restoreMap<ImportJobRow>("importJobs");
+      return true;
+    } catch (error) {
+      console.warn("تعذر استعادة قاعدة البيانات المحلية، سيتم استخدام بيانات البداية.", error);
+      return false;
+    }
+  }
+
+  private persist(): void {
+    if (typeof localStorage === "undefined") return;
+    try {
+      localStorage.setItem(
+        WebMemoryAdapter.STORAGE_KEY,
+        JSON.stringify({
+          poets: Array.from(this.poets.entries()),
+          poems: Array.from(this.poems.entries()),
+          verses: Array.from(this.verses.entries()),
+          recordings: Array.from(this.recordings.entries()),
+          alignments: Array.from(this.alignments.entries()),
+          definitions: Array.from(this.definitions.entries()),
+          explanations: Array.from(this.explanations.entries()),
+          importJobs: Array.from(this.importJobs.entries()),
+        })
+      );
+    } catch (error) {
+      console.warn("تعذر حفظ قاعدة البيانات المحلية في المتصفح.", error);
+    }
   }
 
   private seedDefaultData() {
@@ -48,6 +93,7 @@ export class WebMemoryAdapter implements DatabaseAdapter {
         description: p.description || null,
         verses_count: p.versesCount,
         tags: JSON.stringify(p.tags || []),
+        default_recording_id: p.defaultRecordingId || p.recordings[0]?.id || null,
         external_provider: p.externalProvider || null,
         external_id: p.externalId || null,
         source_url: p.sourceUrl || null,
@@ -142,11 +188,12 @@ export class WebMemoryAdapter implements DatabaseAdapter {
         description: params[6] ? String(params[6]) : null,
         verses_count: Number(params[7]),
         tags: String(params[8] || "[]"),
-        external_provider: params[9] ? String(params[9]) : null,
-        external_id: params[10] ? String(params[10]) : null,
-        source_url: params[11] ? String(params[11]) : null,
-        theme: params[12] ? String(params[12]) : null,
-        verified: params[13] ? 1 : 0,
+        default_recording_id: params[9] ? String(params[9]) : null,
+        external_provider: params[10] ? String(params[10]) : null,
+        external_id: params[11] ? String(params[11]) : null,
+        source_url: params[12] ? String(params[12]) : null,
+        theme: params[13] ? String(params[13]) : null,
+        verified: params[14] ? 1 : 0,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       });
@@ -217,7 +264,9 @@ export class WebMemoryAdapter implements DatabaseAdapter {
           start_ms: Number(params[0]),
           end_ms: Number(params[1]),
           status: String(params[2]) as "auto" | "reviewed" | "manual",
-          confidence: Number(params[3]),
+          confidence: params[3] === null || params[3] === undefined
+            ? existing.confidence
+            : Number(params[3]),
           updated_at: new Date().toISOString(),
         });
       }
@@ -241,6 +290,7 @@ export class WebMemoryAdapter implements DatabaseAdapter {
         if (v.poem_id === id) this.verses.delete(vid);
       }
     }
+    this.persist();
   }
 
   async select<T>(sql: string, params: unknown[] = []): Promise<T[]> {
@@ -295,9 +345,23 @@ export class WebMemoryAdapter implements DatabaseAdapter {
       return list as unknown as T[];
     }
 
+    if (trimmed.includes("FROM verse_alignments WHERE verse_id = ? AND recording_id = ?")) {
+      const verseId = String(params[0]);
+      const recordingId = String(params[1]);
+      const align = Array.from(this.alignments.values()).find(
+        (a) => a.verse_id === verseId && a.recording_id === recordingId
+      );
+      return align ? ([align] as unknown as T[]) : [];
+    }
+
     if (trimmed.includes("FROM verse_alignments WHERE verse_id = ?")) {
       const verseId = String(params[0]);
-      const align = Array.from(this.alignments.values()).find((a) => a.verse_id === verseId);
+      const align = Array.from(this.alignments.values())
+        .filter((a) => a.verse_id === verseId)
+        .sort((a, b) => {
+          const rank = (status: string) => (status === "manual" ? 0 : status === "reviewed" ? 1 : 2);
+          return rank(a.status) - rank(b.status);
+        })[0];
       return align ? ([align] as unknown as T[]) : [];
     }
 
