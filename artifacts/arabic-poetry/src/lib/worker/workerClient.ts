@@ -410,18 +410,19 @@ export async function fetchYoutubeVideoInfo(
     throw new Error(resp.error_message || "تعذر جلب بيانات مقطع YouTube");
   }
 
-  // Web fallback simulation
-  return {
-    video_id: "dQw4w9WgXcQ",
-    title: "قصيدة واحر قلباه — بصوت حمد النعيمي",
-    channel: "واحة الشعر العربي",
-    duration_seconds: 180,
-    duration_ms: 180000,
-    thumbnail: "https://images.unsplash.com/photo-1579783902614-a3fb3927b675?w=400&q=80",
-    description: "تسجيل صوتي عالي النقاء لقصيدة أبي الطيب المتنبي في عتاب سيف الدولة الحمداني.",
-    webpage_url: url,
-    is_available: true,
-  };
+  const response = await fetch("/api-worker/youtube/info", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      url,
+      max_duration_seconds: maxDurationSeconds,
+    }),
+  });
+  const body = await response.json().catch(() => ({}));
+  if (!response.ok || !body.video_id) {
+    throw new Error(body.error_message || "تعذر جلب بيانات مقطع YouTube");
+  }
+  return body as WorkerYouTubeInfoData;
 }
 
 export async function downloadYoutubeAudio(
@@ -448,21 +449,20 @@ export async function downloadYoutubeAudio(
     throw new Error(resp.error_message || "فشل تنزيل المقطع الصوتي من YouTube");
   }
 
-  // Web fallback simulation
-  return {
-    source_type: "youtube",
-    source_url: url,
-    job_id: jobId || `yt-${Date.now()}`,
-    duration_ms: 180000,
-    duration_seconds: 180,
-    sample_rate: 16000,
-    channels: 1,
-    downloaded_at: new Date().toISOString(),
-    raw_format: "webm",
-    raw_audio_path: `${outputDir}/raw/source.webm`,
-    playback_audio_path: `${outputDir}/final/playback.mp3`,
-    processing_audio_path: `${outputDir}/final/processing.wav`,
-  };
+  const response = await fetch("/api-worker/youtube/download", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      url,
+      quality,
+      job_id: jobId,
+    }),
+  });
+  const body = await response.json().catch(() => ({}));
+  if (!response.ok || !body.playback_audio_path) {
+    throw new Error(body.error_message || "فشل تنزيل المقطع الصوتي من YouTube");
+  }
+  return body as WorkerYouTubeDownloadData;
 }
 
 export async function cancelYoutubeDownload(jobId: string, jobDir?: string): Promise<boolean> {
@@ -480,7 +480,13 @@ export async function cancelYoutubeDownload(jobId: string, jobDir?: string): Pro
     return resp.data?.cancelled ?? true;
   }
 
-  return true;
+  const response = await fetch("/api-worker/youtube/cancel", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ job_id: jobId }),
+  });
+  const body = await response.json().catch(() => ({}));
+  return response.ok && body.cancelled === true;
 }
 
 // --- Universal HTTP Fetcher (Bypasses Browser CORS via Python Worker / Proxy) ---

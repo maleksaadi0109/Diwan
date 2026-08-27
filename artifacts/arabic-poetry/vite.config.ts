@@ -63,6 +63,11 @@ export default defineConfig({
         secure: true,
         rewrite: (path) => path.replace(/^\/api-mizan/, ''),
       },
+      '/api-worker': {
+        target: 'http://127.0.0.1:8080',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api-worker/, '/api'),
+      },
     },
     fs: {
       strict: true,

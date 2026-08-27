@@ -1,1 +1,2 @@
 - [Tailwind v4 artifact preview](tailwind-v4-artifact-preview.md) — imported Tailwind v3 tokens need a CSS @theme block under the workspace Vite template.
+- [YouTube web worker bridge](youtube-web-worker-bridge.md) — browser previews need the API-to-Python worker bridge; Tauri uses IPC directly.
