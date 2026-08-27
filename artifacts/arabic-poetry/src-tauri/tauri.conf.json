@@ -1,0 +1,46 @@
+{
+  "$schema": "https://raw.githubusercontent.com/tauri-apps/tauri/dev/crates/tauri-cli/config.schema.json",
+  "productName": "Diwan",
+  "version": "0.1.0",
+  "identifier": "com.diwan.poetry",
+  "build": {
+    "beforeDevCommand": "pnpm run dev",
+    "devUrl": "http://localhost:23461",
+    "beforeBuildCommand": "pnpm run build",
+    "frontendDist": "../dist/public"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "ديوان — ديوان الشعر العربي والمحاذاة الصوتية",
+        "width": 1280,
+        "height": 850,
+        "minWidth": 980,
+        "minHeight": 650,
+        "center": true,
+        "resizable": true
+      }
+    ],
+    "security": {
+      "csp": null,
+      "assetProtocol": {
+        "enable": true,
+        "scope": ["**"]
+      }
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "shortDescription": "Diwan - Arabic Poetry and Speech Alignment Desktop Application",
+    "longDescription": "منصة ديوان للشعر العربي: الاستماع التفاعلي، المحاذاة الصوتية الدقيقة، تدقيق الحدود الزمنية، وبحور الشعر العربي والمعاجم التراثية.",
+    "category": "Education",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ]
+  }
+}
