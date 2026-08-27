@@ -1,9 +1,13 @@
-# [Project name]
+# Arabic Poetry Desktop / ديوان الشعر العربي
 
-_Replace the heading above with the project's name, and this line with one sentence describing what this app does for users._
+React/Vite preview and Tauri desktop application for reading Arabic poetry, importing verified poem text, and synchronizing recitations with verses.
 
 ## Run & Operate
 
+- `pnpm --filter @workspace/arabic-poetry run dev` — run the Arabic poetry web preview on port 23461
+- `pnpm --filter @workspace/arabic-poetry run typecheck` — typecheck the imported desktop frontend
+- `pnpm --filter @workspace/arabic-poetry run build` — build the web frontend to `artifacts/arabic-poetry/dist/public`
+- `PYTHONPATH=artifacts/arabic-poetry/worker python3 -m pytest -q artifacts/arabic-poetry/worker/tests` — test the audio worker
 - `pnpm --filter @workspace/api-server run dev` — run the API server (port 5000)
 - `pnpm run typecheck` — full typecheck across all packages
 - `pnpm run build` — typecheck + build all packages
@@ -22,23 +26,35 @@ _Replace the heading above with the project's name, and this line with one sente
 
 ## Where things live
 
-_Populate as you build — short repo map plus pointers to the source-of-truth file for DB schema, API contracts, theme files, etc._
+- `artifacts/arabic-poetry/src/` — React application, import flows, player, database adapters, alignment UI, and providers
+- `artifacts/arabic-poetry/src/lib/providers/MizanAlArabProvider.ts` — Mizan Al-Arab API parsing and background explanation enrichment
+- `artifacts/arabic-poetry/src/lib/worker/workerClient.ts` — Tauri IPC and browser-safe worker client
+- `artifacts/arabic-poetry/worker/diwan_worker/` — Python audio inspection, conversion, VAD, ASR, alignment, and YouTube pipeline
+- `artifacts/arabic-poetry/worker/diwan_worker/audio/youtube.py` — YouTube metadata/download pipeline and structured Arabic errors
+- `artifacts/arabic-poetry/src-tauri/` — Tauri 2 shell, SQLite plugin, filesystem/dialog plugins, and Python worker bridge
+- `artifacts/arabic-poetry/src/styles/globals.css` — dark parchment/gold visual theme and Tailwind v4 theme tokens
 
 ## Architecture decisions
 
-_Populate as you build — non-obvious choices a reader couldn't infer from the code (3-5 bullets)._
+- Preserve the original Arabic text and diacritics; only derived normalized text is used for matching.
+- Save poem text before explanation enrichment so a Mizan outage cannot block import; explanations are fetched in the background.
+- Download YouTube audio as the raw source first, then create and validate separate `playback.mp3` and `processing.wav` files with FFprobe.
+- Use `requestAnimationFrame` and binary-search verse boundaries for playback highlighting; VAD is supporting evidence for ASR alignment, not a standalone boundary detector.
+- Keep the web preview functional with an in-memory database; Tauri uses SQLite when the native runtime is available.
 
 ## Product
 
-_Describe the high-level user-facing capabilities of this app once they exist._
+The app includes a seeded Arabic poetry library, synchronized verse player, manual poem/audio import, Mizan Al-Arab import with metadata and full verse text, YouTube audio import, transcription/alignment tooling, boundary review, dictionary lookup, and export UI.
 
 ## User preferences
 
-_Populate as you build — explicit user instructions worth remembering across sessions._
+No cross-project preferences recorded.
 
 ## Gotchas
 
-_Populate as you build — sharp edges, "always run X before Y" rules._
+- The Tauri worker requires `python3`, `yt-dlp`, `ffmpeg`, and `ffprobe` to be available in the packaged/runtime environment.
+- The web preview cannot invoke Tauri IPC; worker client functions intentionally provide browser-safe fallbacks, while native downloading and ASR run through Tauri.
+- Mizan browser requests use the Vite `/api-mizan` proxy to avoid browser CORS restrictions.
 
 ## Pointers
 

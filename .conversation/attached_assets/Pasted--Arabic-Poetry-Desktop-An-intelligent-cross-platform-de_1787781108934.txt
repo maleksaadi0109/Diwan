@@ -1,0 +1,204 @@
+# 📜 Arabic Poetry Desktop (ديوان الشعر العربي)
+
+An intelligent, cross-platform desktop application for discovering, listening to, and understanding Classical Arabic Poetry. The application automatically synchronizes YouTube audio recitations with written poem verses, provides millisecond-precise forced alignment, displays poetic meter and prosodic analysis, and offers in-depth vocabulary explanations from classical lexicons like **Lisan Al-Arab (لسان العرب)**.
+
+---
+
+## 🌟 1. Core Vision & Objectives
+
+1. **Automated Audio-Text Forced Alignment**:
+   * Given a YouTube recitation and a poem text URL (from Mizan Al-Arab or AlDiwan), automatically detect verse timestamps with zero manual tagging.
+   * Intelligently strip introductory silence, video title screens, background commentary, and outro music.
+2. **Immersive Audio Player & Synchronized Typography**:
+   * Beautiful RTL Arabic typography (Amiri & Cairo font families) with full Tashkeel (diacritics).
+   * Active verse highlighting, smooth auto-scrolling, and interactive seek-to-verse navigation.
+3. **Deep Literary Analysis & Classical Lexicons**:
+   * Click any verse to view its complete literary meaning, poetic meter (البحر العروضي والتفعيلات), and classical word definitions.
+   * Integrated with **Mizan Al-Arab API** and **Lisan Al-Arab** lexicon.
+4. **Lightweight Native Desktop Experience**:
+   * Built on **Tauri + Rust + React + Vite**, offering native performance, instant startup, and tiny memory footprint compared to Electron.
+
+---
+
+## 🛠️ 2. Technology Stack
+
+| Layer | Technology | Purpose |
+|---|---|---|
+| **Framework** | **Tauri (v2)** | Rust-powered desktop application wrapper & IPC bridge |
+| **Frontend** | **React 18 + TypeScript** | Component-driven user interface |
+| **Styling** | **Tailwind CSS** | Responsive, dark-themed UI with amber/gold classical accents |
+| **Animations** | **Framer Motion** | Verse transitions, modal popovers, and smooth playback indicators |
+| **Typography** | **Google Fonts (Amiri & Cairo)** | High-legibility classical Arabic Naskh and modern UI fonts |
+| **Audio Engine** | **HTML5 Audio + MPV (PipeWire/ALSA)** | Dual playback engine with Linux Wayland/WebKit stability fallbacks |
+| **Audio Pipeline** | **Python + yt-dlp + ffmpeg + NumPy** | Audio extraction, VAD energy envelope analysis, slicing |
+| **Alignment AI** | **Semi-Global Dynamic Programming** | Needleman-Wunsch sequence alignment with free start/end gaps |
+
+---
+
+## 🏗️ 3. System Architecture & Alignment Pipeline
+
+```mermaid
+graph TD
+    A["YouTube Recitation URL"] --> B["yt-dlp Audio Extractor"]
+    C["Mizan Al-Arab / AlDiwan URL"] --> D["Poem & Lexicon Scraper"]
+    
+    B --> E["16kHz Mono WAV Audio"]
+    E --> F["Voice Activity Detector (VAD)"]
+    F -->|Strip Intro/Outro| G["Speech Energy Envelope"]
+    
+    D --> H["Diacritized Verses & Metadata"]
+    H --> I["Arabic Text Normalizer"]
+    
+    G --> J["Speech Recognition / Energy Peaks"]
+    I --> K["Semi-Global Word Aligner (Needleman-Wunsch)"]
+    J --> K
+    
+    K --> L["Verse Boundary Detector"]
+    L --> M["Confidence Scorer (0-100%)"]
+    M --> N["Audio Segmenter (ffmpeg)"]
+    
+    N --> O["Per-Verse MP3 Audio Slices"]
+    L --> P["Unified Poem JSON Database"]
+    
+    O --> Q["Interactive Desktop GUI (React + Tauri)"]
+    P --> Q
+```
+
+### Alignment Pipeline Stages:
+
+1. **`ArabicTextNormalizer`**:
+   * Strips Tashkeel, Tatweel (Kashida), and punctuation.
+   * Unifies letter variants (`أ/إ/آ/ٱ` $\to$ `ا`, `ى` $\to$ `ي`, `ة` $\to$ `ه`).
+   * Computes normalized character Levenshtein similarity ($Sim \ge 0.68$) to accommodate poetic rhyme inflections.
+
+2. **`VoiceActivityDetector` (VAD)**:
+   * Evaluates RMS energy envelopes across 16kHz audio frames.
+   * Detects true recitation start, stripping silent intros, sponsor graphics, and commentary.
+   * Detects recitation end, ignoring outro music and post-poem remarks.
+
+3. **`SemiGlobalWordAligner`**:
+   * Dynamic programming with free start and end gaps ($D[0, j] = 0$).
+   * Allows arbitrary pre-poem speech (e.g. *"هذه القصيدة للمتنبي..."*) to pass without alignment drift.
+   * Tolerates word omissions, speech recognition noise, and insertions.
+
+4. **`VerseBoundaryDetector` & `ConfidenceScorer`**:
+   * Maps word token spans to exact timestamps $[t_{\text{start}}, t_{\text{end}}]$.
+   * Multi-factor scoring: $0.40 \cdot \text{MatchRatio} + 0.25 \cdot \text{FuzzySim} + 0.20 \cdot P_{\text{asr}} + 0.15 \cdot \text{TimeConsistency}$.
+   * Badges verses $\ge 80\%$ (Emerald), $\ge 65\%$ (Amber), or $< 65\%$ (Review).
+
+5. **`AudioSegmenter`**:
+   * Cuts standalone per-verse MP3 files (`verse_001.mp3`, `verse_002.mp3`, ...) with anti-overlap midpoint clamping.
+
+---
+
+## 📚 4. Data Sources & Lexicon Integration
+
+1. **Mizan Al-Arab (`mizanalarab.com`) REST API**:
+   * **Poem Data**: `/api/poems/{id}` — Clean verses, poet biographical info, and poetic meter.
+   * **Lexicon Glossary**: `/api/glossary/?word={word}` — Full classical definitions from *Lisan Al-Arab (لسان العرب)*, *Al-Sihah (الصحاح)*, and *Ma'jam Al-Ghani (معجم الغني)*.
+   * **Prosodic Analysis**: `/api/analysis/` — Metric meter name, Taf'ilat (التفعيلات), and prosodic scansion (التقطيع العروضي).
+
+2. **AlDiwan (`aldiwan.net`)**:
+   * Comprehensive archive for pre-Islamic, Umayyad, Abbasid, and Andalusian poems.
+   * Community annotations and vocabulary definitions.
+
+3. **YouTube Recitations**:
+   * Supports recitations by legendary performers (e.g. Osama El-Waz, Abdulrahman Al-Sabih, Faleh Al-Qudaa).
+
+---
+
+## 🖥️ 5. Project Directory Structure
+
+```
+arabic_poem_desktop/
+├── public/
+│   └── audio/                       # Padded audio files and per-verse cuts
+│       └── poem_<id>/
+│           ├── full.mp3
+│           ├── verse_001.mp3
+│           └── verse_002.mp3
+├── poems/                           # Persistent poem JSON records
+│   ├── poem_1787778960.json
+│   └── imru_alqais_tatwala_layluka.json
+├── scripts/                         # Python alignment & extraction engine
+│   ├── arabic_poetry_aligner.py     # Core modular pipeline
+│   └── poem_extractor.py            # CLI and Tauri execution wrapper
+├── src/                             # React + Vite Frontend
+│   ├── components/
+│   │   ├── AddPoemModal.tsx         # Mizan/AlDiwan/YouTube link importer
+│   │   ├── PoemList.tsx             # Library grid with poet/meter filter
+│   │   ├── PoemPlayer.tsx           # Synced player + Verse explanation modal
+│   │   └── SearchBar.tsx            # Full-text Arabic search
+│   ├── hooks/
+│   │   └── useAudioSync.ts          # Millisecond-accurate audio sync
+│   ├── types/
+│   │   └── poem.ts                  # TypeScript interfaces for Poem, Verse, Meter
+│   ├── App.tsx                      # Root application layout
+│   └── main.tsx                     # React DOM entrypoint
+├── src-tauri/                       # Rust Desktop Core
+│   ├── src/
+│   │   ├── downloader.rs            # Python script execution & IPC bridge
+│   │   ├── poems.rs                 # JSON poem file I/O
+│   │   ├── main.rs                  # Native window & WebKit flags
+│   │   └── lib.rs                   # Tauri plugin registration
+│   ├── Cargo.toml                   # Rust dependencies
+│   └── tauri.conf.json              # Tauri application configuration
+├── package.json
+└── project.md                       # Comprehensive project roadmap & spec
+```
+
+---
+
+## 🗺️ 6. Roadmap & What We Want To Do Next
+
+### 🔷 Phase 1: Completed & Verified ✅
+- [x] Full-featured desktop UI with custom typography (Amiri & Cairo).
+- [x] Dual audio engine (WebKit HTML5 Audio + Native MPV fallback).
+- [x] Automated forced alignment pipeline with VAD intro/outro stripping.
+- [x] Direct Mizan Al-Arab REST API scraper with multithreaded Lisan Al-Arab dictionary lookup.
+- [x] Interactive click-to-explain verse popover with literary explanation, meter badge, and word meanings.
+- [x] Per-verse audio slicing with anti-overlap padding.
+- [x] Dynamic path resolution preventing Tauri dev-watcher rebuild loops.
+
+---
+
+### 🔶 Phase 2: Offline Dictionary & AI Enhancements (Next Focus) 🚀
+1. **Embedded Offline Arabic Dictionary (SQLite Database)**:
+   * Bundle a pre-indexed SQLite database (~15-20MB) containing ~50,000 Classical Arabic root words from *Lisan Al-Arab* and *Al-Mu'jam Al-Waseet*.
+   * Enable 100% offline vocabulary definitions without needing any internet connection.
+2. **Contextual AI Verse Explanation (Tier-2 LLM Integration)**:
+   * Provide an optional local LLM (e.g. Ollama / Gemma / Qwen) or Cloud API key (Gemini / Claude) to generate deep, contextual rhetorical explanations (البلاغة، الاستعارات، أسباب النظم) for every verse.
+3. **Interactive Waveform Scrubber & Boundary Editor**:
+   * Add a visual audio waveform (using wavesurfer.js) where users can see speech energy peaks and fine-tune verse start/end timestamps visually with drag-and-drop handles.
+
+---
+
+### 🔷 Phase 3: Export & Sharing Features
+1. **Short-Form Video / Social Export**:
+   * Generate stylized animated video clips (1080x1920 9:16 for Reels/Shorts/TikTok) with synchronized diacritized Arabic calligraphy over ambient backgrounds.
+2. **Calligraphic Image Card Generator**:
+   * Export high-resolution PNG/SVG cards of any verse with poet name, meter, and explanation for sharing.
+3. **Multiple Recitations per Poem**:
+   * Allow attaching multiple YouTube recitation links to a single poem, switching reciters seamlessly with independent alignment timestamps.
+
+---
+
+### 🔷 Phase 4: Production Packaging & Release
+- [ ] Linux release: `.deb`, `.rpm`, and `.AppImage`.
+- [ ] Windows release: `.msi` and standalone `.exe`.
+- [ ] macOS release: `.dmg` (Universal binary for Apple Silicon & Intel).
+
+---
+
+## ⚡ Quick Start for Development
+
+```bash
+# 1. Install frontend dependencies
+npm install
+
+# 2. Run the application in desktop development mode
+npm run tauri:dev
+
+# 3. Build optimized production binaries
+npm run tauri:build
+```
