@@ -1,14 +1,20 @@
 import React, { useState } from "react";
 import { Era, Bahr, Poem } from "@/types";
 import { normalizeArabic } from "@/lib/utils";
-import { Upload, FileText, CheckCircle, Music, Mic } from "lucide-react";
+import { Upload, CheckCircle, Music, Mic, Wand2, Globe, Edit3 } from "lucide-react";
+import { YoutubeIcon } from "@/components/icons/YoutubeIcon";
 import { pickAudioFile, copyAudioToAppData } from "@/lib/audio/fileManager";
 import { transcribeArabicAudio, TranscriptResult } from "@/lib/worker/workerClient";
 import { TranscriptionModal } from "./TranscriptionModal";
+import { MizanImportView } from "./MizanImportView";
+import { YouTubeImportView } from "./YouTubeImportView";
+import { NewPoemWizard } from "./NewPoemWizard";
 
 interface ImportViewProps {
   onImportPoem: (poem: Poem) => void;
 }
+
+type ImportTab = "wizard" | "mizan" | "youtube" | "manual";
 
 const ERAS: Era[] = [
   "جاهلي",
@@ -37,6 +43,9 @@ const BUHOOR: Bahr[] = [
 ];
 
 export const ImportView: React.FC<ImportViewProps> = ({ onImportPoem }) => {
+  const [activeTab, setActiveTab] = useState<ImportTab>("wizard");
+
+  // Manual Tab Form State
   const [title, setTitle] = useState("");
   const [poetName, setPoetName] = useState("");
   const [era, setEra] = useState<Era>("عباسي");
@@ -136,7 +145,6 @@ export const ImportView: React.FC<ImportViewProps> = ({ onImportPoem }) => {
 
   const handleApplyTranscript = (transcript: TranscriptResult) => {
     if (!versesRaw.trim()) {
-      // If user hasn't typed verses yet, populate raw text from transcript
       setVersesRaw(transcript.raw_text);
     }
     setIsModalOpen(false);
@@ -200,7 +208,7 @@ export const ImportView: React.FC<ImportViewProps> = ({ onImportPoem }) => {
       };
 
       onImportPoem(newPoem);
-      setSuccessMessage("تم حفظ القصيدة وإدراج التسجيل الصوتي بنجاح في ديوان!");
+      setSuccessMessage("تم حفظ القصيدة بنجاح في ديوان!");
       setTimeout(() => setSuccessMessage(null), 4000);
     } finally {
       setIsProcessing(false);
@@ -209,206 +217,240 @@ export const ImportView: React.FC<ImportViewProps> = ({ onImportPoem }) => {
 
   return (
     <div className="h-full overflow-y-auto px-8 py-6 max-w-5xl mx-auto w-full select-none">
-      <div className="mb-6">
-        <h2 className="text-2xl font-bold text-parchment-100 font-poetry">
-          استيراد قصيدة وتسجيل صوتي
-        </h2>
-        <p className="text-sm text-parchment-400 mt-1">
-          أدخل أبيات القصيدة مع الفاصل بين الشطرين واربطها بالتسجيل الصوتي المحلي.
-        </p>
+      {/* Top Header with Navigation Tabs */}
+      <div className="mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-charcoal-850 pb-4">
+        <div>
+          <h2 className="text-2xl font-bold text-parchment-100 font-poetry">
+            مركز استيراد القصائد والتسجيلات
+          </h2>
+          <p className="text-xs text-parchment-400 mt-1">
+            استيراد النصوص المحققة والتسجيلات الصوتية عبر معالج ذكي متكامل
+          </p>
+        </div>
+
+        {/* Tab Navigation */}
+        <div className="flex bg-charcoal-900 p-1 rounded-xl border border-charcoal-800 shrink-0">
+          <button
+            onClick={() => setActiveTab("wizard")}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors flex items-center gap-1.5 ${
+              activeTab === "wizard"
+                ? "bg-gold-500 text-charcoal-950 shadow-sm"
+                : "text-parchment-400 hover:text-parchment-200"
+            }`}
+          >
+            <Wand2 className="w-3.5 h-3.5" />
+            <span>المعالج الشامل</span>
+          </button>
+          <button
+            onClick={() => setActiveTab("mizan")}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors flex items-center gap-1.5 ${
+              activeTab === "mizan"
+                ? "bg-gold-500 text-charcoal-950 shadow-sm"
+                : "text-parchment-400 hover:text-parchment-200"
+            }`}
+          >
+            <Globe className="w-3.5 h-3.5" />
+            <span>ميزان العرب</span>
+          </button>
+          <button
+            onClick={() => setActiveTab("youtube")}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors flex items-center gap-1.5 ${
+              activeTab === "youtube"
+                ? "bg-gold-500 text-charcoal-950 shadow-sm"
+                : "text-parchment-400 hover:text-parchment-200"
+            }`}
+          >
+            <YoutubeIcon className="w-3.5 h-3.5" />
+            <span>YouTube</span>
+          </button>
+          <button
+            onClick={() => setActiveTab("manual")}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors flex items-center gap-1.5 ${
+              activeTab === "manual"
+                ? "bg-gold-500 text-charcoal-950 shadow-sm"
+                : "text-parchment-400 hover:text-parchment-200"
+            }`}
+          >
+            <Edit3 className="w-3.5 h-3.5" />
+            <span>إدخال يدوي</span>
+          </button>
+        </div>
       </div>
 
-      {successMessage && (
-        <div className="mb-6 p-4 rounded-xl bg-emerald-500/15 border border-emerald-500/40 text-emerald-300 flex items-center gap-2">
-          <CheckCircle className="w-5 h-5" />
-          <span>{successMessage}</span>
-        </div>
+      {/* Tab 1: Wizard */}
+      {activeTab === "wizard" && <NewPoemWizard onFinishWizard={onImportPoem} />}
+
+      {/* Tab 2: Mizan Al-Arab */}
+      {activeTab === "mizan" && <MizanImportView onPoemImported={onImportPoem} />}
+
+      {/* Tab 3: YouTube */}
+      {activeTab === "youtube" && (
+        <YouTubeImportView
+          onAudioDownloaded={(res, info) => {
+            setAudioSourcePath(res.playback_audio_path);
+            setAudioFileName(`${info.title}.mp3`);
+            setTitle(info.title);
+            setSuccessMessage(`تم تنزيل ومعالجة الصوت بنجاح (${info.title}). يمكنك إكمال البيانات وحفظ القصيدة.`);
+          }}
+        />
       )}
 
-      <form onSubmit={handleSave} className="space-y-6 select-text">
-        {/* Basic metadata grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-xs font-semibold text-parchment-300 mb-1.5">
-              عنوان القصيدة *
-            </label>
-            <input
-              type="text"
-              required
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="مثال: واحر قلباه ممن قلبه شبم"
-              className="w-full bg-charcoal-850 text-parchment-100 placeholder-parchment-400/50 border border-charcoal-700 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-gold-500"
-            />
-          </div>
+      {/* Tab 4: Manual Form */}
+      {activeTab === "manual" && (
+        <form onSubmit={handleSave} className="space-y-6 select-text">
+          {successMessage && (
+            <div className="p-4 rounded-xl bg-emerald-500/15 border border-emerald-500/40 text-emerald-300 flex items-center gap-2">
+              <CheckCircle className="w-5 h-5" />
+              <span>{successMessage}</span>
+            </div>
+          )}
 
-          <div>
-            <label className="block text-xs font-semibold text-parchment-300 mb-1.5">
-              اسم الشاعر *
-            </label>
-            <input
-              type="text"
-              required
-              value={poetName}
-              onChange={(e) => setPoetName(e.target.value)}
-              placeholder="مثال: أبو الطيب المتنبي"
-              className="w-full bg-charcoal-850 text-parchment-100 placeholder-parchment-400/50 border border-charcoal-700 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-gold-500"
-            />
-          </div>
-
-          <div>
-            <label className="block text-xs font-semibold text-parchment-300 mb-1.5">
-              العصر الأدبي
-            </label>
-            <select
-              value={era}
-              onChange={(e) => setEra(e.target.value as Era)}
-              className="w-full bg-charcoal-850 text-parchment-100 border border-charcoal-700 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-gold-500"
-            >
-              {ERAS.map((e) => (
-                <option key={e} value={e}>
-                  العصر ال{e}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-xs font-semibold text-parchment-300 mb-1.5">
-              بحر القصيدة
-            </label>
-            <select
-              value={bahr}
-              onChange={(e) => setBahr(e.target.value as Bahr)}
-              className="w-full bg-charcoal-850 text-parchment-100 border border-charcoal-700 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-gold-500"
-            >
-              {BUHOOR.map((b) => (
-                <option key={b} value={b}>
-                  بحر {b}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-xs font-semibold text-parchment-300 mb-1.5">
-              القافية والرويّ
-            </label>
-            <input
-              type="text"
-              value={rhyme}
-              onChange={(e) => setRhyme(e.target.value)}
-              placeholder="مثال: الميم المضمومة (ـمُ)"
-              className="w-full bg-charcoal-850 text-parchment-100 placeholder-parchment-400/50 border border-charcoal-700 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-gold-500"
-            />
-          </div>
-        </div>
-
-        {/* Verses input */}
-        <div>
-          <div className="flex items-center justify-between mb-1.5">
-            <label className="text-xs font-semibold text-parchment-300">
-              أبيات القصيدة (بيت في كل سطر) *
-            </label>
-            <div className="flex items-center gap-2 text-xs text-parchment-400">
-              <span>فاصل الشطرين:</span>
+          {/* Basic metadata grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-semibold text-parchment-300 mb-1.5">
+                عنوان القصيدة *
+              </label>
               <input
                 type="text"
-                value={delimiter}
-                onChange={(e) => setDelimiter(e.target.value)}
-                className="w-16 bg-charcoal-850 border border-charcoal-700 rounded px-2 py-0.5 text-center text-xs text-gold-300"
+                required
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="مثال: واحر قلباه ممن قلبه شبم"
+                className="w-full bg-charcoal-850 text-parchment-100 placeholder-parchment-400/50 border border-charcoal-700 rounded-xl px-4 py-2.5 text-xs focus:outline-none focus:border-gold-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-parchment-300 mb-1.5">
+                اسم الشاعر *
+              </label>
+              <input
+                type="text"
+                required
+                value={poetName}
+                onChange={(e) => setPoetName(e.target.value)}
+                placeholder="مثال: أبو الطيب المتنبي"
+                className="w-full bg-charcoal-850 text-parchment-100 placeholder-parchment-400/50 border border-charcoal-700 rounded-xl px-4 py-2.5 text-xs focus:outline-none focus:border-gold-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-parchment-300 mb-1.5">
+                العصر الأدبي
+              </label>
+              <select
+                value={era}
+                onChange={(e) => setEra(e.target.value as Era)}
+                className="w-full bg-charcoal-850 text-parchment-100 border border-charcoal-700 rounded-xl px-4 py-2.5 text-xs focus:outline-none focus:border-gold-500"
+              >
+                {ERAS.map((e) => (
+                  <option key={e} value={e}>
+                    العصر ال{e}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-parchment-300 mb-1.5">
+                بحر القصيدة
+              </label>
+              <select
+                value={bahr}
+                onChange={(e) => setBahr(e.target.value as Bahr)}
+                className="w-full bg-charcoal-850 text-parchment-100 border border-charcoal-700 rounded-xl px-4 py-2.5 text-xs focus:outline-none focus:border-gold-500"
+              >
+                {BUHOOR.map((b) => (
+                  <option key={b} value={b}>
+                    بحر {b}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-parchment-300 mb-1.5">
+                القافية والرويّ
+              </label>
+              <input
+                type="text"
+                value={rhyme}
+                onChange={(e) => setRhyme(e.target.value)}
+                placeholder="مثال: الميم المضمومة (ـمُ)"
+                className="w-full bg-charcoal-850 text-parchment-100 placeholder-parchment-400/50 border border-charcoal-700 rounded-xl px-4 py-2.5 text-xs focus:outline-none focus:border-gold-500"
               />
             </div>
           </div>
-          <textarea
-            rows={8}
-            required
-            value={versesRaw}
-            onChange={(e) => setVersesRaw(e.target.value)}
-            placeholder="واحَرَّ قَلباهُ مِمَّن قَلبُهُ شَبِمُ ... وَمَن بِجِسمي وَحالي عِندَهُ سَقَمُ
-ما لي أُكَتِّمُ حُبّاً قَد بَرى جَسَدي ... وَتَدَّعي حُبَّ سَيفِ الدَولَةِ الأُمَمُ"
-            className="w-full bg-charcoal-850 text-parchment-100 placeholder-parchment-400/40 border border-charcoal-700 rounded-xl p-4 text-sm font-poetry leading-relaxed focus:outline-none focus:border-gold-500 font-normal"
-          />
-        </div>
 
-        {/* Audio file upload selection & ASR button */}
-        <div className="p-6 rounded-2xl bg-charcoal-900 border border-dashed border-charcoal-700 text-center hover:border-gold-500/50 transition-colors">
-          <Upload className="w-8 h-8 text-gold-400 mx-auto mb-2" />
-          <h4 className="text-sm font-semibold text-parchment-200 mb-1">
-            إرفاق ملف صوتي للقصيدة (MP3, WAV, M4A, OGG, FLAC)
-          </h4>
-          <p className="text-xs text-parchment-400 mb-3">
-            سيتم استيراد الملف ونسخه بأمان إلى مجلد التطبيق للمحاذاة والمزامنة الدقيقة.
-          </p>
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
-            <button
-              type="button"
-              onClick={handlePickAudio}
-              className="px-5 py-2.5 rounded-xl bg-charcoal-800 hover:bg-charcoal-700 text-gold-400 border border-charcoal-700 text-xs font-semibold transition-colors flex items-center gap-2"
-            >
-              <Music className="w-4 h-4" />
-              <span>{audioFileName ? `تم اختيار: ${audioFileName}` : "اختيار ملف صوتي محلي..."}</span>
-            </button>
-            {audioSourcePath && (
-              <button
-                type="button"
-                onClick={handleStartTranscribe}
-                className="px-4 py-2.5 rounded-xl bg-gold-500/15 hover:bg-gold-500/25 text-gold-300 border border-gold-500/30 text-xs font-semibold transition-colors flex items-center gap-1.5"
-              >
-                <Mic className="w-4 h-4" />
-                <span>بدء التفريغ الصوتي بالذكاء الاصطناعي</span>
-              </button>
-            )}
-            {audioFileName && (
-              <button
-                type="button"
-                onClick={() => {
-                  setAudioFileName(null);
-                  setAudioSourcePath(null);
-                }}
-                className="text-xs text-parchment-400 hover:text-rose-400 px-2 py-1"
-              >
-                إلغاء
-              </button>
-            )}
+          {/* Verses input */}
+          <div>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="text-xs font-semibold text-parchment-300">
+                أبيات القصيدة (بيت في كل سطر) *
+              </label>
+              <div className="flex items-center gap-2 text-xs text-parchment-400">
+                <span>فاصل الشطرين:</span>
+                <input
+                  type="text"
+                  value={delimiter}
+                  onChange={(e) => setDelimiter(e.target.value)}
+                  className="w-16 bg-charcoal-850 border border-charcoal-700 rounded px-2 py-0.5 text-center text-xs text-gold-300"
+                />
+              </div>
+            </div>
+            <textarea
+              rows={6}
+              required
+              value={versesRaw}
+              onChange={(e) => setVersesRaw(e.target.value)}
+              placeholder="واحَرَّ قَلباهُ مِمَّن قَلبُهُ شَبِمُ ... وَمَن بِجِسمي وَحالي عِندَهُ سَقَمُ"
+              className="w-full bg-charcoal-850 text-parchment-100 placeholder-parchment-400/40 border border-charcoal-700 rounded-xl p-4 text-xs font-poetry leading-relaxed focus:outline-none focus:border-gold-500 font-normal"
+            />
           </div>
-        </div>
 
-        {/* Live Preview */}
-        {parsedVerses.length > 0 && (
-          <div className="bg-charcoal-900 p-5 rounded-2xl border border-charcoal-800">
-            <h4 className="text-xs font-semibold text-gold-400 mb-3 flex items-center gap-1.5">
-              <FileText className="w-4 h-4" />
-              <span>معاينة الأبيات ({parsedVerses.length} بيت)</span>
+          {/* Audio file selection */}
+          <div className="p-6 rounded-2xl bg-charcoal-900 border border-dashed border-charcoal-700 text-center hover:border-gold-500/50 transition-colors">
+            <Upload className="w-8 h-8 text-gold-400 mx-auto mb-2" />
+            <h4 className="text-sm font-semibold text-parchment-200 mb-1">
+              إرفاق ملف صوتي محلي (MP3, WAV, M4A, OGG)
             </h4>
-            <div className="space-y-2 max-h-48 overflow-y-auto">
-              {parsedVerses.slice(0, 3).map((v) => (
-                <div
-                  key={v.id}
-                  className="bg-charcoal-950/60 p-2.5 rounded-lg border border-charcoal-850 text-xs font-poetry text-parchment-200 flex justify-between gap-4"
+            <div className="flex items-center justify-center gap-3 mt-3">
+              <button
+                type="button"
+                onClick={handlePickAudio}
+                className="px-5 py-2.5 rounded-xl bg-charcoal-800 hover:bg-charcoal-700 text-gold-400 border border-charcoal-700 text-xs font-semibold flex items-center gap-2"
+              >
+                <Music className="w-4 h-4" />
+                <span>{audioFileName ? `تم اختيار: ${audioFileName}` : "اختيار ملف صوتي..."}</span>
+              </button>
+              {audioSourcePath && (
+                <button
+                  type="button"
+                  onClick={handleStartTranscribe}
+                  className="px-4 py-2.5 rounded-xl bg-gold-500/15 hover:bg-gold-500/25 text-gold-300 border border-gold-500/30 text-xs font-semibold flex items-center gap-1.5"
                 >
-                  <span className="flex-1 text-right">{v.firstHemistich}</span>
-                  <span className="text-gold-500/40 font-sans">...</span>
-                  <span className="flex-1 text-left">{v.secondHemistich}</span>
-                </div>
-              ))}
+                  <Mic className="w-4 h-4" />
+                  <span>بدء التفريغ الصوتي</span>
+                </button>
+              )}
             </div>
           </div>
-        )}
 
-        {/* Submit */}
-        <div className="flex justify-end gap-3 pt-2">
-          <button
-            type="submit"
-            disabled={parsedVerses.length === 0 || !title.trim() || !poetName.trim() || isProcessing}
-            className="px-6 py-2.5 rounded-xl bg-gold-500 hover:bg-gold-400 disabled:opacity-50 disabled:cursor-not-allowed text-charcoal-950 font-bold text-sm transition-all shadow-md flex items-center gap-2"
-          >
-            {isProcessing ? "جاري الحفظ..." : "حفظ القصيدة في المكتبة"}
-          </button>
-        </div>
-      </form>
+          {/* Submit */}
+          <div className="flex justify-end gap-3 pt-2">
+            <button
+              type="submit"
+              disabled={parsedVerses.length === 0 || !title.trim() || !poetName.trim() || isProcessing}
+              className="px-6 py-2.5 rounded-xl bg-gold-500 hover:bg-gold-400 disabled:opacity-50 text-charcoal-950 font-bold text-xs shadow-md"
+            >
+              {isProcessing ? "جاري الحفظ..." : "حفظ القصيدة في ديوان"}
+            </button>
+          </div>
+        </form>
+      )}
 
-      {/* ASR Progress & Results Modal */}
+      {/* ASR Modal */}
       <TranscriptionModal
         isOpen={isModalOpen}
         isTranscribing={isTranscribing}

@@ -1,6 +1,5 @@
-import { INITIAL_SCHEMA_SQL } from "./schema";
+import { PoemRow, PoetRow, VerseRow, RecordingRow, VerseAlignmentRow, WordDefinitionRow, VerseExplanationRow, ImportJobRow } from "./schema";
 import { MOCK_POEMS, MOCK_POETS } from "@/data/mockData";
-import { PoetRow, PoemRow, VerseRow, VerseAlignmentRow, RecordingRow, WordDefinitionRow } from "./schema";
 
 export interface DatabaseAdapter {
   execute(sql: string, params?: unknown[]): Promise<void>;
@@ -8,69 +7,36 @@ export interface DatabaseAdapter {
   close(): Promise<void>;
 }
 
-// In-Memory SQLite adapter for Node.js / Vitest tests
-export class BetterSqliteAdapter implements DatabaseAdapter {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private db: any;
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  constructor(dbInstance: any) {
-    this.db = dbInstance;
-    this.db.pragma("foreign_keys = ON");
-  }
-
-  static async create(filename = ":memory:"): Promise<BetterSqliteAdapter> {
-    const Database = (await import("better-sqlite3")).default;
-    const db = new Database(filename);
-    return new BetterSqliteAdapter(db);
-  }
-
-  async execute(sql: string, params: unknown[] = []): Promise<void> {
-    if (params.length === 0 && sql.includes(";")) {
-      this.db.exec(sql);
-      return;
-    }
-    const stmt = this.db.prepare(sql);
-    stmt.run(...params);
-  }
-
-  async select<T>(sql: string, params: unknown[] = []): Promise<T[]> {
-    const stmt = this.db.prepare(sql);
-    return stmt.all(...params) as T[];
-  }
-
-  async close(): Promise<void> {
-    this.db.close();
-  }
-}
-
-// Web Browser fallback with In-Memory + LocalStorage persistence
+// In-Memory Database Adapter for Web browser mode and Unit Tests
 export class WebMemoryAdapter implements DatabaseAdapter {
-  private poets: Map<string, PoetRow> = new Map();
-  private poems: Map<string, PoemRow> = new Map();
-  private verses: Map<string, VerseRow> = new Map();
-  private alignments: Map<string, VerseAlignmentRow> = new Map();
-  private recordings: Map<string, RecordingRow> = new Map();
-  private definitions: Map<string, WordDefinitionRow> = new Map();
+  private poets = new Map<string, PoetRow>();
+  private poems = new Map<string, PoemRow>();
+  private verses = new Map<string, VerseRow>();
+  private recordings = new Map<string, RecordingRow>();
+  private alignments = new Map<string, VerseAlignmentRow>();
+  private definitions = new Map<string, WordDefinitionRow>();
+  private explanations = new Map<string, VerseExplanationRow>();
+  private importJobs = new Map<string, ImportJobRow>();
 
   constructor() {
     this.seedDefaultData();
   }
 
   private seedDefaultData() {
-    // Populate default data for rich web browser experience
-    for (const poet of Object.values(MOCK_POETS)) {
-      this.poets.set(poet.id, {
-        id: poet.id,
-        name: poet.name,
-        era: poet.era,
-        bio: poet.bio || null,
-        birth_year: poet.birthYear || null,
-        death_year: poet.deathYear || null,
+    // Seed Poets
+    for (const p of Object.values(MOCK_POETS)) {
+      this.poets.set(p.id, {
+        id: p.id,
+        name: p.name,
+        era: p.era,
+        bio: p.bio || null,
+        birth_year: p.birthYear || null,
+        death_year: p.deathYear || null,
         created_at: new Date().toISOString(),
       });
     }
 
+    // Seed Poems
     for (const p of MOCK_POEMS) {
       this.poems.set(p.id, {
         id: p.id,
@@ -82,6 +48,11 @@ export class WebMemoryAdapter implements DatabaseAdapter {
         description: p.description || null,
         verses_count: p.versesCount,
         tags: JSON.stringify(p.tags || []),
+        external_provider: p.externalProvider || null,
+        external_id: p.externalId || null,
+        source_url: p.sourceUrl || null,
+        theme: p.theme || null,
+        verified: p.verified ? 1 : 0,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       });
@@ -111,6 +82,7 @@ export class WebMemoryAdapter implements DatabaseAdapter {
           first_hemistich: v.firstHemistich,
           second_hemistich: v.secondHemistich,
           explanation: v.explanation || null,
+          external_id: v.externalId || null,
           created_at: new Date().toISOString(),
         });
 
@@ -147,7 +119,18 @@ export class WebMemoryAdapter implements DatabaseAdapter {
   async execute(sql: string, params: unknown[] = []): Promise<void> {
     const trimmed = sql.trim();
 
-    if (trimmed.startsWith("INSERT OR REPLACE INTO poems") || trimmed.startsWith("INSERT INTO poems")) {
+    if (trimmed.startsWith("INSERT OR REPLACE INTO poets") || trimmed.startsWith("INSERT INTO poets")) {
+      const id = String(params[0]);
+      this.poets.set(id, {
+        id,
+        name: String(params[1]),
+        era: String(params[2]),
+        bio: params[3] ? String(params[3]) : null,
+        birth_year: params[4] ? String(params[4]) : null,
+        death_year: params[5] ? String(params[5]) : null,
+        created_at: new Date().toISOString(),
+      });
+    } else if (trimmed.startsWith("INSERT OR REPLACE INTO poems") || trimmed.startsWith("INSERT INTO poems")) {
       const id = String(params[0]);
       this.poems.set(id, {
         id,
@@ -159,11 +142,73 @@ export class WebMemoryAdapter implements DatabaseAdapter {
         description: params[6] ? String(params[6]) : null,
         verses_count: Number(params[7]),
         tags: String(params[8] || "[]"),
+        external_provider: params[9] ? String(params[9]) : null,
+        external_id: params[10] ? String(params[10]) : null,
+        source_url: params[11] ? String(params[11]) : null,
+        theme: params[12] ? String(params[12]) : null,
+        verified: params[13] ? 1 : 0,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      });
+    } else if (trimmed.startsWith("INSERT OR REPLACE INTO verses") || trimmed.startsWith("INSERT INTO verses")) {
+      const id = String(params[0]);
+      this.verses.set(id, {
+        id,
+        poem_id: String(params[1]),
+        order_index: Number(params[2]),
+        text: String(params[3]),
+        normalized_text: String(params[4]),
+        first_hemistich: String(params[5]),
+        second_hemistich: String(params[6]),
+        explanation: params[7] ? String(params[7]) : null,
+        external_id: params[8] ? String(params[8]) : null,
+        created_at: new Date().toISOString(),
+      });
+    } else if (trimmed.startsWith("INSERT OR REPLACE INTO verse_explanations") || trimmed.startsWith("INSERT INTO verse_explanations")) {
+      const id = String(params[0]);
+      this.explanations.set(id, {
+        id,
+        verse_id: String(params[1]),
+        verse_external_id: params[2] ? String(params[2]) : null,
+        text: String(params[3]),
+        author: params[4] ? String(params[4]) : null,
+        author_death_hijri: params[5] ? String(params[5]) : null,
+        source_title: params[6] ? String(params[6]) : null,
+        explanation_type: String(params[7]),
+        provider: String(params[8]),
+        raw_source_json: params[9] ? String(params[9]) : null,
+        created_at: new Date().toISOString(),
+      });
+    } else if (trimmed.startsWith("INSERT OR REPLACE INTO recordings") || trimmed.startsWith("INSERT INTO recordings")) {
+      const id = String(params[0]);
+      this.recordings.set(id, {
+        id,
+        poem_id: String(params[1]),
+        title: String(params[2]),
+        reciter: String(params[3]),
+        audio_path: String(params[4]),
+        duration_ms: Number(params[5]),
+        sample_rate: params[6] ? Number(params[6]) : null,
+        channels: params[7] ? Number(params[7]) : null,
+        format: params[8] ? String(params[8]) : null,
+        created_at: new Date().toISOString(),
+      });
+    } else if (trimmed.startsWith("INSERT OR REPLACE INTO verse_alignments") || trimmed.startsWith("INSERT INTO verse_alignments")) {
+      const id = String(params[0]);
+      this.alignments.set(id, {
+        id,
+        verse_id: String(params[1]),
+        recording_id: String(params[2]),
+        start_ms: Number(params[3]),
+        end_ms: Number(params[4]),
+        confidence: Number(params[5]),
+        status: String(params[6]),
+        start_token_index: params[7] !== null && params[7] !== undefined ? Number(params[7]) : null,
+        end_token_index: params[8] !== null && params[8] !== undefined ? Number(params[8]) : null,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       });
     } else if (trimmed.startsWith("UPDATE verse_alignments")) {
-      // params: [startMs, endMs, status, confidence, id]
       const id = String(params[4]);
       const existing = this.alignments.get(id);
       if (existing) {
@@ -176,11 +221,39 @@ export class WebMemoryAdapter implements DatabaseAdapter {
           updated_at: new Date().toISOString(),
         });
       }
+    } else if (trimmed.startsWith("INSERT OR REPLACE INTO import_jobs") || trimmed.startsWith("INSERT INTO import_jobs")) {
+      const id = String(params[0]);
+      this.importJobs.set(id, {
+        id,
+        status: String(params[1]),
+        job_type: String(params[2]),
+        input_path: params[3] ? String(params[3]) : null,
+        output_path: params[4] ? String(params[4]) : null,
+        progress: Number(params[5] || 0),
+        error_message: params[6] ? String(params[6]) : null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      });
+    } else if (trimmed.startsWith("DELETE FROM poems WHERE id = ?")) {
+      const id = String(params[0]);
+      this.poems.delete(id);
+      for (const [vid, v] of this.verses.entries()) {
+        if (v.poem_id === id) this.verses.delete(vid);
+      }
     }
   }
 
   async select<T>(sql: string, params: unknown[] = []): Promise<T[]> {
     const trimmed = sql.trim();
+
+    if (trimmed.includes("FROM poems WHERE external_provider = ? AND external_id = ?")) {
+      const provider = String(params[0]);
+      const extId = String(params[1]);
+      const found = Array.from(this.poems.values()).find(
+        (p) => p.external_provider === provider && p.external_id === extId
+      );
+      return found ? ([found] as unknown as T[]) : [];
+    }
 
     if (trimmed.includes("FROM poems WHERE id = ?")) {
       const id = String(params[0]);
@@ -210,6 +283,12 @@ export class WebMemoryAdapter implements DatabaseAdapter {
       return list as unknown as T[];
     }
 
+    if (trimmed.includes("FROM verse_explanations WHERE verse_id = ?")) {
+      const verseId = String(params[0]);
+      const list = Array.from(this.explanations.values()).filter((e) => e.verse_id === verseId);
+      return list as unknown as T[];
+    }
+
     if (trimmed.includes("FROM recordings WHERE poem_id = ?")) {
       const poemId = String(params[0]);
       const list = Array.from(this.recordings.values()).filter((r) => r.poem_id === poemId);
@@ -228,6 +307,12 @@ export class WebMemoryAdapter implements DatabaseAdapter {
         (d) => d.normalized_word === search || d.word === search || d.root === search
       );
       return found ? ([found] as unknown as T[]) : [];
+    }
+
+    if (trimmed.includes("FROM import_jobs WHERE id = ?")) {
+      const id = String(params[0]);
+      const job = this.importJobs.get(id);
+      return job ? ([job] as unknown as T[]) : [];
     }
 
     return [] as T[];
@@ -250,21 +335,8 @@ export class TauriSqlAdapter implements DatabaseAdapter {
     this.db = db;
   }
 
-  static async connect(dbPath = "sqlite:diwan.db"): Promise<TauriSqlAdapter> {
-    const { default: DatabaseLoader } = await import("@tauri-apps/plugin-sql");
-    const db = (await DatabaseLoader.load(dbPath)) as unknown as TauriPluginSqlDatabase;
-    return new TauriSqlAdapter(db);
-  }
-
   async execute(sql: string, params: unknown[] = []): Promise<void> {
-    const statements = sql
-      .split(";")
-      .map((s) => s.trim())
-      .filter((s) => s.length > 0);
-
-    for (const statement of statements) {
-      await this.db.execute(statement, params);
-    }
+    await this.db.execute(sql, params);
   }
 
   async select<T>(sql: string, params: unknown[] = []): Promise<T[]> {
@@ -276,38 +348,68 @@ export class TauriSqlAdapter implements DatabaseAdapter {
   }
 }
 
-let activeAdapter: DatabaseAdapter | null = null;
+// Better SQLite Adapter for Node / Vitest tests
+export class BetterSqliteAdapter implements DatabaseAdapter {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private db: any;
 
-export async function getDatabase(): Promise<DatabaseAdapter> {
-  if (activeAdapter) {
-    return activeAdapter;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  constructor(db: any) {
+    this.db = db;
   }
 
-  // Detect runtime environment
-  const isTauri = typeof window !== "undefined" && ("__TAURI_INTERNALS__" in window || "__TAURI__" in window);
-  const isNode = typeof globalThis !== "undefined" && "process" in globalThis && typeof window === "undefined";
+  static async create(path: string = ":memory:"): Promise<BetterSqliteAdapter> {
+    const { createRequire } = await import("module");
+    const require = createRequire(import.meta.url);
+    const DatabaseConstructor = require("better-sqlite3");
+    const db = new DatabaseConstructor(path);
+    return new BetterSqliteAdapter(db);
+  }
 
-  if (isTauri) {
-    try {
-      activeAdapter = await TauriSqlAdapter.connect("sqlite:diwan.db");
-      await activeAdapter.execute(INITIAL_SCHEMA_SQL);
-      return activeAdapter;
-    } catch (e) {
-      console.warn("Failed to connect via TauriSqlAdapter, falling back:", e);
+  async execute(sql: string, params: unknown[] = []): Promise<void> {
+    if (params.length === 0) {
+      this.db.exec(sql);
+    } else {
+      this.db.prepare(sql).run(...params);
     }
   }
 
-  if (isNode) {
-    activeAdapter = await BetterSqliteAdapter.create(":memory:");
-    await activeAdapter.execute(INITIAL_SCHEMA_SQL);
-    return activeAdapter;
+  async select<T>(sql: string, params: unknown[] = []): Promise<T[]> {
+    return this.db.prepare(sql).all(...params) as T[];
   }
 
-  // Fallback for browser dev
-  activeAdapter = new WebMemoryAdapter();
-  return activeAdapter;
+  async close(): Promise<void> {
+    this.db.close();
+  }
 }
 
-export function setDatabaseAdapter(adapter: DatabaseAdapter | null) {
-  activeAdapter = adapter;
+// Universal database factory
+export async function getDatabase(): Promise<DatabaseAdapter> {
+  const isTauri =
+    typeof window !== "undefined" &&
+    ("__TAURI_INTERNALS__" in window || "__TAURI__" in window);
+
+  if (isTauri) {
+    try {
+      const Database = (await import("@tauri-apps/plugin-sql")).default;
+      const db = await Database.load("sqlite:diwan.db");
+      return new TauriSqlAdapter(db);
+    } catch (err) {
+      console.warn("Failed to load Tauri SQL plugin, falling back to Web in-memory DB:", err);
+      return new WebMemoryAdapter();
+    }
+  }
+
+  // Node.js test environment
+  const g = typeof globalThis !== "undefined" ? (globalThis as unknown as { process?: { versions?: { node?: string } } }) : undefined;
+  if (g && g.process && g.process.versions && g.process.versions.node) {
+    try {
+      return await BetterSqliteAdapter.create(":memory:");
+    } catch {
+      return new WebMemoryAdapter();
+    }
+  }
+
+  return new WebMemoryAdapter();
 }
+

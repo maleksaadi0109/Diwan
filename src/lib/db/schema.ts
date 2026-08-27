@@ -19,6 +19,11 @@ CREATE TABLE IF NOT EXISTS poems (
     description TEXT,
     verses_count INTEGER NOT NULL DEFAULT 0,
     tags TEXT NOT NULL DEFAULT '[]',
+    external_provider TEXT,
+    external_id TEXT,
+    source_url TEXT,
+    theme TEXT,
+    verified INTEGER DEFAULT 0,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
@@ -32,8 +37,23 @@ CREATE TABLE IF NOT EXISTS verses (
     first_hemistich TEXT NOT NULL,
     second_hemistich TEXT NOT NULL,
     explanation TEXT,
+    external_id TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     UNIQUE(poem_id, order_index)
+);
+
+CREATE TABLE IF NOT EXISTS verse_explanations (
+    id TEXT PRIMARY KEY,
+    verse_id TEXT NOT NULL REFERENCES verses(id) ON DELETE CASCADE,
+    verse_external_id TEXT,
+    text TEXT NOT NULL,
+    author TEXT,
+    author_death_hijri TEXT,
+    source_title TEXT,
+    explanation_type TEXT NOT NULL, -- 'classical' | 'verse' | 'manual'
+    provider TEXT NOT NULL,         -- 'mizan_al_arab' | 'aldewan' | 'local'
+    raw_source_json TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS recordings (
@@ -100,6 +120,7 @@ CREATE INDEX IF NOT EXISTS idx_poems_poet_id ON poems(poet_id);
 CREATE INDEX IF NOT EXISTS idx_poems_era ON poems(era);
 CREATE INDEX IF NOT EXISTS idx_verses_poem_id ON verses(poem_id);
 CREATE INDEX IF NOT EXISTS idx_verses_normalized_text ON verses(normalized_text);
+CREATE INDEX IF NOT EXISTS idx_verse_explanations_verse_id ON verse_explanations(verse_id);
 CREATE INDEX IF NOT EXISTS idx_recordings_poem_id ON recordings(poem_id);
 CREATE INDEX IF NOT EXISTS idx_alignments_verse_rec ON verse_alignments(verse_id, recording_id);
 CREATE INDEX IF NOT EXISTS idx_definitions_normalized_word ON word_definitions(normalized_word);
@@ -125,6 +146,11 @@ export interface PoemRow {
   description: string | null;
   verses_count: number;
   tags: string;
+  external_provider: string | null;
+  external_id: string | null;
+  source_url: string | null;
+  theme: string | null;
+  verified: number;
   created_at?: string;
   updated_at?: string;
 }
@@ -138,6 +164,21 @@ export interface VerseRow {
   first_hemistich: string;
   second_hemistich: string;
   explanation: string | null;
+  external_id: string | null;
+  created_at?: string;
+}
+
+export interface VerseExplanationRow {
+  id: string;
+  verse_id: string;
+  verse_external_id: string | null;
+  text: string;
+  author: string | null;
+  author_death_hijri: string | null;
+  source_title: string | null;
+  explanation_type: string;
+  provider: string;
+  raw_source_json: string | null;
   created_at?: string;
 }
 

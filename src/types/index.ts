@@ -35,6 +35,21 @@ export interface Poet {
   birthYear?: string;
   deathYear?: string;
   avatarUrl?: string;
+  externalId?: string;
+}
+
+export interface VerseExplanationItem {
+  id: string;
+  verseId: string;
+  verseExternalId?: string;
+  text: string;
+  author?: string;
+  authorDeathHijri?: string;
+  sourceTitle?: string;
+  explanationType: 'classical' | 'verse' | 'manual';
+  provider: string;
+  rawSourceJson?: string;
+  createdAt?: string;
 }
 
 export interface Verse {
@@ -51,6 +66,8 @@ export interface Verse {
   // Synthetic / real alignment
   alignment?: VerseAlignment;
   explanation?: string;
+  externalId?: string;
+  explanations?: VerseExplanationItem[];
 }
 
 export type AlignmentStatus = 'auto' | 'reviewed' | 'manual';
@@ -95,6 +112,11 @@ export interface Poem {
   recordings: Recording[];
   defaultRecordingId?: string;
   tags: string[];
+  externalProvider?: string;
+  externalId?: string;
+  sourceUrl?: string;
+  theme?: string;
+  verified?: boolean;
 }
 
 export interface WordDefinition {
@@ -114,8 +136,8 @@ export interface MeterAnalysis {
 
 export interface ImportJob {
   id: string;
-  status: 'pending' | 'processing' | 'completed' | 'failed';
-  jobType: 'audio_transcription' | 'verse_alignment' | 'poem_import';
+  status: 'pending' | 'processing' | 'completed' | 'failed' | 'cancelled';
+  jobType: 'audio_transcription' | 'verse_alignment' | 'poem_import' | 'youtube_download';
   inputPath?: string;
   outputPath?: string;
   progress: number; // 0.0 to 1.0
@@ -125,4 +147,3 @@ export interface ImportJob {
 }
 
 export type ActiveTab = 'library' | 'player' | 'editor' | 'import' | 'settings';
-

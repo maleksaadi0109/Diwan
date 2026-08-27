@@ -71,9 +71,10 @@ class WorkerProgressEvent:
     stage: str
     progress: float  # 0.0 to 1.0
     message: Optional[str] = None
+    details: Optional[Dict[str, Any]] = None
 
     def to_json(self) -> str:
-        d = {
+        d: Dict[str, Any] = {
             "type": "progress",
             "id": self.id,
             "stage": self.stage,
@@ -81,6 +82,8 @@ class WorkerProgressEvent:
         }
         if self.message:
             d["message"] = self.message
+        if self.details:
+            d["details"] = self.details
         return json.dumps(d, ensure_ascii=False)
 
 @dataclass

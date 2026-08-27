@@ -99,18 +99,23 @@ export async function copyAudioToAppData(
  */
 export function resolveAudioSrc(audioPath: string): string {
   if (!audioPath) return "";
-  if (audioPath.startsWith("http://") || audioPath.startsWith("https://") || audioPath.startsWith("blob:")) {
+  if (
+    audioPath.startsWith("http://") ||
+    audioPath.startsWith("https://") ||
+    audioPath.startsWith("blob:") ||
+    audioPath.startsWith("data:")
+  ) {
     return audioPath;
   }
 
   const isTauri = typeof window !== "undefined" && ("__TAURI_INTERNALS__" in window || "__TAURI__" in window);
   if (isTauri) {
     try {
-      const { convertFileSrc } = (window as unknown as { __TAURI_CORE__?: { convertFileSrc: (p: string) => string } }).__TAURI_CORE__ || {};
-      if (typeof convertFileSrc === "function") {
-        return convertFileSrc(audioPath);
+      const internals = (window as unknown as { __TAURI_INTERNALS__?: { convertFileSrc?: (p: string, protocol?: string) => string } }).__TAURI_INTERNALS__;
+      if (internals && typeof internals.convertFileSrc === "function") {
+        return internals.convertFileSrc(audioPath);
       }
-      return `asset://localhost/${encodeURIComponent(audioPath)}`;
+      return `http://asset.localhost/${encodeURIComponent(audioPath)}`;
     } catch {
       return audioPath;
     }
@@ -120,4 +125,39 @@ export function resolveAudioSrc(audioPath: string): string {
     return `/${audioPath}`;
   }
   return audioPath;
+}
+
+/**
+ * Resolves and creates canonical directories for a poem recording:
+ * appDataDir/poems/{poemUuid}/recordings/{recordingUuid}/
+ */
+export async function getPoemRecordingDirectory(
+  poemUuid: string,
+  recordingUuid: string
+): Promise<string> {
+  const isTauri = typeof window !== "undefined" && ("__TAURI_INTERNALS__" in window || "__TAURI__" in window);
+
+  if (isTauri) {
+    try {
+      const { appDataDir, join } = await import("@tauri-apps/api/path");
+      const { mkdir, exists } = await import("@tauri-apps/plugin-fs");
+
+      const base = await appDataDir();
+      const recDir = await join(base, "poems", poemUuid, "recordings", recordingUuid);
+
+      const rawDir = await join(recDir, "raw");
+      const tempDir = await join(recDir, "temp");
+      const finalDir = await join(recDir, "final");
+
+      if (!(await exists(rawDir))) await mkdir(rawDir, { recursive: true });
+      if (!(await exists(tempDir))) await mkdir(tempDir, { recursive: true });
+      if (!(await exists(finalDir))) await mkdir(finalDir, { recursive: true });
+
+      return recDir;
+    } catch (err) {
+      console.warn("Could not create structured recording directory, falling back:", err);
+    }
+  }
+
+  return `recordings/${poemUuid}/${recordingUuid}`;
 }

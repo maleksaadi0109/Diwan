@@ -32,6 +32,8 @@ def handle_health(req: WorkerRequest) -> None:
     # Check ffmpeg / ffprobe availability
     ffmpeg_version = "unavailable"
     ffprobe_version = "unavailable"
+    ytdlp_version = None
+    ytdlp_path = None
 
     try:
         res = subprocess.run(["ffmpeg", "-version"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, timeout=5)
@@ -47,6 +49,24 @@ def handle_health(req: WorkerRequest) -> None:
     except Exception:
         pass
 
+    try:
+        import yt_dlp
+        ytdlp_version = getattr(getattr(yt_dlp, "version", None), "__version__", "unknown")
+        ytdlp_path = getattr(yt_dlp, "__file__", None)
+    except ImportError:
+        emit_response(
+            WorkerResponse(
+                id=req.id,
+                success=False,
+                error_code="YTDLP_NOT_INSTALLED",
+                error_message="مكوّن تنزيل YouTube غير مثبت في بيئة التطبيق",
+                data={
+                    "python_executable": sys.executable,
+                },
+            )
+        )
+        return
+
     emit_response(
         WorkerResponse(
             id=req.id,
@@ -54,6 +74,9 @@ def handle_health(req: WorkerRequest) -> None:
             data={
                 "worker_version": __version__,
                 "python_version": sys.version.split()[0],
+                "python_executable": sys.executable,
+                "ytdlp_version": ytdlp_version,
+                "ytdlp_path": ytdlp_path,
                 "ffmpeg": ffmpeg_version,
                 "ffprobe": ffprobe_version,
                 "status": "ready",
@@ -411,6 +434,221 @@ def handle_segment_audio(req: WorkerRequest) -> None:
             )
         )
 
+def handle_youtube_info(req: WorkerRequest) -> None:
+    url = req.payload.get("url")
+    max_duration = req.payload.get("max_duration_seconds", 3600)
+
+    if not url:
+        emit_response(
+            WorkerResponse(
+                id=req.id,
+                success=False,
+                error_code="INVALID_COMMAND",
+                error_message="Missing 'url' in payload",
+            )
+        )
+        return
+
+    try:
+        from .audio.youtube import fetch_youtube_video_info
+        info = fetch_youtube_video_info(url=url, max_duration_seconds=max_duration)
+        emit_response(
+            WorkerResponse(
+                id=req.id,
+                success=True,
+                data=info,
+            )
+        )
+    except ValueError as ve:
+        emit_response(
+            WorkerResponse(
+                id=req.id,
+                success=False,
+                error_code="INVALID_URL",
+                error_message=str(ve),
+            )
+        )
+    except Exception as e:
+        log(f"YouTube info error: {e}")
+        err_msg = str(e)
+        code = "INTERNAL_ERROR"
+        if ":" in err_msg:
+            parts = err_msg.split(":", 1)
+            prefix = parts[0].strip()
+            if prefix.isupper() or "_" in prefix:
+                code = prefix
+                err_msg = parts[1].strip()
+
+        emit_response(
+            WorkerResponse(
+                id=req.id,
+                success=False,
+                error_code=code,
+                error_message=err_msg,
+            )
+        )
+
+def handle_youtube_download(req: WorkerRequest) -> None:
+    url = req.payload.get("url")
+    output_dir = req.payload.get("output_dir")
+    job_id = req.payload.get("job_id")
+    quality = req.payload.get("quality", "192k")
+
+    if not url or not output_dir:
+        emit_response(
+            WorkerResponse(
+                id=req.id,
+                success=False,
+                error_code="INVALID_COMMAND",
+                error_message="'url' and 'output_dir' are required in payload",
+            )
+        )
+        return
+
+    def on_prog(pct: float, msg: str, details: Optional[dict] = None) -> None:
+        emit_event(WorkerProgressEvent(id=req.id, stage="downloading", progress=pct, message=msg, details=details))
+
+    try:
+        from .audio.youtube import download_youtube_audio
+        result = download_youtube_audio(
+            url=url,
+            output_base_dir=output_dir,
+            job_id=job_id,
+            audio_quality=quality,
+            on_progress=on_prog,
+        )
+        emit_response(
+            WorkerResponse(
+                id=req.id,
+                success=True,
+                data=result,
+            )
+        )
+    except ValueError as ve:
+        emit_response(
+            WorkerResponse(
+                id=req.id,
+                success=False,
+                error_code="INVALID_URL",
+                error_message=str(ve),
+            )
+        )
+    except Exception as e:
+        log(f"YouTube download error: {e}")
+        err_msg = str(e)
+        code = "DOWNLOAD_FAILED"
+        if ":" in err_msg:
+            parts = err_msg.split(":", 1)
+            prefix = parts[0].strip()
+            if prefix.isupper() or "_" in prefix:
+                code = prefix
+                err_msg = parts[1].strip()
+
+        emit_response(
+            WorkerResponse(
+                id=req.id,
+                success=False,
+                error_code=code,
+                error_message=err_msg,
+            )
+        )
+
+def handle_youtube_cancel(req: WorkerRequest) -> None:
+    job_id = req.payload.get("job_id")
+    job_dir = req.payload.get("job_dir")
+
+    if not job_id:
+        emit_response(
+            WorkerResponse(
+                id=req.id,
+                success=False,
+                error_code="INVALID_COMMAND",
+                error_message="Missing 'job_id' in payload",
+            )
+        )
+        return
+
+    from .audio.youtube import cancel_youtube_job
+    cancelled = cancel_youtube_job(job_id=job_id, job_dir=job_dir)
+    emit_response(
+        WorkerResponse(
+            id=req.id,
+            success=True,
+            data={"cancelled": cancelled, "job_id": job_id},
+        )
+    )
+
+def handle_fetch_url(req: WorkerRequest) -> None:
+    url = req.payload.get("url")
+    headers = req.payload.get("headers") or {}
+    timeout = req.payload.get("timeout_seconds", 30)
+
+    if not url:
+        emit_response(
+            WorkerResponse(
+                id=req.id,
+                success=False,
+                error_code="INVALID_COMMAND",
+                error_message="Missing 'url' in payload",
+            )
+        )
+        return
+
+    import urllib.request
+    import urllib.error
+    import ssl
+
+    req_headers = {
+        "User-Agent": "DiwanDesktop/1.0 (Arabic Poetic Audio Sync; +https://github.com/diwan/diwan)",
+        "Accept": "application/json",
+        **headers,
+    }
+
+    try:
+        req_obj = urllib.request.Request(url, headers=req_headers)
+        ctx = ssl.create_default_context()
+        with urllib.request.urlopen(req_obj, timeout=timeout, context=ctx) as resp:
+            data = resp.read().decode("utf-8")
+            status = resp.status
+            content_type = resp.headers.get("Content-Type", "")
+
+        emit_response(
+            WorkerResponse(
+                id=req.id,
+                success=True,
+                data={
+                    "status": status,
+                    "content_type": content_type,
+                    "text": data,
+                },
+            )
+        )
+    except urllib.error.HTTPError as he:
+        err_body = ""
+        try:
+            err_body = he.read().decode("utf-8", errors="ignore")
+        except Exception:
+            pass
+        emit_response(
+            WorkerResponse(
+                id=req.id,
+                success=False,
+                error_code=f"HTTP_{he.code}",
+                error_message=f"HTTP {he.code}: {he.reason}",
+                data={"status": he.code, "text": err_body},
+            )
+        )
+    except Exception as e:
+        log(f"Fetch URL error: {e}")
+        emit_response(
+            WorkerResponse(
+                id=req.id,
+                success=False,
+                error_code="NETWORK_ERROR",
+                error_message=str(e),
+            )
+        )
+
 def process_line(line: str) -> None:
     line = line.strip()
     if not line:
@@ -443,6 +681,14 @@ def process_line(line: str) -> None:
         handle_align(req)
     elif req.command == "segment_audio":
         handle_segment_audio(req)
+    elif req.command == "youtube_info":
+        handle_youtube_info(req)
+    elif req.command == "youtube_download":
+        handle_youtube_download(req)
+    elif req.command == "youtube_cancel":
+        handle_youtube_cancel(req)
+    elif req.command == "fetch_url":
+        handle_fetch_url(req)
     else:
         emit_response(
             WorkerResponse(

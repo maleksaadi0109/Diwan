@@ -18,6 +18,16 @@ export default defineConfig({
   server: {
     port: 1420,
     strictPort: true,
+    proxy: {
+      "/api-mizan": {
+        target: "https://mizanalarab.com",
+        changeOrigin: true,
+        rewrite: (p) => p.replace(/^\/api-mizan/, ""),
+        headers: {
+          "User-Agent": "DiwanDesktop/1.0",
+        },
+      },
+    },
     watch: {
       // 3. tell vite to ignore watching `src-tauri`
       ignored: ["**/src-tauri/**"],

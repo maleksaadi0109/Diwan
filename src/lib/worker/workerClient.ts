@@ -90,6 +90,33 @@ export interface PoemAlignmentResponse {
   alignments: VerseAlignmentItem[];
 }
 
+export interface WorkerYouTubeInfoData {
+  video_id: string;
+  title: string;
+  channel: string;
+  duration_seconds: number;
+  duration_ms: number;
+  thumbnail: string;
+  description: string;
+  webpage_url: string;
+  is_available: boolean;
+}
+
+export interface WorkerYouTubeDownloadData {
+  source_type: string;
+  source_url: string;
+  job_id: string;
+  duration_ms: number;
+  duration_seconds: number;
+  sample_rate: number;
+  channels: number;
+  downloaded_at: string;
+  raw_format: string;
+  raw_audio_path: string;
+  playback_audio_path: string;
+  processing_audio_path: string;
+}
+
 export async function checkWorkerHealth(): Promise<WorkerHealthData> {
   const isTauri = typeof window !== "undefined" && ("__TAURI_INTERNALS__" in window || "__TAURI__" in window);
 
@@ -358,3 +385,178 @@ export async function alignPoemAudio(
     })),
   };
 }
+
+// --- YouTube Audio Integration ---
+
+export async function fetchYoutubeVideoInfo(
+  url: string,
+  maxDurationSeconds: number = 3600
+): Promise<WorkerYouTubeInfoData> {
+  const isTauri = typeof window !== "undefined" && ("__TAURI_INTERNALS__" in window || "__TAURI__" in window);
+
+  if (isTauri) {
+    const { invoke } = await import("@tauri-apps/api/core");
+    const resp = await invoke<WorkerResponse<WorkerYouTubeInfoData>>("execute_worker_command", {
+      request: {
+        id: `req-yt-info-${Date.now()}`,
+        command: "youtube_info",
+        payload: { url, max_duration_seconds: maxDurationSeconds },
+      },
+    });
+
+    if (resp.success && resp.data) {
+      return resp.data;
+    }
+    throw new Error(resp.error_message || "تعذر جلب بيانات مقطع YouTube");
+  }
+
+  // Web fallback simulation
+  return {
+    video_id: "dQw4w9WgXcQ",
+    title: "قصيدة واحر قلباه — بصوت حمد النعيمي",
+    channel: "واحة الشعر العربي",
+    duration_seconds: 180,
+    duration_ms: 180000,
+    thumbnail: "https://images.unsplash.com/photo-1579783902614-a3fb3927b675?w=400&q=80",
+    description: "تسجيل صوتي عالي النقاء لقصيدة أبي الطيب المتنبي في عتاب سيف الدولة الحمداني.",
+    webpage_url: url,
+    is_available: true,
+  };
+}
+
+export async function downloadYoutubeAudio(
+  url: string,
+  outputDir: string = "recordings",
+  quality: "128k" | "192k" = "192k",
+  jobId?: string
+): Promise<WorkerYouTubeDownloadData> {
+  const isTauri = typeof window !== "undefined" && ("__TAURI_INTERNALS__" in window || "__TAURI__" in window);
+
+  if (isTauri) {
+    const { invoke } = await import("@tauri-apps/api/core");
+    const resp = await invoke<WorkerResponse<WorkerYouTubeDownloadData>>("execute_worker_command", {
+      request: {
+        id: `req-yt-down-${Date.now()}`,
+        command: "youtube_download",
+        payload: { url, output_dir: outputDir, quality, job_id: jobId },
+      },
+    });
+
+    if (resp.success && resp.data) {
+      return resp.data;
+    }
+    throw new Error(resp.error_message || "فشل تنزيل المقطع الصوتي من YouTube");
+  }
+
+  // Web fallback simulation
+  return {
+    source_type: "youtube",
+    source_url: url,
+    job_id: jobId || `yt-${Date.now()}`,
+    duration_ms: 180000,
+    duration_seconds: 180,
+    sample_rate: 16000,
+    channels: 1,
+    downloaded_at: new Date().toISOString(),
+    raw_format: "webm",
+    raw_audio_path: `${outputDir}/raw/source.webm`,
+    playback_audio_path: `${outputDir}/final/playback.mp3`,
+    processing_audio_path: `${outputDir}/final/processing.wav`,
+  };
+}
+
+export async function cancelYoutubeDownload(jobId: string, jobDir?: string): Promise<boolean> {
+  const isTauri = typeof window !== "undefined" && ("__TAURI_INTERNALS__" in window || "__TAURI__" in window);
+
+  if (isTauri) {
+    const { invoke } = await import("@tauri-apps/api/core");
+    const resp = await invoke<WorkerResponse<{ cancelled: boolean }>>("execute_worker_command", {
+      request: {
+        id: `req-yt-cancel-${Date.now()}`,
+        command: "youtube_cancel",
+        payload: { job_id: jobId, job_dir: jobDir },
+      },
+    });
+    return resp.data?.cancelled ?? true;
+  }
+
+  return true;
+}
+
+// --- Universal HTTP Fetcher (Bypasses Browser CORS via Python Worker / Proxy) ---
+
+export interface WorkerFetchUrlData {
+  status: number;
+  content_type: string;
+  text: string;
+}
+
+export async function fetchUrlViaWorker(
+  url: string,
+  headers?: Record<string, string>
+): Promise<WorkerFetchUrlData> {
+  const isTauri = typeof window !== "undefined" && ("__TAURI_INTERNALS__" in window || "__TAURI__" in window);
+
+  if (isTauri) {
+    try {
+      const { invoke } = await import("@tauri-apps/api/core");
+      const resp = await invoke<WorkerResponse<WorkerFetchUrlData>>("execute_worker_command", {
+        request: {
+          id: `req-fetch-${Date.now()}`,
+          command: "fetch_url",
+          payload: { url, headers },
+        },
+      });
+
+      if (resp.success && resp.data) {
+        return resp.data;
+      }
+      throw new Error(resp.error_message || `فشل الاتصال بالرابط: ${url}`);
+    } catch (tauriErr) {
+      console.warn("Tauri worker fetch failed, trying proxy/fallback:", tauriErr);
+    }
+  }
+
+  // Web Browser / Proxy mode: rewrite to local vite proxy if mizanalarab.com
+  let targetUrl = url;
+  if (url.startsWith("https://mizanalarab.com")) {
+    targetUrl = url.replace("https://mizanalarab.com", "/api-mizan");
+  }
+
+  try {
+    const response = await fetch(targetUrl, {
+      method: "GET",
+      headers: {
+        "Accept": "application/json",
+        ...headers,
+      },
+    });
+
+    const text = await response.text();
+    return {
+      status: response.status,
+      content_type: response.headers.get("content-type") || "",
+      text,
+    };
+  } catch (browserFetchErr) {
+    // If standard fetch was blocked by CORS and we are not using proxy, try proxy
+    if (targetUrl === url && url.startsWith("https://mizanalarab.com")) {
+      const proxyUrl = url.replace("https://mizanalarab.com", "/api-mizan");
+      const proxyResp = await fetch(proxyUrl, {
+        method: "GET",
+        headers: {
+          "Accept": "application/json",
+          ...headers,
+        },
+      });
+      const text = await proxyResp.text();
+      return {
+        status: proxyResp.status,
+        content_type: proxyResp.headers.get("content-type") || "",
+        text,
+      };
+    }
+    throw browserFetchErr;
+  }
+}
+

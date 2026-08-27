@@ -4,8 +4,8 @@ import {
   Verse,
   Recording,
   VerseAlignment,
+  VerseExplanationItem,
   WordDefinition,
-  MeterAnalysis,
   ImportJob,
   Era,
   Bahr,
@@ -18,10 +18,10 @@ import {
   PoetRow,
   PoemRow,
   VerseRow,
+  VerseExplanationRow,
   RecordingRow,
   VerseAlignmentRow,
   WordDefinitionRow,
-  MeterAnalysisRow,
   ImportJobRow,
 } from "./schema";
 import { MOCK_POEMS, MOCK_POETS } from "@/data/mockData";
@@ -107,9 +107,21 @@ export class DiwanRepository {
     // Ensure poet is saved
     await this.savePoet(poem.poet);
 
+    // Check if poem already has existing verses with alignments to preserve
+    const existingVerses = await this.getVersesByPoemId(poem.id);
+    const existingAlignmentMap = new Map<number, VerseAlignment>();
+    for (const ev of existingVerses) {
+      if (ev.alignment) {
+        existingAlignmentMap.set(ev.orderIndex, ev.alignment);
+      }
+    }
+
     const sql = `
-      INSERT OR REPLACE INTO poems (id, title, poet_id, era, bahr, rhyme, description, verses_count, tags, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP);
+      INSERT OR REPLACE INTO poems (
+        id, title, poet_id, era, bahr, rhyme, description, verses_count, tags,
+        external_provider, external_id, source_url, theme, verified, updated_at
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP);
     `;
     await this.adapter.execute(sql, [
       poem.id,
@@ -121,6 +133,11 @@ export class DiwanRepository {
       poem.description || null,
       poem.versesCount,
       JSON.stringify(poem.tags || []),
+      poem.externalProvider || null,
+      poem.externalId || null,
+      poem.sourceUrl || null,
+      poem.theme || null,
+      poem.verified ? 1 : 0,
     ]);
 
     // Save recordings
@@ -128,11 +145,23 @@ export class DiwanRepository {
       await this.saveRecording(rec);
     }
 
-    // Save verses and their alignments
+    // Save verses and their alignments (preserving existing reviewed/manual alignments)
     for (const verse of poem.verses) {
       await this.saveVerse(verse);
+
+      // If new verse has alignment, save it. Otherwise check if existing alignment can be preserved.
       if (verse.alignment) {
         await this.saveAlignment(verse.alignment);
+      } else if (existingAlignmentMap.has(verse.orderIndex)) {
+        const preserved = existingAlignmentMap.get(verse.orderIndex)!;
+        await this.saveAlignment({
+          ...preserved,
+          verseId: verse.id,
+        });
+      }
+
+      if (verse.explanations && verse.explanations.length > 0) {
+        await this.saveVerseExplanations(verse.id, verse.explanations);
       }
     }
   }
@@ -143,8 +172,19 @@ export class DiwanRepository {
       [id]
     );
     if (rows.length === 0) return null;
-    const r = rows[0];
+    return this.mapPoemRow(rows[0]);
+  }
 
+  async getPoemByExternalId(provider: string, externalId: string): Promise<Poem | null> {
+    const rows = await this.adapter.select<PoemRow>(
+      `SELECT * FROM poems WHERE external_provider = ? AND external_id = ? LIMIT 1;`,
+      [provider, externalId]
+    );
+    if (rows.length === 0) return null;
+    return this.mapPoemRow(rows[0]);
+  }
+
+  private async mapPoemRow(r: PoemRow): Promise<Poem | null> {
     const poet = await this.getPoetById(r.poet_id);
     if (!poet) return null;
 
@@ -161,6 +201,11 @@ export class DiwanRepository {
       description: r.description || undefined,
       versesCount: r.verses_count,
       tags: typeof r.tags === "string" ? JSON.parse(r.tags) : r.tags || [],
+      externalProvider: r.external_provider || undefined,
+      externalId: r.external_id || undefined,
+      sourceUrl: r.source_url || undefined,
+      theme: r.theme || undefined,
+      verified: r.verified === 1,
       verses,
       recordings,
       defaultRecordingId: recordings[0]?.id,
@@ -174,26 +219,8 @@ export class DiwanRepository {
 
     const poems: Poem[] = [];
     for (const r of rows) {
-      const poet = await this.getPoetById(r.poet_id);
-      if (!poet) continue;
-
-      const verses = await this.getVersesByPoemId(r.id);
-      const recordings = await this.getRecordingsByPoemId(r.id);
-
-      poems.push({
-        id: r.id,
-        title: r.title,
-        poet,
-        era: r.era as Era,
-        bahr: r.bahr as Bahr,
-        rhyme: r.rhyme,
-        description: r.description || undefined,
-        versesCount: r.verses_count,
-        tags: typeof r.tags === "string" ? JSON.parse(r.tags) : r.tags || [],
-        verses,
-        recordings,
-        defaultRecordingId: recordings[0]?.id,
-      });
+      const p = await this.mapPoemRow(r);
+      if (p) poems.push(p);
     }
 
     return poems;
@@ -206,18 +233,21 @@ export class DiwanRepository {
   // --- Verse Methods ---
   async saveVerse(verse: Verse): Promise<void> {
     const sql = `
-      INSERT OR REPLACE INTO verses (id, poem_id, order_index, text, normalized_text, first_hemistich, second_hemistich, explanation)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?);
+      INSERT OR REPLACE INTO verses (
+        id, poem_id, order_index, text, normalized_text, first_hemistich, second_hemistich, explanation, external_id
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
     `;
     await this.adapter.execute(sql, [
       verse.id,
       verse.poemId,
       verse.orderIndex,
       verse.text,
-      verse.normalizedText,
+      verse.normalizedText || normalizeArabic(verse.text),
       verse.firstHemistich,
       verse.secondHemistich,
       verse.explanation || null,
+      verse.externalId || null,
     ]);
   }
 
@@ -229,28 +259,8 @@ export class DiwanRepository {
 
     const verses: Verse[] = [];
     for (const r of rows) {
-      const alignRows = await this.adapter.select<VerseAlignmentRow>(
-        `SELECT * FROM verse_alignments WHERE verse_id = ? LIMIT 1;`,
-        [r.id]
-      );
-
-      let alignment: VerseAlignment | undefined = undefined;
-      if (alignRows.length > 0) {
-        const a = alignRows[0];
-        alignment = {
-          id: a.id,
-          verseId: a.verse_id,
-          recordingId: a.recording_id,
-          startMs: a.start_ms,
-          endMs: a.end_ms,
-          confidence: a.confidence,
-          status: a.status as 'auto' | 'reviewed' | 'manual',
-          transcriptRange: a.start_token_index !== null ? {
-            startTokenIndex: a.start_token_index,
-            endTokenIndex: a.end_token_index ?? a.start_token_index,
-          } : undefined,
-        };
-      }
+      const alignment = await this.getAlignmentByVerseId(r.id);
+      const explanations = await this.getVerseExplanationsByVerseId(r.id);
 
       verses.push({
         id: r.id,
@@ -261,29 +271,77 @@ export class DiwanRepository {
         firstHemistich: r.first_hemistich,
         secondHemistich: r.second_hemistich,
         explanation: r.explanation || undefined,
-        alignment,
+        externalId: r.external_id || undefined,
+        alignment: alignment || undefined,
+        explanations: explanations.length > 0 ? explanations : undefined,
       });
     }
 
     return verses;
   }
 
+  // --- Explanations Methods ---
+  async saveVerseExplanations(verseId: string, explanations: VerseExplanationItem[]): Promise<void> {
+    for (const exp of explanations) {
+      const sql = `
+        INSERT OR REPLACE INTO verse_explanations (
+          id, verse_id, verse_external_id, text, author, author_death_hijri, source_title,
+          explanation_type, provider, raw_source_json
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+      `;
+      await this.adapter.execute(sql, [
+        exp.id,
+        verseId,
+        exp.verseExternalId || null,
+        exp.text,
+        exp.author || null,
+        exp.authorDeathHijri || null,
+        exp.sourceTitle || null,
+        exp.explanationType,
+        exp.provider,
+        exp.rawSourceJson || null,
+      ]);
+    }
+  }
+
+  async getVerseExplanationsByVerseId(verseId: string): Promise<VerseExplanationItem[]> {
+    const rows = await this.adapter.select<VerseExplanationRow>(
+      `SELECT * FROM verse_explanations WHERE verse_id = ? ORDER BY created_at ASC;`,
+      [verseId]
+    );
+
+    return rows.map((r) => ({
+      id: r.id,
+      verseId: r.verse_id,
+      verseExternalId: r.verse_external_id || undefined,
+      text: r.text,
+      author: r.author || undefined,
+      authorDeathHijri: r.author_death_hijri || undefined,
+      sourceTitle: r.source_title || undefined,
+      explanationType: r.explanation_type as "classical" | "verse" | "manual",
+      provider: r.provider,
+      rawSourceJson: r.raw_source_json || undefined,
+      createdAt: r.created_at,
+    }));
+  }
+
   // --- Recording Methods ---
-  async saveRecording(rec: Recording): Promise<void> {
+  async saveRecording(recording: Recording): Promise<void> {
     const sql = `
       INSERT OR REPLACE INTO recordings (id, poem_id, title, reciter, audio_path, duration_ms, sample_rate, channels, format)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
     `;
     await this.adapter.execute(sql, [
-      rec.id,
-      rec.poemId,
-      rec.title,
-      rec.reciter,
-      rec.audioPath,
-      rec.durationMs,
-      rec.sampleRate || null,
-      rec.channels || null,
-      rec.format || null,
+      recording.id,
+      recording.poemId,
+      recording.title,
+      recording.reciter,
+      recording.audioPath,
+      recording.durationMs,
+      recording.sampleRate || null,
+      recording.channels || null,
+      recording.format || null,
     ]);
   }
 
@@ -306,42 +364,68 @@ export class DiwanRepository {
     }));
   }
 
-  // --- Alignment Methods ---
-  async saveAlignment(align: VerseAlignment): Promise<void> {
+  async saveAlignment(alignment: VerseAlignment): Promise<void> {
     const sql = `
-      INSERT OR REPLACE INTO verse_alignments (id, verse_id, recording_id, start_ms, end_ms, confidence, status, start_token_index, end_token_index, updated_at)
+      INSERT OR REPLACE INTO verse_alignments (
+        id, verse_id, recording_id, start_ms, end_ms, confidence, status, start_token_index, end_token_index, updated_at
+      )
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP);
     `;
     await this.adapter.execute(sql, [
-      align.id,
-      align.verseId,
-      align.recordingId,
-      align.startMs,
-      align.endMs,
-      align.confidence,
-      align.status,
-      align.transcriptRange?.startTokenIndex ?? null,
-      align.transcriptRange?.endTokenIndex ?? null,
+      alignment.id,
+      alignment.verseId,
+      alignment.recordingId,
+      alignment.startMs,
+      alignment.endMs,
+      alignment.confidence,
+      alignment.status,
+      alignment.transcriptRange?.startTokenIndex || null,
+      alignment.transcriptRange?.endTokenIndex || null,
     ]);
   }
 
   async updateAlignmentBoundary(
-    id: string,
+    alignmentId: string,
     startMs: number,
     endMs: number,
-    status: AlignmentStatus = 'reviewed',
-    confidence = 1.0
+    status: AlignmentStatus = "reviewed",
+    confidence?: number
   ): Promise<void> {
     const sql = `
       UPDATE verse_alignments
-      SET start_ms = ?, end_ms = ?, status = ?, confidence = ?, updated_at = CURRENT_TIMESTAMP
+      SET start_ms = ?, end_ms = ?, status = ?, confidence = COALESCE(?, confidence), updated_at = CURRENT_TIMESTAMP
       WHERE id = ?;
     `;
-    await this.adapter.execute(sql, [startMs, endMs, status, confidence, id]);
+    await this.adapter.execute(sql, [startMs, endMs, status, confidence ?? null, alignmentId]);
   }
 
-  // --- Word Definitions ---
-  async saveDefinition(def: WordDefinition): Promise<void> {
+  async getAlignmentByVerseId(verseId: string): Promise<VerseAlignment | null> {
+    const rows = await this.adapter.select<VerseAlignmentRow>(
+      `SELECT * FROM verse_alignments WHERE verse_id = ? LIMIT 1;`,
+      [verseId]
+    );
+    if (rows.length === 0) return null;
+    const r = rows[0];
+    return {
+      id: r.id,
+      verseId: r.verse_id,
+      recordingId: r.recording_id,
+      startMs: r.start_ms,
+      endMs: r.end_ms,
+      confidence: r.confidence,
+      status: r.status as AlignmentStatus,
+      transcriptRange:
+        r.start_token_index !== null && r.end_token_index !== null
+          ? {
+              startTokenIndex: r.start_token_index,
+              endTokenIndex: r.end_token_index,
+            }
+          : undefined,
+    };
+  }
+
+  // --- Word Definition (Dictionary) ---
+  async saveWordDefinition(def: WordDefinition): Promise<void> {
     const sql = `
       INSERT OR REPLACE INTO word_definitions (id, word, normalized_word, root, meaning, source)
       VALUES (?, ?, ?, ?, ?, ?);
@@ -349,17 +433,22 @@ export class DiwanRepository {
     await this.adapter.execute(sql, [
       def.id,
       def.word,
-      def.normalizedWord,
+      def.normalizedWord || normalizeArabic(def.word),
       def.root || null,
       def.meaning,
       def.source,
     ]);
   }
 
-  async getDefinition(normalizedWord: string): Promise<WordDefinition | null> {
+  async saveDefinition(def: WordDefinition): Promise<void> {
+    return this.saveWordDefinition(def);
+  }
+
+  async getWordDefinition(word: string): Promise<WordDefinition | null> {
+    const norm = normalizeArabic(word);
     const rows = await this.adapter.select<WordDefinitionRow>(
       `SELECT * FROM word_definitions WHERE normalized_word = ? OR word = ? LIMIT 1;`,
-      [normalizedWord, normalizedWord]
+      [norm, word]
     );
     if (rows.length === 0) return null;
     const r = rows[0];
@@ -373,52 +462,15 @@ export class DiwanRepository {
     };
   }
 
-  async getWordDefinition(word: string): Promise<WordDefinition | null> {
-    const normalized = normalizeArabic(word);
-    return this.getDefinition(normalized);
+  async getDefinition(word: string): Promise<WordDefinition | null> {
+    return this.getWordDefinition(word);
   }
 
-  // --- Meter Analyses ---
-  async saveMeterAnalysis(
-    analysis: MeterAnalysis,
-    poemId: string,
-    verseId?: string
-  ): Promise<void> {
-    const id = `meter-${poemId}${verseId ? `-${verseId}` : ""}`;
+  // --- Import Job Tracking ---
+  async saveImportJob(job: ImportJob): Promise<void> {
     const sql = `
-      INSERT OR REPLACE INTO meter_analyses (id, poem_id, verse_id, bahr, pattern, tafeela_breakdown)
-      VALUES (?, ?, ?, ?, ?, ?);
-    `;
-    await this.adapter.execute(sql, [
-      id,
-      poemId,
-      verseId || null,
-      analysis.bahr,
-      analysis.pattern,
-      JSON.stringify(analysis.tafeelaBreakdown),
-    ]);
-  }
-
-  async getMeterAnalysis(poemId: string, verseId?: string): Promise<MeterAnalysis | null> {
-    const sql = verseId
-      ? `SELECT * FROM meter_analyses WHERE poem_id = ? AND verse_id = ? LIMIT 1;`
-      : `SELECT * FROM meter_analyses WHERE poem_id = ? AND verse_id IS NULL LIMIT 1;`;
-    const params = verseId ? [poemId, verseId] : [poemId];
-    const rows = await this.adapter.select<MeterAnalysisRow>(sql, params);
-    if (rows.length === 0) return null;
-    const r = rows[0];
-    return {
-      bahr: r.bahr as Bahr,
-      pattern: r.pattern,
-      tafeelaBreakdown: typeof r.tafeela_breakdown === "string" ? JSON.parse(r.tafeela_breakdown) : r.tafeela_breakdown || [],
-    };
-  }
-
-  // --- Import Jobs ---
-  async createImportJob(job: ImportJob): Promise<void> {
-    const sql = `
-      INSERT INTO import_jobs (id, status, job_type, input_path, output_path, progress, error_message)
-      VALUES (?, ?, ?, ?, ?, ?, ?);
+      INSERT OR REPLACE INTO import_jobs (id, status, job_type, input_path, output_path, progress, error_message, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP);
     `;
     await this.adapter.execute(sql, [
       job.id,
@@ -431,21 +483,11 @@ export class DiwanRepository {
     ]);
   }
 
-  async updateImportJobProgress(
-    id: string,
-    progress: number,
-    status: ImportJob['status'],
-    errorMessage?: string
-  ): Promise<void> {
-    const sql = `
-      UPDATE import_jobs
-      SET progress = ?, status = ?, error_message = ?, updated_at = CURRENT_TIMESTAMP
-      WHERE id = ?;
-    `;
-    await this.adapter.execute(sql, [progress, status, errorMessage || null, id]);
+  async createImportJob(job: ImportJob): Promise<void> {
+    return this.saveImportJob(job);
   }
 
-  async getImportJob(id: string): Promise<ImportJob | null> {
+  async getImportJobById(id: string): Promise<ImportJob | null> {
     const rows = await this.adapter.select<ImportJobRow>(
       `SELECT * FROM import_jobs WHERE id = ? LIMIT 1;`,
       [id]
@@ -454,8 +496,8 @@ export class DiwanRepository {
     const r = rows[0];
     return {
       id: r.id,
-      status: r.status as ImportJob['status'],
-      jobType: r.job_type as ImportJob['jobType'],
+      status: r.status as ImportJob["status"],
+      jobType: r.job_type as ImportJob["jobType"],
       inputPath: r.input_path || undefined,
       outputPath: r.output_path || undefined,
       progress: r.progress,
@@ -463,5 +505,25 @@ export class DiwanRepository {
       createdAt: r.created_at,
       updatedAt: r.updated_at,
     };
+  }
+
+  async getImportJob(id: string): Promise<ImportJob | null> {
+    return this.getImportJobById(id);
+  }
+
+  async updateImportJobProgress(
+    id: string,
+    progress: number,
+    status?: ImportJob["status"],
+    error?: string
+  ): Promise<void> {
+    const existing = await this.getImportJobById(id);
+    if (!existing) return;
+    await this.saveImportJob({
+      ...existing,
+      progress,
+      status: status || existing.status,
+      errorMessage: error !== undefined ? error : existing.errorMessage,
+    });
   }
 }
