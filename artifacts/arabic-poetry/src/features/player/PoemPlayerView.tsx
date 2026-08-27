@@ -1,6 +1,7 @@
-import React, { useEffect, useRef, useState } from "react";
-import { Poem, Verse, WordDefinition } from "@/types";
-import { VerseItem } from "./VerseItem";
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import { Poem, Verse, VerseExplanationItem, WordDefinition } from "@/types";
+import { VerseExplanationStatus, VerseItem } from "./VerseItem";
+import { VerseSyncPanel } from "./VerseSyncPanel";
 import { AudioControlsBar } from "./AudioControlsBar";
 import { PoemMetadataDrawer } from "./PoemMetadataDrawer";
 import { DictionaryWordModal } from "./DictionaryWordModal";
@@ -10,6 +11,7 @@ import { usePoemPlayback } from "@/hooks/usePoemPlayback";
 import { Info, BookOpen, AlertCircle, Download, Activity, AudioWaveform } from "lucide-react";
 import { analyzeVerseMeter } from "@/lib/arud/meterDetector";
 import { DiwanRepository } from "@/lib/db/repository";
+import { MizanAlArabProvider } from "@/lib/providers/MizanAlArabProvider";
 
 interface PoemPlayerViewProps {
   poem: Poem;
@@ -18,10 +20,27 @@ interface PoemPlayerViewProps {
     startMs: number,
     endMs: number,
     status?: "reviewed" | "manual"
-  ) => void;
+  ) => Promise<void> | void;
+  onSaveExplanations?: (verseId: string, items: VerseExplanationItem[]) => Promise<void>;
+  onApplyOffset?: (
+    verseId: string,
+    offsetMs: number,
+    includeFollowing: boolean
+  ) => Promise<void>;
 }
 
-export const PoemPlayerView: React.FC<PoemPlayerViewProps> = ({ poem }) => {
+interface ExplanationViewState {
+  status: VerseExplanationStatus;
+  items: VerseExplanationItem[];
+  error: string | null;
+}
+
+export const PoemPlayerView: React.FC<PoemPlayerViewProps> = ({
+  poem,
+  onUpdateBoundary,
+  onSaveExplanations,
+  onApplyOffset,
+}) => {
   const [showMetadata, setShowMetadata] = useState(true);
   const [showExport, setShowExport] = useState(false);
   const [showDebugOverlay, setShowDebugOverlay] = useState(false);
@@ -29,9 +48,13 @@ export const PoemPlayerView: React.FC<PoemPlayerViewProps> = ({ poem }) => {
   const [selectedWord, setSelectedWord] = useState<string | null>(null);
   const [wordDefinition, setWordDefinition] = useState<WordDefinition | null>(null);
   const [isLoadingWord, setIsLoadingWord] = useState(false);
+  const [selectedVerseId, setSelectedVerseId] = useState<string | null>(null);
+  const [explanationStates, setExplanationStates] = useState<Record<string, ExplanationViewState>>({});
 
   const verseElementsRef = useRef<Map<string, HTMLDivElement>>(new Map());
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const explanationRequestRef = useRef(0);
+  const mizanProviderRef = useRef<MizanAlArabProvider | null>(null);
 
   const {
     isPlaying,
@@ -55,6 +78,94 @@ export const PoemPlayerView: React.FC<PoemPlayerViewProps> = ({ poem }) => {
   } = usePoemPlayback(poem);
 
   const lastScrolledVerseIdRef = useRef<string | null>(null);
+
+  const getMizanProvider = () => {
+    if (!mizanProviderRef.current) mizanProviderRef.current = new MizanAlArabProvider();
+    return mizanProviderRef.current;
+  };
+
+  const loadExplanation = useCallback(async (verse: Verse) => {
+    const cached = verse.explanations || [];
+    if (cached.length > 0) {
+      setExplanationStates((previous) => ({
+        ...previous,
+        [verse.id]: { status: "loaded", items: cached, error: null },
+      }));
+      return;
+    }
+
+    if (!verse.externalId || poem.externalProvider !== "mizan_al_arab") {
+      setExplanationStates((previous) => ({
+        ...previous,
+        [verse.id]: {
+          status: verse.explanation ? "loaded" : "empty",
+          items: [],
+          error: null,
+        },
+      }));
+      return;
+    }
+
+    const requestId = ++explanationRequestRef.current;
+    setExplanationStates((previous) => ({
+      ...previous,
+      [verse.id]: { status: "loading", items: [], error: null },
+    }));
+
+    try {
+      const items = await getMizanProvider().fetchExplanations(verse.externalId);
+      if (requestId !== explanationRequestRef.current) return;
+      setExplanationStates((previous) => ({
+        ...previous,
+        [verse.id]: {
+          status: items.length > 0 ? "loaded" : "empty",
+          items,
+          error: null,
+        },
+      }));
+      if (items.length > 0) {
+        await onSaveExplanations?.(verse.id, items);
+      }
+    } catch (error) {
+      if (requestId !== explanationRequestRef.current) return;
+      setExplanationStates((previous) => ({
+        ...previous,
+        [verse.id]: {
+          status: "error",
+          items: [],
+          error: error instanceof Error ? error.message : "تعذر تحميل شرح البيت من ميزان العرب.",
+        },
+      }));
+    }
+  }, [onSaveExplanations, poem.externalProvider]);
+
+  const handleVerseSelect = useCallback((verse: Verse) => {
+    setSelectedVerseId(verse.id);
+    seekToVerse(verse);
+    void loadExplanation(verse);
+  }, [loadExplanation, seekToVerse]);
+
+  const handleRetryExplanation = useCallback((verse: Verse) => {
+    void loadExplanation(verse);
+  }, [loadExplanation]);
+
+  useEffect(() => {
+    setSelectedVerseId(null);
+    setExplanationStates({});
+    explanationRequestRef.current += 1;
+  }, [poem.id]);
+
+  useEffect(() => {
+    if (!poem.sourceUrl) return;
+    try {
+      const hash = new URL(poem.sourceUrl).hash;
+      const externalId = hash.startsWith("#v=") ? decodeURIComponent(hash.slice(3)) : "";
+      const verse = poem.verses.find((item) => item.externalId === externalId);
+      if (verse && verse.id !== selectedVerseId) handleVerseSelect(verse);
+    } catch {
+      // A malformed source URL should not prevent normal player use.
+    }
+  }, [handleVerseSelect, poem.sourceUrl, poem.verses, selectedVerseId]);
 
   // Auto-scroll to active verse using behavior: "auto" during playback to avoid perception lag
   useEffect(() => {
@@ -95,6 +206,11 @@ export const PoemPlayerView: React.FC<PoemPlayerViewProps> = ({ poem }) => {
   const activeStartMs = activeVerse?.alignment?.startMs ?? (activeVerseIndex >= 0 ? activeVerseIndex * 8000 : 0);
   const activeEndMs = activeVerse?.alignment?.endMs ?? (activeVerseIndex >= 0 ? (activeVerseIndex + 1) * 8000 : 0);
   const activeDiffMs = currentTimeMs - activeStartMs;
+  const selectedVerse =
+    poem.verses.find((verse) => verse.id === selectedVerseId) ||
+    activeVerse ||
+    poem.verses[0] ||
+    null;
 
   return (
     <div className="h-full flex flex-col justify-between overflow-hidden bg-charcoal-950 relative">
@@ -216,12 +332,41 @@ export const PoemPlayerView: React.FC<PoemPlayerViewProps> = ({ poem }) => {
           onScroll={handleUserScroll}
           className="flex-1 overflow-y-auto px-6 py-6 space-y-4 max-w-4xl mx-auto w-full"
         >
+          {selectedVerse && (
+            <VerseSyncPanel
+              verse={selectedVerse}
+              verses={poem.verses}
+              currentTimeMs={currentTimeMs}
+              durationMs={durationMs}
+              isPlaying={isPlaying}
+              onSeek={seekTo}
+              onTogglePlay={togglePlay}
+              onSave={async (alignmentId, startMs, endMs, status) => {
+                if (!onUpdateBoundary) {
+                  throw new Error("لا توجد صلاحية لحفظ تصحيح التوقيت.");
+                }
+                await onUpdateBoundary(alignmentId, startMs, endMs, status);
+              }}
+              onApplyOffset={
+                onApplyOffset
+                  ? (offsetMs, includeFollowing) =>
+                      onApplyOffset(selectedVerse.id, offsetMs, includeFollowing)
+                  : undefined
+              }
+            />
+          )}
           {poem.verses.map((verse, index) => (
             <VerseItem
               key={verse.id}
               verse={verse}
               isActive={index === activeVerseIndex}
+              isSelected={verse.id === selectedVerseId}
               onSeekToVerse={(v: Verse) => seekToVerse(v)}
+              onSelectVerse={handleVerseSelect}
+              explanationItems={explanationStates[verse.id]?.items}
+              explanationStatus={explanationStates[verse.id]?.status}
+              explanationError={explanationStates[verse.id]?.error}
+              onRetryExplanation={() => handleRetryExplanation(verse)}
               onWordClick={handleWordClick}
               verseRef={(el) => {
                 if (el) {

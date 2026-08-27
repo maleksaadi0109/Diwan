@@ -1,6 +1,7 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { Poem, AlignmentStatus } from "@/types";
 import { formatTime, toArabicDigits } from "@/lib/utils";
+import { usePoemPlayback } from "@/hooks/usePoemPlayback";
 import {
   Play,
   Pause,
@@ -27,8 +28,15 @@ export const BoundaryReviewEditor: React.FC<BoundaryReviewEditorProps> = ({
     poem.verses[0]?.id || ""
   );
   const [isPlayingLoop, setIsPlayingLoop] = useState(false);
-  const [currentTimeMs, setCurrentTimeMs] = useState(0);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const {
+    currentTimeMs,
+    durationMs,
+    isPlaying,
+    play,
+    pause,
+    seekTo,
+  } = usePoemPlayback(poem);
 
   // Local state copy of verse boundaries for fast responsive dragging/nudging
   const [boundaries, setBoundaries] = useState<
@@ -48,14 +56,27 @@ export const BoundaryReviewEditor: React.FC<BoundaryReviewEditorProps> = ({
 
   const selectedVerse = poem.verses.find((v) => v.id === selectedVerseId) || poem.verses[0];
   const selectedBoundary = selectedVerse ? boundaries.get(selectedVerse.id) : null;
-  const loopTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // Stop loop on unmount
   useEffect(() => {
-    return () => {
-      if (loopTimerRef.current) clearInterval(loopTimerRef.current);
-    };
-  }, []);
+    const next = new Map<string, { startMs: number; endMs: number; status: AlignmentStatus; confidence: number }>();
+    poem.verses.forEach((verse, index) => {
+      next.set(verse.id, {
+        startMs: verse.alignment?.startMs ?? index * 8000,
+        endMs: verse.alignment?.endMs ?? (index + 1) * 8000,
+        status: verse.alignment?.status ?? "auto",
+        confidence: verse.alignment?.confidence ?? 0.85,
+      });
+    });
+    setBoundaries(next);
+    setSelectedVerseId(poem.verses[0]?.id || "");
+  }, [poem.id]);
+
+  useEffect(() => {
+    if (!isPlayingLoop || !isPlaying || !selectedBoundary) return;
+    if (currentTimeMs >= selectedBoundary.endMs) {
+      seekTo(selectedBoundary.startMs);
+    }
+  }, [currentTimeMs, isPlaying, isPlayingLoop, seekTo, selectedBoundary]);
 
   const handleNudgeStart = (deltaMs: number) => {
     if (!selectedVerse || !selectedBoundary) return;
@@ -63,6 +84,11 @@ export const BoundaryReviewEditor: React.FC<BoundaryReviewEditorProps> = ({
     if (nextStart >= selectedBoundary.endMs - 300) {
       setStatusMessage("لا يمكن أن تكون بداية البيت بعد نهايته!");
       setTimeout(() => setStatusMessage(null), 3000);
+      return;
+    }
+    const previous = poem.verses[poem.verses.findIndex((verse) => verse.id === selectedVerse.id) - 1]?.alignment;
+    if (previous && nextStart < previous.endMs) {
+      setStatusMessage("لا يمكن أن تتداخل بداية البيت مع نهاية البيت السابق!");
       return;
     }
 
@@ -74,7 +100,8 @@ export const BoundaryReviewEditor: React.FC<BoundaryReviewEditorProps> = ({
 
     setBoundaries((prev) => new Map(prev).set(selectedVerse.id, updated));
     if (selectedVerse.alignment) {
-      onUpdateBoundary(selectedVerse.alignment.id, updated.startMs, updated.endMs, "manual");
+      void Promise.resolve(onUpdateBoundary(selectedVerse.alignment.id, updated.startMs, updated.endMs, "manual"))
+        .catch((error) => setStatusMessage(error instanceof Error ? error.message : "تعذر حفظ التعديل."));
     }
   };
 
@@ -86,6 +113,15 @@ export const BoundaryReviewEditor: React.FC<BoundaryReviewEditorProps> = ({
       setTimeout(() => setStatusMessage(null), 3000);
       return;
     }
+    if (durationMs > 0 && nextEnd > durationMs) {
+      setStatusMessage("لا يمكن أن تتجاوز نهاية البيت مدة التسجيل!");
+      return;
+    }
+    const next = poem.verses[poem.verses.findIndex((verse) => verse.id === selectedVerse.id) + 1]?.alignment;
+    if (next && nextEnd > next.startMs) {
+      setStatusMessage("لا يمكن أن تتداخل نهاية البيت مع بداية البيت التالي!");
+      return;
+    }
 
     const updated = {
       ...selectedBoundary,
@@ -95,7 +131,8 @@ export const BoundaryReviewEditor: React.FC<BoundaryReviewEditorProps> = ({
 
     setBoundaries((prev) => new Map(prev).set(selectedVerse.id, updated));
     if (selectedVerse.alignment) {
-      onUpdateBoundary(selectedVerse.alignment.id, updated.startMs, updated.endMs, "manual");
+      void Promise.resolve(onUpdateBoundary(selectedVerse.alignment.id, updated.startMs, updated.endMs, "manual"))
+        .catch((error) => setStatusMessage(error instanceof Error ? error.message : "تعذر حفظ التعديل."));
     }
   };
 
@@ -104,31 +141,26 @@ export const BoundaryReviewEditor: React.FC<BoundaryReviewEditorProps> = ({
     const updated = { ...selectedBoundary, status };
     setBoundaries((prev) => new Map(prev).set(selectedVerse.id, updated));
     if (selectedVerse.alignment) {
-      onUpdateBoundary(selectedVerse.alignment.id, updated.startMs, updated.endMs, status);
+      void Promise.resolve(onUpdateBoundary(selectedVerse.alignment.id, updated.startMs, updated.endMs, status))
+        .catch((error) => setStatusMessage(error instanceof Error ? error.message : "تعذر حفظ الحالة."));
     }
   };
 
   const toggleLoopPlay = () => {
     if (isPlayingLoop) {
-      if (loopTimerRef.current) clearInterval(loopTimerRef.current);
       setIsPlayingLoop(false);
+      pause();
     } else {
       if (!selectedBoundary) return;
       setIsPlayingLoop(true);
-      setCurrentTimeMs(selectedBoundary.startMs);
-
-      loopTimerRef.current = setInterval(() => {
-        setCurrentTimeMs((prev) => {
-          if (prev >= selectedBoundary.endMs) {
-            return selectedBoundary.startMs;
-          }
-          return prev + 100;
-        });
-      }, 100);
+      seekTo(selectedBoundary.startMs);
+      void play();
     }
   };
 
-  // Split selected verse evenly into two
+  const totalDuration = durationMs || poem.recordings[0]?.durationMs || poem.verses.length * 8000;
+
+  // Move the selected boundary to the middle for quick manual auditioning.
   const handleSplitVerse = () => {
     if (!selectedBoundary) return;
     const mid = selectedBoundary.startMs + Math.round((selectedBoundary.endMs - selectedBoundary.startMs) / 2);
@@ -180,8 +212,8 @@ export const BoundaryReviewEditor: React.FC<BoundaryReviewEditorProps> = ({
                 const height = 15 + Math.sin(i * 0.4) * 35 + ((i % 3) * 10);
                 const isInsideSelected =
                   selectedBoundary &&
-                  (i / 64) * (poem.verses.length * 8000) >= selectedBoundary.startMs &&
-                  (i / 64) * (poem.verses.length * 8000) <= selectedBoundary.endMs;
+                    (i / 64) * totalDuration >= selectedBoundary.startMs &&
+                    (i / 64) * totalDuration <= selectedBoundary.endMs;
 
                 return (
                   <div

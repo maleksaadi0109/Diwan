@@ -19,6 +19,7 @@ CREATE TABLE IF NOT EXISTS poems (
     description TEXT,
     verses_count INTEGER NOT NULL DEFAULT 0,
     tags TEXT NOT NULL DEFAULT '[]',
+    default_recording_id TEXT,
     external_provider TEXT,
     external_id TEXT,
     source_url TEXT,
@@ -146,6 +147,7 @@ export interface PoemRow {
   description: string | null;
   verses_count: number;
   tags: string;
+  default_recording_id: string | null;
   external_provider: string | null;
   external_id: string | null;
   source_url: string | null;

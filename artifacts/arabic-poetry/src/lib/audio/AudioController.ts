@@ -73,6 +73,7 @@ export function findActiveVerseIndexBinary(verses: Verse[], currentMs: number): 
 export class AudioController {
   private audio: HTMLAudioElement | null = null;
   private verses: Verse[] = [];
+  private baselineVerses: Verse[] = [];
   private state: AudioPlayerState;
   private listeners: Set<StateListener> = new Set();
   private rafId: number | null = null;
@@ -168,6 +169,7 @@ export class AudioController {
   }
 
   public setVerses(verses: Verse[]) {
+    this.baselineVerses = verses;
     this.verses = verses;
     this.recomputeSyncImmediately();
   }
@@ -410,7 +412,7 @@ export class AudioController {
 
   // --- Calibration Engine ---
   public setCalibrationAnchor(verseId: string, actualAudioMs: number): CalibrationResult {
-    const verse = this.verses.find((v) => v.id === verseId);
+    const verse = this.baselineVerses.find((v) => v.id === verseId);
     const originalStartMs = verse?.alignment?.startMs ?? 0;
 
     const anchor: SyncAnchor = {
@@ -426,7 +428,7 @@ export class AudioController {
     }
 
     const calibration = calculateCalibration(this.anchor1, this.anchor2 || undefined);
-    this.verses = calibrateVerses(this.verses, calibration);
+    this.verses = calibrateVerses(this.baselineVerses, calibration);
     this.updateState({ calibration });
     this.recomputeSyncImmediately();
 
@@ -436,6 +438,7 @@ export class AudioController {
   public clearCalibration(): void {
     this.anchor1 = null;
     this.anchor2 = null;
+    this.verses = this.baselineVerses;
     this.updateState({ calibration: undefined });
     this.recomputeSyncImmediately();
   }

@@ -72,7 +72,7 @@ export const MizanImportView: React.FC<MizanImportViewProps> = ({ onPoemImported
         versesCount: parsed.verses.length,
         externalProvider: "mizan_al_arab",
         externalId: String(previewData.id),
-        sourceUrl: parsed.sourceUrl,
+        sourceUrl: url.trim(),
         theme: previewData.theme,
         verified: previewData.verified,
         tags: ["ميزان العرب", `بحر ${parsed.bahr}`, `عصر ${parsed.era}`],
@@ -84,13 +84,13 @@ export const MizanImportView: React.FC<MizanImportViewProps> = ({ onPoemImported
           normalizedText: normalizeArabic(v.text),
           firstHemistich: v.firstHemistich,
           secondHemistich: v.secondHemistich,
-          externalId: String(previewData.verses[v.orderIndex - 1]?.id || ""),
+          externalId: v.externalId,
         })),
         recordings: [],
       };
 
       // Save immediately so the user can open the poem while enrichment runs.
-      onPoemImported(newPoem);
+        onPoemImported(newPoem);
       setSuccessMessage(`تم استيراد قصيدة "${newPoem.title}" بنجاح (${newPoem.versesCount} بيت)`);
 
       // Enrich explanations in the background, then persist the enriched version

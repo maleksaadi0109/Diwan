@@ -2,6 +2,7 @@ import { Era, Bahr } from "@/types";
 
 export interface ParsedVersePayload {
   orderIndex: number;
+  externalId?: string;
   text: string;
   firstHemistich: string;
   secondHemistich: string;

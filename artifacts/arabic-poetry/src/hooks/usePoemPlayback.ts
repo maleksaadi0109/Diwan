@@ -21,7 +21,9 @@ export function usePoemPlayback(poem: Poem | null) {
   useEffect(() => {
     if (poem) {
       controller.setVerses(poem.verses);
-      const defaultRec = poem.recordings[0];
+      const defaultRec =
+        poem.recordings.find((recording) => recording.id === poem.defaultRecordingId) ||
+        poem.recordings[0];
       const audioUrl = defaultRec ? resolveAudioSrc(defaultRec.audioPath) : "";
       const defaultDuration = defaultRec?.durationMs || (poem.verses.length * 8000);
       controller.loadAudio(audioUrl, defaultDuration);
