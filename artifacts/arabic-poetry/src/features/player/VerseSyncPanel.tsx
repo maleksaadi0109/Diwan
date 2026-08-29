@@ -146,13 +146,13 @@ export const VerseSyncPanel: React.FC<VerseSyncPanelProps> = ({
   };
 
   return (
-    <section className="bg-[#14171E] border border-white/[0.08] rounded-3xl p-6 md:p-8 space-y-6 shadow-2xl backdrop-blur-xl relative overflow-hidden">
-      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-white/[0.08] pb-5">
+    <section className="bg-paper-100 border-2 border-accent-700 rounded-none p-6 md:p-8 space-y-6 shadow-sm relative overflow-hidden font-ui">
+      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-paper-400 pb-5">
         <div>
-          <span className="text-xs font-semibold text-[#D4AF37] tracking-widest uppercase block mb-1">
+          <span className="text-[13px] font-bold text-accent-700 block mb-1">
             تدقيق الحدود والمزامنة
           </span>
-          <h3 className="font-poetry text-2xl font-bold text-[#F8F9FA]">
+          <h3 className="font-heading text-2xl font-bold text-ink-900">
             البيت رقم {verse.orderIndex}
           </h3>
         </div>
@@ -163,120 +163,120 @@ export const VerseSyncPanel: React.FC<VerseSyncPanelProps> = ({
             setIsLooping(!isLooping);
             if (!isPlaying) onTogglePlay();
           }}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-sm ${
+          className={`flex items-center gap-2 px-5 py-2.5 rounded-none text-[14px] font-bold transition-colors border ${
             isLooping
-              ? "bg-[#D4AF37] text-[#0A0C10] shadow-[0_0_15px_rgba(212,175,55,0.4)]"
-              : "bg-white/[0.06] text-[#CED4DA] hover:bg-white/[0.1] border border-white/10"
+              ? "bg-accent-700 text-paper-100 border-accent-700"
+              : "bg-paper-200 text-ink-700 border-ink-500 hover:bg-paper-300 hover:text-ink-900"
           }`}
         >
-          {isLooping ? <Pause className="w-3.5 h-3.5 fill-current" /> : <Play className="w-3.5 h-3.5 fill-current" />}
+          {isLooping ? <Pause className="w-4 h-4 fill-current" /> : <Play className="w-4 h-4 fill-current" />}
           <span>{isLooping ? "إيقاف التكرار" : "تكرار استماع البيت"}</span>
         </button>
       </div>
 
       {!verse.alignment && (
-        <div className="rounded-2xl bg-amber-500/15 border border-amber-500/30 px-4 py-3 text-xs text-amber-200 leading-relaxed font-sans shadow-inner">
+        <div className="bg-amber-50 border border-amber-800 px-5 py-4 text-[14px] text-amber-800 font-bold shadow-sm rounded-none">
           هذا البيت غير محاذى بعد — استخدم زري الالتقاط لتحديد البداية والنهاية من موضع الصوت الحالي ثم احفظ.
         </div>
       )}
 
-      <div className="grid grid-cols-2 gap-4 text-xs font-sans tracking-wide">
-        <label className="space-y-2 block bg-black/40 p-4 rounded-2xl border border-white/[0.08]">
-          <span className="text-[#A0AAB7] block text-center font-medium">البداية (ms)</span>
+      <div className="grid grid-cols-2 gap-6 text-[14px] font-bold">
+        <label className="space-y-3 block bg-paper-200 p-5 rounded-none border border-paper-400 shadow-sm">
+          <span className="text-ink-700 block text-center">البداية (ms)</span>
           <input
             type="number"
             min={0}
             value={Math.round(startMs)}
             onChange={(event) => setStartMs(Number(event.target.value))}
-            className="w-full rounded-xl border border-white/10 bg-[#0A0C10] px-3 py-2 text-[#F3E19C] font-mono font-medium text-center focus:outline-none focus:border-[#D4AF37]/50 ltr-num"
+            className="w-full bg-paper-100 text-ink-900 border border-paper-500 rounded-none px-4 py-2 font-mono text-center focus:outline-none focus:border-accent-700 focus:ring-1 focus:ring-accent-700 ltr-num"
           />
-          <button type="button" onClick={captureStart} className="w-full mt-2 rounded-xl bg-white/[0.06] hover:bg-white/[0.1] py-2 text-[11px] text-[#CED4DA] font-semibold transition-colors border border-white/10">
+          <button type="button" onClick={captureStart} className="w-full mt-3 bg-transparent border border-paper-500 hover:bg-paper-300 py-2.5 text-[13px] text-ink-700 font-bold transition-colors rounded-none">
             التقاط من الصوت الآن
           </button>
         </label>
 
-        <label className="space-y-2 block bg-black/40 p-4 rounded-2xl border border-white/[0.08]">
-          <span className="text-[#A0AAB7] block text-center font-medium">النهاية (ms)</span>
+        <label className="space-y-3 block bg-paper-200 p-5 rounded-none border border-paper-400 shadow-sm">
+          <span className="text-ink-700 block text-center">النهاية (ms)</span>
           <input
             type="number"
             min={0}
             value={Math.round(endMs)}
             onChange={(event) => setEndMs(Number(event.target.value))}
-            className="w-full rounded-xl border border-white/10 bg-[#0A0C10] px-3 py-2 text-[#F3E19C] font-mono font-medium text-center focus:outline-none focus:border-[#D4AF37]/50 ltr-num"
+            className="w-full bg-paper-100 text-ink-900 border border-paper-500 rounded-none px-4 py-2 font-mono text-center focus:outline-none focus:border-accent-700 focus:ring-1 focus:ring-accent-700 ltr-num"
           />
-          <button type="button" onClick={captureEnd} className="w-full mt-2 rounded-xl bg-white/[0.06] hover:bg-white/[0.1] py-2 text-[11px] text-[#CED4DA] font-semibold transition-colors border border-white/10">
+          <button type="button" onClick={captureEnd} className="w-full mt-3 bg-transparent border border-paper-500 hover:bg-paper-300 py-2.5 text-[13px] text-ink-700 font-bold transition-colors rounded-none">
             التقاط من الصوت الآن
           </button>
         </label>
       </div>
 
-      <div className="flex items-center justify-between text-xs text-[#A0AAB7] font-mono font-medium bg-black/30 px-4 py-2.5 rounded-xl border border-white/[0.06] ltr-num">
-        <span className="text-[#F3E19C]">{formatTime(startMs, true)} → {formatTime(endMs, true)}</span>
-        <span className="flex items-center gap-2">
-          <span className="w-2 h-2 rounded-full bg-[#D4AF37] animate-pulse shadow-[0_0_6px_rgba(212,175,55,0.8)]" />
+      <div className="flex items-center justify-between text-[14px] text-ink-900 font-mono font-bold bg-paper-200 px-5 py-3 rounded-none border border-paper-400 ltr-num shadow-sm">
+        <span>{formatTime(startMs, true)} → {formatTime(endMs, true)}</span>
+        <span className="flex items-center gap-2 text-ink-700 font-ui font-bold">
+          <span className="w-2.5 h-2.5 rounded-none bg-accent-700 border border-ink-900 animate-pulse" />
           الموضع: {formatTime(currentTimeMs, true)}
         </span>
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
-         <div className="grid grid-cols-4 gap-1.5">
+      <div className="grid grid-cols-2 gap-6">
+         <div className="grid grid-cols-4 gap-2">
           {([-200, -50, 50, 200] as const).map((amount) => (
-            <button key={`s${amount}`} type="button" onClick={() => nudge("start", amount)} className="rounded-lg border border-white/10 bg-white/[0.04] py-2 text-[11px] font-mono text-[#CED4DA] hover:text-[#F3E19C] hover:bg-white/[0.08] transition-colors">
+            <button key={`s${amount}`} type="button" onClick={() => nudge("start", amount)} className="border border-paper-400 bg-paper-200 py-2 text-[12px] font-mono text-ink-700 font-bold hover:text-ink-900 hover:bg-paper-300 transition-colors rounded-none shadow-sm">
               {amount > 0 ? "+" : ""}{amount}
             </button>
           ))}
         </div>
-        <div className="grid grid-cols-4 gap-1.5">
+        <div className="grid grid-cols-4 gap-2">
           {([-200, -50, 50, 200] as const).map((amount) => (
-            <button key={`e${amount}`} type="button" onClick={() => nudge("end", amount)} className="rounded-lg border border-white/10 bg-white/[0.04] py-2 text-[11px] font-mono text-[#CED4DA] hover:text-[#F3E19C] hover:bg-white/[0.08] transition-colors">
+            <button key={`e${amount}`} type="button" onClick={() => nudge("end", amount)} className="border border-paper-400 bg-paper-200 py-2 text-[12px] font-mono text-ink-700 font-bold hover:text-ink-900 hover:bg-paper-300 transition-colors rounded-none shadow-sm">
               {amount > 0 ? "+" : ""}{amount}
             </button>
           ))}
         </div>
       </div>
 
-      <div className="flex items-center gap-3 pt-2">
+      <div className="flex items-center gap-4 pt-4">
         <button
           type="button"
           onClick={() => onSeek(startMs)}
-          className="flex-1 rounded-xl border border-white/10 bg-white/[0.05] py-3 text-xs font-semibold text-[#F8F9FA] flex items-center justify-center gap-2 hover:bg-white/[0.1] transition-colors shadow-sm"
+          className="flex-1 border-2 border-ink-700 bg-transparent py-3.5 text-[14px] font-bold text-ink-800 flex items-center justify-center gap-2 hover:bg-ink-100 transition-colors rounded-none shadow-sm"
         >
-          <TimerReset className="w-4 h-4 text-[#D4AF37]" /> الانتقال للبداية
+          <TimerReset className="w-5 h-5 text-ink-700" /> الانتقال للبداية
         </button>
 
         <button
           type="button"
           disabled={isSaving}
           onClick={saveBoundary}
-          className="flex-[2] rounded-xl bg-gradient-to-r from-[#D4AF37] to-[#B89225] hover:from-[#E6C265] hover:to-[#C9A233] py-3 text-xs font-bold text-[#0A0C10] disabled:opacity-50 flex items-center justify-center gap-2 transition-all shadow-[0_0_20px_rgba(212,175,55,0.3)]"
+          className="flex-[2] bg-accent-700 hover:bg-accent-600 border-2 border-accent-700 py-3.5 text-[15px] font-bold text-paper-100 disabled:opacity-50 flex items-center justify-center gap-2 transition-colors shadow-sm rounded-none"
         >
-          <Save className="w-4 h-4 stroke-[2.5]" /> {isSaving ? "جاري الحفظ..." : "حفظ التصحيح اليدوي"}
+          <Save className="w-5 h-5" /> {isSaving ? "جاري الحفظ..." : "حفظ التصحيح اليدوي"}
         </button>
       </div>
 
       {onApplyOffset && (
-        <div className="border-t border-white/[0.08] pt-5 space-y-3">
-          <span className="text-xs font-semibold text-[#F8F9FA] font-sans tracking-wide">تصحيح انزياح ثابت (Offset)</span>
-          <div className="flex gap-2">
+        <div className="border-t border-paper-400 pt-6 mt-4 space-y-4">
+          <span className="text-[14px] font-bold text-ink-900 block">تصحيح انزياح ثابت (Offset)</span>
+          <div className="flex items-center gap-3">
             <input
               type="number"
               value={offsetMs}
               onChange={(event) => setOffsetMs(Number(event.target.value))}
               placeholder="مثال: 350"
-              className="w-32 rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-xs text-[#F3E19C] font-mono font-medium focus:outline-none focus:border-[#D4AF37]/50 ltr-num"
+              className="w-32 bg-paper-200 border border-paper-400 px-4 py-2.5 text-[14px] text-ink-900 font-mono font-bold focus:outline-none focus:border-accent-700 focus:ring-1 focus:ring-accent-700 ltr-num rounded-none"
             />
-            <button type="button" onClick={applyOffset} className="rounded-xl bg-white/[0.06] hover:bg-white/[0.1] px-4 text-xs font-semibold text-[#F8F9FA] border border-white/10 transition-colors">
+            <button type="button" onClick={applyOffset} className="bg-ink-800 hover:bg-ink-900 px-6 py-2.5 text-[14px] font-bold text-paper-100 border border-ink-900 transition-colors rounded-none shadow-sm">
               تطبيق الانزياح
             </button>
-            <label className="flex items-center gap-2 text-xs text-[#A0AAB7] mr-4 font-sans cursor-pointer select-none">
-              <input type="checkbox" checked={includeFollowing} onChange={(event) => setIncludeFollowing(event.target.checked)} className="w-4 h-4 rounded border-white/20 text-[#D4AF37] focus:ring-[#D4AF37]/30 bg-black" />
+            <label className="flex items-center gap-3 text-[14px] text-ink-700 mr-4 font-bold cursor-pointer select-none">
+              <input type="checkbox" checked={includeFollowing} onChange={(event) => setIncludeFollowing(event.target.checked)} className="w-4 h-4 border-ink-400 text-accent-700 focus:ring-accent-700 rounded-none bg-paper-100" />
               <span>تطبيق على الأبيات التالية</span>
             </label>
           </div>
         </div>
       )}
 
-      {message && <p className="rounded-xl border border-emerald-500/30 bg-emerald-500/15 px-4 py-3 text-xs text-emerald-200 font-medium font-sans shadow-inner animate-in fade-in zoom-in-95">{message}</p>}
+      {message && <p className="bg-green-50 border border-green-800 px-5 py-4 text-[14px] text-green-800 font-bold shadow-sm rounded-none animate-in fade-in zoom-in-95">{message}</p>}
     </section>
   );
 };

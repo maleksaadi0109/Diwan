@@ -1,94 +1,66 @@
+@import url('https://fonts.googleapis.com/css2?family=Amiri:ital,wght@0,400;0,700;1,400;1,700&family=Aref+Ruqaa:wght@400;700&family=Noto+Naskh+Arabic:wght@400;500;600;700&display=swap');
 @import "tailwindcss";
 
 @theme {
-  --color-charcoal-950: #0b0d10;
-  --color-charcoal-900: #111419;
-  --color-charcoal-850: #161a22;
-  --color-charcoal-800: #1c212b;
-  --color-charcoal-700: #272e3c;
-  --color-charcoal-600: #363f52;
+  --color-paper-100: #FDFBF7;
+  --color-paper-200: #F4EFE6;
+  --color-paper-300: #EBE3D5;
+  --color-paper-400: #DFD5C4;
+  --color-paper-500: #D1C5B0;
+  
+  --color-ink-900: #1A1614;
+  --color-ink-800: #2C2622;
+  --color-ink-700: #423933;
+  --color-ink-600: #594E46;
+  --color-ink-500: #73665C;
 
-  --color-parchment-50: #fdfbf7;
-  --color-parchment-100: #f7f3ea;
-  --color-parchment-200: #eee4d0;
-  --color-parchment-300: #dfcfb0;
-  --color-parchment-400: #c7b189;
+  --color-accent-700: #8E2822;
+  --color-accent-600: #A8332B;
+  --color-accent-500: #C24138;
 
-  --color-sand-50: #FCFBF8;
-  --color-sand-100: #F6F3EB;
-  --color-sand-200: #EBE4D5;
-  --color-sand-300: #D8CCB5;
-  --color-sand-400: #C4B294;
-  --color-sand-500: #A89370;
-
-  --color-ink-50: #F8F9FA;
-  --color-ink-100: #E9ECEF;
-  --color-ink-200: #DEE2E6;
-  --color-ink-300: #CED4DA;
-  --color-ink-400: #A0AAB7;
-  --color-ink-500: #6C7A8C;
-  --color-ink-600: #495057;
-  --color-ink-700: #343A40;
-  --color-ink-800: #212529;
-  --color-ink-900: #15181E;
-  --color-ink-950: #0B0D12;
-
-  --color-gold-300: #f5d77f;
-  --color-gold-400: #e9be4f;
-  --color-gold-500: #d4af37;
-  --color-gold-600: #b89326;
-  --color-gold-700: #8c6e17;
-
-  --color-crimson-500: #e63946;
-  --color-crimson-600: #c92a3a;
-  --color-crimson-700: #a32230;
-  --color-crimson-800: #7a1924;
-  --color-crimson-900: #4a1017;
-
-  --font-poetry: "Amiri", "Scheherazade New", "Traditional Arabic", serif;
-  --font-sans: "Cairo", "Almarai", "Segoe UI", Tahoma, sans-serif;
+  --font-poetry: "Amiri", serif;
+  --font-heading: "Aref Ruqaa", serif;
+  --font-ui: "Noto Naskh Arabic", serif;
+  --font-mono: "Courier New", Courier, monospace;
 }
 
 @layer base {
   :root {
-    color-scheme: dark;
+    color-scheme: light;
   }
-
   body {
-    background-color: #0b0d10;
-    color: #f7f3ea;
-    font-family: 'Cairo', system-ui, -apple-system, sans-serif;
+    background-color: var(--color-paper-200);
+    color: var(--color-ink-800);
+    font-family: var(--font-ui);
     direction: rtl;
-    user-select: none;
     -webkit-font-smoothing: antialiased;
   }
-
-  /* Custom scrollbars */
+  body::after {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.05'/%3E%3C/svg%3E");
+    z-index: 50;
+  }
   ::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
+    width: 8px;
+    height: 8px;
   }
   ::-webkit-scrollbar-track {
-    background: #111419;
+    background: var(--color-paper-200);
+    border-left: 1px solid var(--color-paper-400);
   }
   ::-webkit-scrollbar-thumb {
-    background: #272e3c;
-    border-radius: 4px;
+    background: var(--color-paper-500);
+    border-radius: 0;
   }
   ::-webkit-scrollbar-thumb:hover {
-    background: #363f52;
+    background: var(--color-ink-500);
   }
 }
 
 @layer utilities {
-  .font-poetry {
-    font-family: 'Amiri', 'Scheherazade New', 'Traditional Arabic', serif;
-  }
-  
-  .text-shadow-gold {
-    text-shadow: 0 0 16px rgba(212, 175, 55, 0.4);
-  }
-
   .ltr-num {
     direction: ltr;
     display: inline-block;

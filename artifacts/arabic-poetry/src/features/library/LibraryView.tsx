@@ -4,7 +4,7 @@ import { SearchBar } from "./SearchBar";
 import { FilterPills } from "./FilterPills";
 import { PoemCard } from "./PoemCard";
 import { normalizeArabic, toArabicDigits } from "@/lib/utils";
-import { BookOpen, Plus, Sparkles } from "lucide-react";
+import { BookOpen, Plus, Feather } from "lucide-react";
 
 interface LibraryViewProps {
   poems: Poem[];
@@ -49,61 +49,61 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
         <div className="flex items-center justify-between">
           <div>
             <div className="flex items-center gap-2 mb-2">
-              <span className="text-xs font-semibold text-[#D4AF37] tracking-widest uppercase flex items-center gap-1.5 bg-[#D4AF37]/10 px-2.5 py-0.5 rounded-md border border-[#D4AF37]/20">
-                <Sparkles className="w-3 h-3" />
+              <span className="text-sm font-bold text-accent-700 flex items-center gap-1.5 font-ui">
+                <Feather className="w-4 h-4" />
                 <span>الديوان الجامع للشعر العربي</span>
               </span>
             </div>
-            <h2 className="text-4xl md:text-5xl font-bold text-[#F8F9FA] font-poetry tracking-wide drop-shadow-md">
+            <h2 className="text-5xl font-heading text-ink-900 mt-2">
               المكتبة
             </h2>
-            <p className="text-sm text-[#A0AAB7] mt-2 font-sans tracking-wide">
+            <p className="text-[15px] text-ink-600 mt-3 font-ui">
               تصفح عيون الشعر العربي، واستمع إلى الإلقاء الصوتي المتزامن بدقة عالية
             </p>
           </div>
 
           <button
             onClick={onNavigateToImport}
-            className="px-5 py-3 rounded-xl bg-gradient-to-r from-[#D4AF37] to-[#B89225] hover:from-[#E6C265] hover:to-[#C9A233] text-[#0A0C10] font-bold text-sm transition-all shadow-[0_0_20px_rgba(212,175,55,0.3)] flex items-center gap-2 border border-[#F3E19C]/40 group active:scale-95"
+            className="px-6 py-2.5 bg-paper-100 border-2 border-accent-700 text-accent-700 font-bold font-ui text-sm hover:bg-accent-700 hover:text-paper-100 transition-colors shadow-sm rounded-none flex items-center gap-2 group"
           >
-            <Plus className="w-4 h-4 stroke-[3] group-hover:rotate-90 transition-transform duration-300" />
+            <Plus className="w-4 h-4 stroke-[3]" />
             <span>استيراد قصيدة</span>
           </button>
         </div>
 
         {/* Search & Filter Bar */}
-        <div className="flex flex-col md:flex-row items-stretch md:items-center gap-4 bg-[#13161D]/80 p-3 rounded-2xl border border-white/[0.08] shadow-xl backdrop-blur-xl">
+        <div className="flex flex-col md:flex-row items-stretch md:items-center gap-4 bg-paper-100 p-2 border border-paper-400 shadow-sm rounded-none relative">
           <div className="flex-1">
             <SearchBar value={searchQuery} onChange={setSearchQuery} />
           </div>
-          <div className="w-[1px] h-8 bg-white/[0.1] hidden md:block" />
+          <div className="w-px h-8 bg-paper-400 hidden md:block" />
           <FilterPills selectedEra={selectedEra} onSelectEra={setSelectedEra} />
         </div>
       </div>
 
       {/* Counter summary */}
-      <div className="flex items-center justify-between text-xs text-[#A0AAB7] mb-6 pb-3 border-b border-white/[0.08] font-sans tracking-wide">
+      <div className="flex items-center justify-between text-sm text-ink-600 mb-6 pb-3 border-b border-paper-400 font-ui">
         <span>
-          عرض <strong className="text-[#F3E19C] px-1 font-mono text-sm">{toArabicDigits(filteredPoems.length)}</strong> من إجمالي <strong className="text-[#F8F9FA] px-1 font-mono text-sm">{toArabicDigits(poems.length)}</strong> قصائد
+          عرض <strong className="text-ink-900 px-1 font-mono">{toArabicDigits(filteredPoems.length)}</strong> من إجمالي <strong className="text-ink-900 px-1 font-mono">{toArabicDigits(poems.length)}</strong> قصائد
         </span>
       </div>
 
       {/* Grid of Poem Cards */}
       {filteredPoems.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pb-16">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 pb-16">
           {filteredPoems.map((poem) => (
             <PoemCard key={poem.id} poem={poem} onOpenPoem={onOpenPoem} />
           ))}
         </div>
       ) : (
-        <div className="flex-1 flex flex-col items-center justify-center text-center p-16 bg-[#13161D]/50 border border-white/[0.08] rounded-3xl backdrop-blur-md shadow-2xl">
-          <div className="w-20 h-20 rounded-2xl bg-white/[0.04] border border-white/[0.08] flex items-center justify-center mb-6 text-[#D4AF37]/60 shadow-inner">
+        <div className="flex-1 flex flex-col items-center justify-center text-center p-16 bg-paper-100 border border-paper-400 shadow-sm rounded-none">
+          <div className="w-20 h-20 bg-paper-200 border border-paper-400 flex items-center justify-center mb-6 text-ink-500 rounded-none">
              <BookOpen className="w-10 h-10" strokeWidth={1.5} />
           </div>
-          <h3 className="text-2xl font-bold text-[#F8F9FA] mb-2 font-poetry tracking-wide">
+          <h3 className="text-3xl font-heading text-ink-900 mb-3">
             لا توجد قصائد مطابقة لبحثك
           </h3>
-          <p className="text-sm text-[#A0AAB7] max-w-sm mb-6 leading-relaxed">
+          <p className="text-md text-ink-600 max-w-md mb-6 leading-relaxed font-ui">
             جرب تعديل كلمات البحث أو تصفية العصور، أو أضف قصيدة جديدة إلى ديوانك.
           </p>
           <button
@@ -111,7 +111,7 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
               setSearchQuery("");
               setSelectedEra("الكل");
             }}
-            className="px-6 py-2.5 rounded-xl bg-white/[0.06] hover:bg-white/[0.1] text-[#F8F9FA] text-sm font-medium border border-white/10 transition-colors shadow-sm"
+            className="px-6 py-2.5 border border-ink-600 text-ink-800 font-bold font-ui text-sm hover:bg-ink-800 hover:text-paper-100 transition-colors shadow-sm rounded-none"
           >
             إعادة ضبط البحث
           </button>
