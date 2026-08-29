@@ -6,7 +6,7 @@ import {
   WorkerYouTubeInfoData,
   WorkerYouTubeDownloadData,
 } from "@/lib/worker/workerClient";
-import { getPoemRecordingDirectory, resolveAudioSrc } from "@/lib/audio/fileManager";
+import { getPoemRecordingDirectory, resolveAudioSrc, resolveAudioSrcAsync } from "@/lib/audio/fileManager";
 import { formatTime } from "@/lib/utils";
 import {
   Search,
@@ -70,6 +70,7 @@ export const YouTubeImportView: React.FC<YouTubeImportViewProps> = ({ onAudioDow
   const [downloadError, setDownloadError] = useState<string | null>(null);
   const [currentJobId, setCurrentJobId] = useState<string | null>(null);
   const [downloadResult, setDownloadResult] = useState<WorkerYouTubeDownloadData | null>(null);
+  const [playableAudioSrc, setPlayableAudioSrc] = useState<string>("");
   const [copiedPath, setCopiedPath] = useState(false);
 
   const handleFetchInfo = async (e?: React.FormEvent) => {
@@ -80,6 +81,7 @@ export const YouTubeImportView: React.FC<YouTubeImportViewProps> = ({ onAudioDow
     setInfoError(null);
     setVideoInfo(null);
     setDownloadResult(null);
+    setPlayableAudioSrc("");
     setDownloadError(null);
 
     try {
@@ -99,6 +101,7 @@ export const YouTubeImportView: React.FC<YouTubeImportViewProps> = ({ onAudioDow
     setDownloadProgress(0.1);
     setDownloadStage("جاري بدء التنزيل واستخراج الصوت بأعلى جودة...");
     setDownloadError(null);
+    setPlayableAudioSrc("");
     const jobId = `yt-${Date.now()}`;
     setCurrentJobId(jobId);
 
@@ -125,6 +128,11 @@ export const YouTubeImportView: React.FC<YouTubeImportViewProps> = ({ onAudioDow
           : "اكتمل التنزيل وتحويل الصوت إلى MP3 بنجاح!"
       );
       setDownloadResult(res);
+
+      if (res.playback_audio_path) {
+        const streamUrl = await resolveAudioSrcAsync(res.playback_audio_path);
+        setPlayableAudioSrc(streamUrl);
+      }
 
       if (onAudioDownloaded) {
         onAudioDownloaded(res, videoInfo);
@@ -345,7 +353,7 @@ export const YouTubeImportView: React.FC<YouTubeImportViewProps> = ({ onAudioDow
                 </div>
                 <audio
                   controls
-                  src={resolveAudioSrc(downloadResult.playback_audio_path)}
+                  src={playableAudioSrc || resolveAudioSrc(downloadResult.playback_audio_path)}
                   className="w-full sm:w-80 h-9 rounded-xl outline-none"
                 />
               </div>

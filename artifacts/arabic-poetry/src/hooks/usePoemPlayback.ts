@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Poem, Verse } from "@/types";
 import { AudioController, AudioPlayerState } from "@/lib/audio/AudioController";
-import { resolveAudioSrc } from "@/lib/audio/fileManager";
+import { resolveAudioSrc, resolveAudioSrcAsync } from "@/lib/audio/fileManager";
 
 export function usePoemPlayback(poem: Poem | null) {
   const controllerRef = useRef<AudioController | null>(null);
@@ -19,12 +19,14 @@ export function usePoemPlayback(poem: Poem | null) {
 
   // Sync verses with controller whenever poem or its verses change
   useEffect(() => {
+    let isCancelled = false;
+
     if (poem) {
       controller.setVerses(poem.verses);
       const defaultRec =
         poem.recordings.find((recording) => recording.id === poem.defaultRecordingId) ||
         poem.recordings[0];
-      const audioUrl = defaultRec ? resolveAudioSrc(defaultRec.audioPath) : "";
+
       // Real duration only: recording metadata, else the last aligned verse
       // end. Never a fabricated verse-count × 8s estimate.
       const lastAlignedEnd = poem.verses.reduce(
@@ -32,11 +34,24 @@ export function usePoemPlayback(poem: Poem | null) {
         0
       );
       const defaultDuration = defaultRec?.durationMs || lastAlignedEnd;
-      controller.loadAudio(audioUrl, defaultDuration);
+
+      if (defaultRec && defaultRec.audioPath) {
+        resolveAudioSrcAsync(defaultRec.audioPath).then((audioUrl) => {
+          if (!isCancelled) {
+            controller.loadAudio(audioUrl, defaultDuration);
+          }
+        });
+      } else {
+        controller.loadAudio("", defaultDuration);
+      }
     } else {
       controller.setVerses([]);
       controller.loadAudio("");
     }
+
+    return () => {
+      isCancelled = true;
+    };
   }, [poem, controller]);
 
   // Subscribe to controller state changes (guaranteed single subscriber per hook instance)

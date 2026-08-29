@@ -17,6 +17,10 @@
     "fs:allow-write-file",
     "fs:allow-create",
     "fs:allow-copy-file",
-    "fs:allow-exists"
+    "fs:allow-exists",
+    {
+      "identifier": "fs:scope",
+      "allow": ["$APPDATA/**", "$RESOURCE/**", "$TEMP/**", "$DOWNLOAD/**", "$HOME/**", "**"]
+    }
   ]
 }

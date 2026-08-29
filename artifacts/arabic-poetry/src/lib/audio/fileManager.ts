@@ -95,7 +95,7 @@ export async function copyAudioToAppData(
 }
 
 /**
- * Converts a filesystem audio path to a streaming URL for HTML5 Audio
+ * Synchronously converts an audio path to a streaming/asset URL
  */
 export function resolveAudioSrc(audioPath: string): string {
   if (!audioPath) return "";
@@ -131,6 +131,45 @@ export function resolveAudioSrc(audioPath: string): string {
   }
 
   return audioPath.startsWith("/") ? audioPath : `/${audioPath}`;
+}
+
+/**
+ * Asynchronously resolves an audio path into a playable HTML5 Audio URL.
+ * In Tauri desktop environments, it reads the audio file bytes via Tauri FS
+ * and creates a Blob URL, completely bypassing WebKit2GTK asset protocol issues.
+ */
+export async function resolveAudioSrcAsync(audioPath: string): Promise<string> {
+  if (!audioPath) return "";
+  if (
+    audioPath.startsWith("http://") ||
+    audioPath.startsWith("https://") ||
+    audioPath.startsWith("blob:") ||
+    audioPath.startsWith("data:")
+  ) {
+    return audioPath;
+  }
+
+  const isAbsolute = audioPath.startsWith("/") || audioPath.includes(":\\") || audioPath.startsWith("\\\\");
+  if (!isAbsolute) {
+    return `/${audioPath.replace(/^\.?\//, '')}`;
+  }
+
+  const isTauri = typeof window !== "undefined" && ("__TAURI_INTERNALS__" in window || "__TAURI__" in window);
+  if (isTauri) {
+    try {
+      const { readFile } = await import("@tauri-apps/plugin-fs");
+      const bytes = await readFile(audioPath);
+      const ext = audioPath.split('.').pop()?.toLowerCase();
+      const mime = ext === 'wav' ? 'audio/wav' : ext === 'ogg' ? 'audio/ogg' : ext === 'm4a' ? 'audio/mp4' : 'audio/mpeg';
+      const blob = new Blob([bytes], { type: mime });
+      return URL.createObjectURL(blob);
+    } catch (err) {
+      console.warn("Could not read file via tauri-plugin-fs, falling back to resolveAudioSrc:", err);
+      return resolveAudioSrc(audioPath);
+    }
+  }
+
+  return resolveAudioSrc(audioPath);
 }
 
 /**
