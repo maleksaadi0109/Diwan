@@ -16,7 +16,7 @@ describe("LibraryView component", () => {
       />
     );
 
-    expect(screen.getByText("ديوان الشعر العربي")).toBeInTheDocument();
+    expect(screen.getByText("المكتبة")).toBeInTheDocument();
     expect(screen.getAllByText("واحَرَّ قَلباهُ مِمَّن قَلبُهُ شَبِمُ").length).toBeGreaterThan(0);
     expect(screen.getByText("أبو الطيب المتنبي")).toBeInTheDocument();
   });
@@ -33,7 +33,7 @@ describe("LibraryView component", () => {
       />
     );
 
-    const searchInput = screen.getByPlaceholderText(/ابحث بالقصيدة/i);
+    const searchInput = screen.getByPlaceholderText(/ابحث بقصيدة/i);
     fireEvent.change(searchInput, { target: { value: "امرؤ القيس" } });
 
     expect(screen.getAllByText("قِفا نَبكِ مِن ذِكرى حَبيبٍ وَمَنزِلِ").length).toBeGreaterThan(0);

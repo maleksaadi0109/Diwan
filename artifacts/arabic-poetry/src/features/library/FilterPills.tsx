@@ -22,7 +22,7 @@ export const FilterPills: React.FC<FilterPillsProps> = ({
   onSelectEra,
 }) => {
   return (
-    <div className="flex items-center gap-1.5 overflow-x-auto pb-1 select-none">
+    <div className="flex items-center gap-1.5 overflow-x-auto select-none no-scrollbar px-1 py-1">
       {ERAS.map((era) => {
         const isSelected = selectedEra === era;
         return (
@@ -30,10 +30,10 @@ export const FilterPills: React.FC<FilterPillsProps> = ({
             key={era}
             onClick={() => onSelectEra(era)}
             className={cn(
-              "px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all duration-150",
+              "px-4 py-2 rounded-lg text-[13px] font-sans tracking-wide whitespace-nowrap transition-all duration-300",
               isSelected
-                ? "bg-gold-500 text-charcoal-950 font-semibold shadow-sm"
-                : "bg-charcoal-850 text-parchment-300 hover:bg-charcoal-800 border border-charcoal-700/60"
+                ? "bg-ink-900 text-sand-50 shadow-md border border-ink-950"
+                : "bg-sand-100 text-ink-600 hover:bg-sand-200/80 hover:text-ink-900 border border-sand-300 shadow-sm"
             )}
           >
             {era === "الكل" ? "كل العصور" : `العصر ال${era}`}

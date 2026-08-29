@@ -52,24 +52,24 @@ export const ExportModal: React.FC<ExportModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-charcoal-950/75 backdrop-blur-sm p-4 select-none animate-fadeIn">
-      <div className="bg-charcoal-900 border border-charcoal-800 rounded-2xl w-full max-w-xl overflow-hidden shadow-2xl flex flex-col max-h-[85vh]">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-sand-100/75 backdrop-blur-sm p-4 select-none animate-fadeIn">
+      <div className="bg-sand-50 border border-sand-300 rounded-2xl w-full max-w-xl overflow-hidden shadow-2xl flex flex-col max-h-[85vh]">
         {/* Header */}
-        <div className="px-6 py-4 border-b border-charcoal-800 flex items-center justify-between">
-          <div className="flex items-center gap-2.5 text-gold-400">
+        <div className="px-6 py-4 border-b border-sand-300 flex items-center justify-between">
+          <div className="flex items-center gap-2.5 text-crimson-700">
             <Download className="w-5 h-5" />
             <div>
-              <h3 className="text-sm font-bold font-poetry text-parchment-100">
+              <h3 className="text-sm font-bold font-poetry text-ink-900">
                 تصدير القصيدة والكلمات المتزامنة
               </h3>
-              <p className="text-xs text-parchment-400">
+              <p className="text-xs text-ink-600">
                 تصدير بتنسيقات LRC و SRT و Diwan JSON
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="text-parchment-400 hover:text-parchment-200 p-1 rounded-lg hover:bg-charcoal-800 transition-colors"
+            className="text-ink-600 hover:text-ink-800 p-1 rounded-lg hover:bg-sand-200 transition-colors"
           >
             <X className="w-4 h-4" />
           </button>
@@ -83,8 +83,8 @@ export const ExportModal: React.FC<ExportModalProps> = ({
               onClick={() => setSelectedFormat("lrc")}
               className={`p-3 rounded-xl border text-center transition-all ${
                 selectedFormat === "lrc"
-                  ? "bg-gold-500/15 border-gold-500/40 text-gold-300 shadow-sm"
-                  : "bg-charcoal-850 border-charcoal-750 text-parchment-400 hover:text-parchment-200"
+                  ? "bg-crimson-800/15 border-crimson-800/40 text-crimson-600 shadow-sm"
+                  : "bg-white border-sand-300 text-ink-600 hover:text-ink-800"
               }`}
             >
               <Music className="w-5 h-5 mx-auto mb-1.5" />
@@ -96,8 +96,8 @@ export const ExportModal: React.FC<ExportModalProps> = ({
               onClick={() => setSelectedFormat("srt")}
               className={`p-3 rounded-xl border text-center transition-all ${
                 selectedFormat === "srt"
-                  ? "bg-gold-500/15 border-gold-500/40 text-gold-300 shadow-sm"
-                  : "bg-charcoal-850 border-charcoal-750 text-parchment-400 hover:text-parchment-200"
+                  ? "bg-crimson-800/15 border-crimson-800/40 text-crimson-600 shadow-sm"
+                  : "bg-white border-sand-300 text-ink-600 hover:text-ink-800"
               }`}
             >
               <FileText className="w-5 h-5 mx-auto mb-1.5" />
@@ -109,8 +109,8 @@ export const ExportModal: React.FC<ExportModalProps> = ({
               onClick={() => setSelectedFormat("json")}
               className={`p-3 rounded-xl border text-center transition-all ${
                 selectedFormat === "json"
-                  ? "bg-gold-500/15 border-gold-500/40 text-gold-300 shadow-sm"
-                  : "bg-charcoal-850 border-charcoal-750 text-parchment-400 hover:text-parchment-200"
+                  ? "bg-crimson-800/15 border-crimson-800/40 text-crimson-600 shadow-sm"
+                  : "bg-white border-sand-300 text-ink-600 hover:text-ink-800"
               }`}
             >
               <Download className="w-5 h-5 mx-auto mb-1.5" />
@@ -121,17 +121,17 @@ export const ExportModal: React.FC<ExportModalProps> = ({
 
           {/* Code Preview */}
           <div className="space-y-1.5">
-            <span className="text-xs font-semibold text-parchment-300 block">
+            <span className="text-xs font-semibold text-ink-700 block">
               معاينة الملف المصدّر:
             </span>
-            <pre className="p-3 bg-charcoal-950 rounded-xl border border-charcoal-800 font-mono text-[11px] text-parchment-200 max-h-48 overflow-y-auto leading-relaxed select-text ltr-num text-left">
+            <pre className="p-3 bg-sand-100 rounded-xl border border-sand-300 font-mono text-[11px] text-ink-800 max-h-48 overflow-y-auto leading-relaxed select-text ltr-num text-left">
               {getPreview()}
             </pre>
           </div>
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-3 border-t border-charcoal-800 bg-charcoal-850/50 flex items-center justify-between">
+        <div className="px-6 py-3 border-t border-sand-300 bg-white/50 flex items-center justify-between">
           <div>
             {downloadSuccess && (
               <span className="text-xs text-emerald-400 flex items-center gap-1.5">
@@ -144,13 +144,13 @@ export const ExportModal: React.FC<ExportModalProps> = ({
           <div className="flex gap-2">
             <button
               onClick={onClose}
-              className="px-4 py-2 rounded-xl bg-charcoal-800 hover:bg-charcoal-700 text-parchment-300 text-xs font-medium border border-charcoal-700 transition-colors"
+              className="px-4 py-2 rounded-xl bg-sand-200 hover:bg-sand-300 text-ink-700 text-xs font-medium border border-sand-400 transition-colors"
             >
               إلغاء
             </button>
             <button
               onClick={handleExport}
-              className="px-5 py-2 rounded-xl bg-gold-500 hover:bg-gold-400 text-charcoal-950 text-xs font-bold transition-all shadow-md flex items-center gap-1.5"
+              className="px-5 py-2 rounded-xl bg-crimson-800 hover:bg-crimson-700 text-sand-50 text-xs font-bold transition-all shadow-md flex items-center gap-1.5"
             >
               <Download className="w-4 h-4" />
               <span>تنزيل الملف</span>

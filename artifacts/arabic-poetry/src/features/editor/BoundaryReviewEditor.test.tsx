@@ -14,7 +14,7 @@ describe("BoundaryReviewEditor", () => {
       />
     );
 
-    expect(screen.getByText("محرر المحاذاة وتدقيق الحدود الزمنية")).toBeInTheDocument();
+    expect(screen.getByText("محرر المحاذاة وتدقيق الحدود")).toBeInTheDocument();
     expect(screen.getByText("البيت رقم ١")).toBeInTheDocument();
   });
 
@@ -27,7 +27,7 @@ describe("BoundaryReviewEditor", () => {
       />
     );
 
-    const plus50Btns = screen.getAllByText("+50ms");
+    const plus50Btns = screen.getAllByText("+50");
     // Click start timestamp +50ms nudge
     fireEvent.click(plus50Btns[0]);
     expect(onUpdate).toHaveBeenCalled();

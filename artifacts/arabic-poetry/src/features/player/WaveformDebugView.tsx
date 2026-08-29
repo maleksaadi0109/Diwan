@@ -30,28 +30,28 @@ export const WaveformDebugView: React.FC<WaveformDebugViewProps> = ({
   const activeEndPercent = activeVerse?.alignment ? (activeVerse.alignment.endMs / totalDuration) * 100 : 0;
 
   return (
-    <div className="bg-charcoal-900 border-t border-charcoal-800 p-4 select-none animate-fadeIn">
+    <div className="bg-sand-50 border-t border-sand-300 p-4 select-none animate-fadeIn">
       <div className="max-w-4xl mx-auto space-y-3">
         {/* Header */}
         <div className="flex items-center justify-between text-xs font-mono">
           <div className="flex items-center gap-3 text-emerald-400 font-bold">
             <span>⚡ Waveform VAD & Verse Boundaries Debug Map</span>
-            <span className="text-[10px] text-parchment-400 font-normal">
+            <span className="text-[10px] text-ink-600 font-normal">
               (Green: Speech | Gray: Silence | Gold Lines: Verse Boundaries)
             </span>
           </div>
           <button
             onClick={onClose}
-            className="text-parchment-400 hover:text-parchment-200 text-xs px-2 py-0.5 rounded bg-charcoal-800 border border-charcoal-700"
+            className="text-ink-600 hover:text-ink-800 text-xs px-2 py-0.5 rounded bg-sand-200 border border-sand-400"
           >
             إخفاء المخطط
           </button>
         </div>
 
         {/* Waveform Visualizer Bar */}
-        <div className="relative h-14 bg-charcoal-950 rounded-xl border border-charcoal-800 overflow-hidden" dir="ltr">
+        <div className="relative h-14 bg-sand-100 rounded-xl border border-sand-300 overflow-hidden" dir="ltr">
           {/* Base Silence Background (Gray) */}
-          <div className="absolute inset-0 bg-charcoal-900/80" />
+          <div className="absolute inset-0 bg-sand-50/80" />
 
           {/* Speech Regions (Green) based on verse alignments */}
           {poem.verses.map((v, i) => {
@@ -65,14 +65,14 @@ export const WaveformDebugView: React.FC<WaveformDebugViewProps> = ({
                 key={v.id}
                 className={`absolute top-2 bottom-2 rounded transition-all duration-75 ${
                   isCurrent
-                    ? "bg-emerald-500/80 ring-2 ring-gold-400/80 shadow-md shadow-emerald-500/30"
+                    ? "bg-emerald-500/80 ring-2 ring-crimson-700/80 shadow-md shadow-emerald-500/30"
                     : "bg-emerald-600/40 hover:bg-emerald-500/60"
                 }`}
                 style={{ left: `${start}%`, width: `${width}%` }}
                 title={`البيت ${i + 1}: ${formatTime(v.alignment.startMs)} - ${formatTime(v.alignment.endMs)}`}
               >
                 {/* Hemistich split separator inside verse */}
-                <div className="absolute top-0 bottom-0 left-1/2 w-0.5 bg-charcoal-950/60" />
+                <div className="absolute top-0 bottom-0 left-1/2 w-0.5 bg-sand-100/60" />
               </div>
             );
           })}
@@ -84,7 +84,7 @@ export const WaveformDebugView: React.FC<WaveformDebugViewProps> = ({
             return (
               <div
                 key={`b-${v.id}`}
-                className="absolute top-0 bottom-0 w-[1.5px] bg-gold-400/80 z-10 shadow-sm"
+                className="absolute top-0 bottom-0 w-[1.5px] bg-crimson-700/80 z-10 shadow-sm"
                 style={{ left: `${pos}%` }}
               />
             );
@@ -93,7 +93,7 @@ export const WaveformDebugView: React.FC<WaveformDebugViewProps> = ({
           {/* Active Verse Highlight Zone */}
           {activeVerse && (
             <div
-              className="absolute top-0 bottom-0 bg-gold-500/10 border-x border-gold-400/60 z-15 pointer-events-none"
+              className="absolute top-0 bottom-0 bg-crimson-800/10 border-x border-crimson-700/60 z-15 pointer-events-none"
               style={{
                 left: `${activeStartPercent}%`,
                 width: `${Math.max(0.5, activeEndPercent - activeStartPercent)}%`,
@@ -111,25 +111,25 @@ export const WaveformDebugView: React.FC<WaveformDebugViewProps> = ({
         </div>
 
         {/* Legend & Current metrics */}
-        <div className="flex items-center justify-between text-[11px] font-mono text-parchment-400" dir="ltr">
+        <div className="flex items-center justify-between text-[11px] font-mono text-ink-600" dir="ltr">
           <div className="flex items-center gap-4">
             <span className="flex items-center gap-1.5">
               <span className="w-2.5 h-2.5 rounded-sm bg-emerald-500 inline-block" />
               <span>Speech Region</span>
             </span>
             <span className="flex items-center gap-1.5">
-              <span className="w-2.5 h-2.5 rounded-sm bg-charcoal-800 border border-charcoal-700 inline-block" />
+              <span className="w-2.5 h-2.5 rounded-sm bg-sand-200 border border-sand-400 inline-block" />
               <span>Silence Pause (&ge;280ms)</span>
             </span>
             <span className="flex items-center gap-1.5">
-              <span className="w-2.5 h-0.5 bg-gold-400 inline-block" />
+              <span className="w-2.5 h-0.5 bg-crimson-700 inline-block" />
               <span>Verse Boundary</span>
             </span>
           </div>
 
-          <div className="flex items-center gap-2 text-parchment-300">
+          <div className="flex items-center gap-2 text-ink-700">
             <span>Playhead:</span>
-            <span className="text-gold-400 font-bold">{formatTime(currentTimeMs)} ({currentTimeMs}ms)</span>
+            <span className="text-crimson-700 font-bold">{formatTime(currentTimeMs)} ({currentTimeMs}ms)</span>
           </div>
         </div>
       </div>

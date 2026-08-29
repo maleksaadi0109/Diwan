@@ -27,37 +27,37 @@ export const SettingsView: React.FC = () => {
   };
 
   return (
-    <div className="h-full overflow-y-auto px-8 py-6 max-w-4xl mx-auto w-full select-none space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold text-parchment-100 font-poetry">
+    <div className="h-full overflow-y-auto px-10 py-10 max-w-4xl mx-auto w-full select-none space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500 scroll-smooth">
+      <div className="border-b border-sand-300 pb-6">
+        <h2 className="text-4xl font-bold text-ink-950 font-poetry tracking-wide">
           إعدادات ديوان
         </h2>
-        <p className="text-sm text-parchment-400 mt-1">
+        <p className="text-sm text-ink-500 mt-2 font-sans tracking-wide">
           تخصيص الخطوط والتشغيل ومعالج الصوتيات والذكاء الاصطناعي
         </p>
       </div>
 
       {/* Typography settings */}
-      <section className="bg-charcoal-900 border border-charcoal-800 rounded-2xl p-6 space-y-4">
-        <div className="flex items-center gap-2 text-gold-400 font-semibold text-sm">
-          <Type className="w-4 h-4" />
+      <section className="bg-sand-50 border border-sand-300 rounded-2xl p-8 space-y-6 shadow-sm">
+        <div className="flex items-center gap-3 text-crimson-800 font-bold tracking-widest font-sans uppercase">
+          <Type className="w-5 h-5" />
           <span>الخطوط والطباعة الشعرية</span>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 font-sans">
           <div>
-            <label className="block text-xs text-parchment-300 mb-2">
+            <label className="block text-sm font-bold text-ink-800 mb-3">
               حجم خط أبيات الشعر ({poetryFontSize})
             </label>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 bg-sand-200/50 p-1.5 rounded-xl border border-sand-300">
               {["20px", "24px", "28px", "32px"].map((size) => (
                 <button
                   key={size}
                   onClick={() => setPoetryFontSize(size)}
-                  className={`flex-1 py-1.5 rounded-lg text-xs font-mono transition-colors border ${
+                  className={`flex-1 py-2 rounded-lg text-sm font-mono transition-all duration-300 ${
                     poetryFontSize === size
-                      ? "bg-gold-500/20 text-gold-300 border-gold-500/40 font-bold"
-                      : "bg-charcoal-850 text-parchment-400 border-charcoal-750 hover:text-parchment-200"
+                      ? "bg-crimson-800 text-sand-50 shadow-md font-bold scale-100"
+                      : "bg-transparent text-ink-600 hover:text-ink-900 hover:bg-sand-100"
                   }`}
                 >
                   {size}
@@ -67,27 +67,30 @@ export const SettingsView: React.FC = () => {
           </div>
 
           <div>
-            <label className="block text-xs text-parchment-300 mb-2">
+            <label className="block text-sm font-bold text-ink-800 mb-3">
               التمرير التلقائي أثناء الاستماع
             </label>
             <button
               onClick={() => setAutoScroll(!autoScroll)}
-              className={`w-full py-2 px-3 rounded-lg text-xs font-medium border flex items-center justify-between transition-colors ${
+              className={`w-full py-3.5 px-4 rounded-xl text-sm font-bold transition-all duration-300 flex items-center justify-between shadow-sm ${
                 autoScroll
-                  ? "bg-gold-500/15 text-gold-300 border-gold-500/30"
-                  : "bg-charcoal-850 text-parchment-400 border-charcoal-750"
+                  ? "bg-sand-100 text-crimson-800 border-2 border-crimson-800/30"
+                  : "bg-white text-ink-600 border border-sand-300 hover:bg-sand-100"
               }`}
             >
               <span>متابعة البيت النشط تلقائياً</span>
-              <span>{autoScroll ? "مفعل" : "معطل"}</span>
+              <span className={autoScroll ? "text-crimson-800 font-bold" : "text-ink-400 font-medium"}>
+                {autoScroll ? "مفعل" : "معطل"}
+              </span>
             </button>
           </div>
         </div>
 
         {/* Sample text preview */}
-        <div className="mt-4 p-4 rounded-xl bg-charcoal-950 border border-charcoal-800 text-center">
+        <div className="mt-6 p-6 rounded-xl bg-sand-100/50 border border-sand-300 text-center shadow-inner relative overflow-hidden">
+           <div className="absolute top-0 right-0 w-2 h-full bg-crimson-800/20"></div>
           <p
-            className="font-poetry text-gold-300 transition-all"
+            className="font-poetry text-ink-900 font-bold transition-all duration-300 leading-relaxed"
             style={{ fontSize: poetryFontSize }}
           >
             الخَيلُ وَاللَيلُ وَالبَيداءُ تَعرِفُني ... وَالسَيفُ وَالرُمحُ وَالقِرطاسُ وَالقَلَمُ
@@ -96,38 +99,38 @@ export const SettingsView: React.FC = () => {
       </section>
 
       {/* AI Speech Engine settings */}
-      <section className="bg-charcoal-900 border border-charcoal-800 rounded-2xl p-6 space-y-4">
-        <div className="flex items-center gap-2 text-gold-400 font-semibold text-sm">
-          <Cpu className="w-4 h-4" />
-          <span>محرك التعرف على الصوت والمحاذاة (Faster-Whisper / Silero)</span>
+      <section className="bg-sand-50 border border-sand-300 rounded-2xl p-8 space-y-6 shadow-sm">
+        <div className="flex items-center gap-3 text-crimson-800 font-bold tracking-widest font-sans uppercase">
+          <Cpu className="w-5 h-5" />
+          <span>محرك التعرف على الصوت والمحاذاة</span>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 font-sans">
           <div>
-            <label className="block text-xs text-parchment-300 mb-2">
+            <label className="block text-sm font-bold text-ink-800 mb-3">
               نموذج Whisper المعتمد
             </label>
             <select
               value={asrModel}
               onChange={(e) => setAsrModel(e.target.value)}
-              className="w-full bg-charcoal-850 text-parchment-100 border border-charcoal-700 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-gold-500"
+              className="w-full bg-white text-ink-900 border border-sand-300 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-crimson-800 focus:ring-2 focus:ring-crimson-800/10 transition-all shadow-inner cursor-pointer"
             >
               <option value="tiny">Tiny (أسرع - دقة أساسية)</option>
               <option value="base">Base (سريع - دقة متوسطة)</option>
               <option value="small">Small (موصى به للتطوير والاستخدام العادي)</option>
-              <option value="medium">Medium (دقة عالية في الكلمات النادرة)</option>
-              <option value="large-v3">Large-v3 (أعلى دقة تشكيل وإعراب)</option>
+              <option value="medium">Medium (دقة عالية)</option>
+              <option value="large-v3">Large-v3 (أعلى دقة تشكيل)</option>
             </select>
           </div>
 
           <div>
-            <label className="block text-xs text-parchment-300 mb-2">
+            <label className="block text-sm font-bold text-ink-800 mb-3">
               جهاز المعالجة (Compute Device)
             </label>
             <select
               value={computeDevice}
               onChange={(e) => setComputeDevice(e.target.value)}
-              className="w-full bg-charcoal-850 text-parchment-100 border border-charcoal-700 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-gold-500"
+              className="w-full bg-white text-ink-900 border border-sand-300 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-crimson-800 focus:ring-2 focus:ring-crimson-800/10 transition-all shadow-inner cursor-pointer"
             >
               <option value="cpu">معالج النظام (CPU - float32 / int8)</option>
               <option value="cuda">بطاقة الرسوميات (NVIDIA CUDA - float16)</option>
@@ -137,59 +140,59 @@ export const SettingsView: React.FC = () => {
       </section>
 
       {/* Python Worker Diagnostics */}
-      <section className="bg-charcoal-900 border border-charcoal-800 rounded-2xl p-6 space-y-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2 text-gold-400 font-semibold text-sm">
-            <Activity className="w-4 h-4" />
-            <span>فحص صحة معالج الصوتيات (Python Worker Health)</span>
+      <section className="bg-sand-50 border border-sand-300 rounded-2xl p-8 space-y-6 shadow-sm">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-3 text-crimson-800 font-bold tracking-widest font-sans uppercase">
+            <Activity className="w-5 h-5" />
+            <span>فحص صحة معالج الصوتيات</span>
           </div>
           <button
             onClick={handleCheckHealth}
             disabled={isCheckingHealth}
-            className="px-3.5 py-1.5 rounded-xl bg-gold-500/15 hover:bg-gold-500/25 text-gold-300 border border-gold-500/30 text-xs font-semibold transition-all flex items-center gap-1.5"
+            className="px-5 py-2.5 rounded-xl bg-sand-200 hover:bg-sand-300 text-ink-800 border border-sand-400 text-sm font-bold transition-all flex items-center justify-center gap-2 font-sans shadow-sm"
           >
             <span>{isCheckingHealth ? "جاري الفحص..." : "تشغيل فحص الصحة"}</span>
           </button>
         </div>
 
         {healthStatus && (
-          <div className="p-4 rounded-xl bg-charcoal-950 border border-charcoal-800 text-xs space-y-2 select-text">
-            <div className="flex items-center gap-2 text-emerald-400 font-semibold">
-              <CheckCircle2 className="w-4 h-4" />
+          <div className="p-5 rounded-xl bg-emerald-50 border border-emerald-200 text-sm space-y-4 select-text font-sans shadow-inner">
+            <div className="flex items-center gap-2 text-emerald-800 font-bold">
+              <CheckCircle2 className="w-5 h-5 text-emerald-600" />
               <span>معالج بايثون متصل وجاهز للعمل</span>
             </div>
-            <div className="grid grid-cols-2 gap-2 text-parchment-300 pt-2 font-mono text-[11px]">
-              <div>إصدار المعالج: {healthStatus.worker_version}</div>
-              <div>إصدار بايثون: {healthStatus.python_version}</div>
-              <div className="col-span-2 text-parchment-400 truncate">
-                FFmpeg: {healthStatus.ffmpeg}
+            <div className="grid grid-cols-2 gap-4 text-emerald-700 pt-3 border-t border-emerald-200/50 font-mono text-[13px]">
+              <div>إصدار المعالج: <strong className="text-emerald-900">{healthStatus.worker_version}</strong></div>
+              <div>إصدار بايثون: <strong className="text-emerald-900">{healthStatus.python_version}</strong></div>
+              <div className="col-span-2 text-emerald-700/80 truncate">
+                FFmpeg: <span className="font-semibold text-emerald-800">{healthStatus.ffmpeg}</span>
               </div>
             </div>
           </div>
         )}
 
         {healthError && (
-          <div className="p-3 bg-rose-500/15 border border-rose-500/40 rounded-xl text-rose-300 text-xs flex items-center gap-2">
-            <AlertCircle className="w-4 h-4 text-rose-400" />
+          <div className="p-4 bg-rose-50 border border-rose-200 rounded-xl text-rose-800 text-sm flex items-center gap-3 font-sans font-medium shadow-inner">
+            <AlertCircle className="w-5 h-5 text-rose-600" />
             <span>{healthError}</span>
           </div>
         )}
       </section>
 
       {/* System diagnostics & privacy */}
-      <section className="bg-charcoal-900 border border-charcoal-800 rounded-2xl p-6 space-y-3">
-        <div className="flex items-center gap-2 text-gold-400 font-semibold text-sm">
-          <ShieldCheck className="w-4 h-4" />
+      <section className="bg-sand-50 border border-sand-300 rounded-2xl p-8 space-y-5 shadow-sm">
+        <div className="flex items-center gap-3 text-crimson-800 font-bold tracking-widest font-sans uppercase">
+          <ShieldCheck className="w-5 h-5" />
           <span>الخصوصية والعمل دون اتصال</span>
         </div>
-        <p className="text-xs text-parchment-400 leading-relaxed">
+        <p className="text-[13px] text-ink-600 leading-relaxed font-sans">
           يعمل ديوان بنسبة 100% محلياً على جهازك دون إرسال أي تسجيلات أو نصوص إلى خوادم سحابية خارجية.
           جميع قواعد البيانات والصوتيات محفوظة في مجلد التطبيق الآمن.
         </p>
 
-        <div className="pt-2 border-t border-charcoal-800/80 flex items-center justify-between text-xs text-parchment-400">
+        <div className="pt-4 border-t border-sand-200 flex items-center justify-between text-xs text-ink-500 font-sans tracking-wide">
           <span>نظام التشغيل: Linux (Fedora)</span>
-          <span className="font-mono ltr-num">Tauri v2.x | React 18</span>
+          <span className="font-mono ltr-num font-bold">Tauri v2.x | React 18</span>
         </div>
       </section>
     </div>

@@ -10,27 +10,29 @@ interface SearchBarProps {
 export const SearchBar: React.FC<SearchBarProps> = ({
   value,
   onChange,
-  placeholder = "ابحث بالقصيدة أو اسم الشاعر أو شطر بيت...",
+  placeholder = "ابحث بقصيدة، شاعر، أو شطر...",
 }) => {
   return (
     <div className="relative w-full">
-      <div className="absolute inset-y-0 right-0 pr-3.5 flex items-center pointer-events-none text-parchment-400">
-        <Search className="w-4 h-4" />
+      <div className="absolute inset-y-0 right-0 pr-4 flex items-center pointer-events-none text-ink-400">
+        <Search className="w-5 h-5" strokeWidth={1.5} />
       </div>
       <input
         type="text"
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        className="w-full bg-charcoal-850 text-parchment-100 placeholder-parchment-400/60 border border-charcoal-700/80 rounded-xl pr-10 pl-10 py-2.5 text-sm focus:outline-none focus:border-gold-500/60 focus:ring-1 focus:ring-gold-500/40 transition-all"
+        className="w-full bg-sand-50 text-ink-900 placeholder-ink-400 border border-sand-300 rounded-lg pr-11 pl-11 py-2.5 text-sm font-sans tracking-wide focus:outline-none focus:border-crimson-800 focus:ring-2 focus:ring-crimson-800/20 transition-all shadow-inner"
       />
       {value && (
         <button
           onClick={() => onChange("")}
-          className="absolute inset-y-0 left-0 pl-3 flex items-center text-parchment-400 hover:text-parchment-200"
+          className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-ink-400 hover:text-crimson-700 transition-colors"
           title="مسح البحث"
         >
-          <X className="w-4 h-4" />
+          <div className="bg-sand-200 p-1 rounded-full">
+            <X className="w-3.5 h-3.5" strokeWidth={2} />
+          </div>
         </button>
       )}
     </div>

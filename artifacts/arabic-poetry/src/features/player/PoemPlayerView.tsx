@@ -224,14 +224,14 @@ export const PoemPlayerView: React.FC<PoemPlayerViewProps> = ({
     null;
 
   return (
-    <div className="h-full flex flex-col justify-between overflow-hidden bg-charcoal-950 relative">
+    <div className="h-full flex flex-col justify-between overflow-hidden bg-sand-100 relative">
       {/* Header bar within Player */}
-      <div className="px-8 py-4 border-b border-charcoal-850 bg-charcoal-900/30 flex items-center justify-between shrink-0">
+      <div className="px-8 py-4 border-b border-sand-300 bg-sand-50/30 flex items-center justify-between shrink-0">
         <div>
-          <h2 className="font-poetry text-2xl font-bold text-parchment-50">
+          <h2 className="font-poetry text-2xl font-bold text-ink-950">
             {poem.title}
           </h2>
-          <p className="text-xs text-gold-400 font-medium mt-0.5 flex items-center gap-2">
+          <p className="text-xs text-crimson-700 font-medium mt-0.5 flex items-center gap-2">
             <span>{poem.poet.name}</span>
             <span>•</span>
             <span>بحر {poem.bahr} ({meterInfo.pattern})</span>
@@ -247,7 +247,7 @@ export const PoemPlayerView: React.FC<PoemPlayerViewProps> = ({
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border transition-colors ${
               showWaveformDebug
                 ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/40"
-                : "bg-charcoal-850 text-parchment-400 border-charcoal-700 hover:text-parchment-200"
+                : "bg-white text-ink-600 border-sand-400 hover:text-ink-800"
             }`}
             title="مخطط فترات الصمت والكلام (VAD Waveform Map)"
           >
@@ -260,8 +260,8 @@ export const PoemPlayerView: React.FC<PoemPlayerViewProps> = ({
             onClick={() => setShowDebugOverlay(!showDebugOverlay)}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border transition-colors ${
               showDebugOverlay
-                ? "bg-gold-500/20 text-gold-300 border-gold-500/40"
-                : "bg-charcoal-850 text-parchment-400 border-charcoal-700 hover:text-parchment-200"
+                ? "bg-crimson-800/20 text-crimson-600 border-crimson-800/40"
+                : "bg-white text-ink-600 border-sand-400 hover:text-ink-800"
             }`}
             title="مؤشرات التزامن المباشرة (Sync Telemetry)"
           >
@@ -271,7 +271,7 @@ export const PoemPlayerView: React.FC<PoemPlayerViewProps> = ({
 
           <button
             onClick={() => setShowExport(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-gold-500/15 text-gold-300 border border-gold-500/30 hover:bg-gold-500/25 transition-colors"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-crimson-800/15 text-crimson-600 border border-crimson-800/30 hover:bg-crimson-800/25 transition-colors"
             title="تصدير القصيدة والكلمات المتزامنة (LRC, SRT, JSON)"
           >
             <Download className="w-4 h-4" />
@@ -282,8 +282,8 @@ export const PoemPlayerView: React.FC<PoemPlayerViewProps> = ({
             onClick={() => setShowMetadata(!showMetadata)}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium border transition-colors ${
               showMetadata
-                ? "bg-gold-500/15 text-gold-300 border-gold-500/30"
-                : "bg-charcoal-850 text-parchment-400 border-charcoal-700 hover:text-parchment-200"
+                ? "bg-crimson-800/15 text-crimson-600 border-crimson-800/30"
+                : "bg-white text-ink-600 border-sand-400 hover:text-ink-800"
             }`}
             title="معلومات القصيدة والشاعر"
           >
@@ -295,32 +295,32 @@ export const PoemPlayerView: React.FC<PoemPlayerViewProps> = ({
 
       {/* Live Synchronization Debug Overlay */}
       {showDebugOverlay && (
-        <div className="absolute top-20 left-6 z-40 bg-charcoal-950/90 backdrop-blur-md border border-emerald-500/40 rounded-xl p-3.5 shadow-2xl font-mono text-[11px] text-emerald-300 space-y-1 select-text pointer-events-auto max-w-sm ltr-num animate-fadeIn">
+        <div className="absolute top-20 left-6 z-40 bg-sand-100/90 backdrop-blur-md border border-emerald-500/40 rounded-xl p-3.5 shadow-2xl font-mono text-[11px] text-emerald-300 space-y-1 select-text pointer-events-auto max-w-sm ltr-num animate-fadeIn">
           <div className="flex items-center justify-between text-xs font-bold text-emerald-400 border-b border-emerald-500/30 pb-1 mb-1.5">
             <span>⚡ Audio-to-Verse Sync Telemetry</span>
             <span className="px-1.5 py-0.5 rounded bg-emerald-500/20 text-[10px]">{fps} FPS</span>
           </div>
           <div className="flex justify-between">
-            <span className="text-parchment-400">Audio currentTime:</span>
-            <span className="font-bold text-parchment-100">{currentTimeMs} ms ({(currentTimeMs / 1000).toFixed(3)}s)</span>
+            <span className="text-ink-600">Audio currentTime:</span>
+            <span className="font-bold text-ink-900">{currentTimeMs} ms ({(currentTimeMs / 1000).toFixed(3)}s)</span>
           </div>
           <div className="flex justify-between">
-            <span className="text-parchment-400">Active Verse Index:</span>
-            <span className="font-bold text-gold-300">
+            <span className="text-ink-600">Active Verse Index:</span>
+            <span className="font-bold text-crimson-600">
               {activeVerseIndex >= 0 ? `Verse ${activeVerseIndex + 1} of ${poem.verses.length}` : "None"}
             </span>
           </div>
           <div className="flex justify-between">
-            <span className="text-parchment-400">Verse Boundaries:</span>
+            <span className="text-ink-600">Verse Boundaries:</span>
             <span>[{activeStartMs} ms - {activeEndMs} ms]</span>
           </div>
           <div className="flex justify-between">
-            <span className="text-parchment-400">Offset (Current - Start):</span>
+            <span className="text-ink-600">Offset (Current - Start):</span>
             <span className={activeDiffMs >= 0 ? "text-emerald-400" : "text-amber-400"}>
               {activeDiffMs >= 0 ? `+${activeDiffMs}` : activeDiffMs} ms
             </span>
           </div>
-          <div className="flex justify-between text-[10px] text-parchment-400 border-t border-charcoal-800 pt-1 mt-1">
+          <div className="flex justify-between text-[10px] text-ink-600 border-t border-sand-300 pt-1 mt-1">
             <span>Clock Source:</span>
             <span className="text-emerald-400 font-semibold">requestAnimationFrame (Zero lag)</span>
           </div>
@@ -394,7 +394,7 @@ export const PoemPlayerView: React.FC<PoemPlayerViewProps> = ({
             />
           ))}
 
-          <div className="text-center py-8 text-xs text-charcoal-600 flex items-center justify-center gap-2">
+          <div className="text-center py-8 text-xs text-ink-400 flex items-center justify-center gap-2">
             <BookOpen className="w-4 h-4" />
             <span>نهاية القصيدة</span>
           </div>

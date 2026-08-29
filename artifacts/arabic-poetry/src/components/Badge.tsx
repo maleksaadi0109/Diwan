@@ -15,23 +15,23 @@ export const Badge: React.FC<BadgeProps> = ({
   size = "sm",
 }) => {
   const variantStyles = {
-    gold: "bg-gold-500/15 text-gold-400 border border-gold-500/30",
-    charcoal: "bg-charcoal-800 text-parchment-200 border border-charcoal-700",
-    success: "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30",
-    warning: "bg-amber-500/15 text-amber-300 border border-amber-500/30",
-    danger: "bg-rose-500/15 text-rose-400 border border-rose-500/30",
-    outline: "bg-transparent text-parchment-300 border border-charcoal-700",
+    gold: "bg-crimson-800/10 text-crimson-800 border border-crimson-800/20",
+    charcoal: "bg-sand-200 text-ink-800 border border-sand-300",
+    success: "bg-emerald-100 text-emerald-800 border border-emerald-300",
+    warning: "bg-amber-100 text-amber-800 border border-amber-300",
+    danger: "bg-rose-100 text-rose-800 border border-rose-300",
+    outline: "bg-transparent text-ink-600 border border-sand-400",
   };
 
   const sizeStyles = {
-    sm: "text-xs px-2 py-0.5 rounded-md",
-    md: "text-sm px-2.5 py-1 rounded-lg",
+    sm: "text-[11px] px-2 py-0.5 rounded-full font-sans tracking-wide",
+    md: "text-xs px-3 py-1 rounded-full font-sans tracking-wide",
   };
 
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1 font-medium transition-colors",
+        "inline-flex items-center gap-1.5 font-medium transition-colors whitespace-nowrap",
         variantStyles[variant],
         sizeStyles[size],
         className

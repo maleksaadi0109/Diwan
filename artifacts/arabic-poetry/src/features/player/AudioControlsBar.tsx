@@ -50,11 +50,11 @@ export const AudioControlsBar: React.FC<AudioControlsBarProps> = ({
   };
 
   return (
-    <div className="bg-charcoal-900 border-t border-charcoal-800 px-6 py-3 select-none flex flex-col gap-2 shrink-0">
+    <div className="bg-sand-50/80 backdrop-blur border-t border-sand-300 px-8 py-4 select-none flex flex-col gap-4 shrink-0 shadow-[0_-4px_16px_-8px_rgba(0,0,0,0.05)] z-20">
       {/* Timeline Slider & Time Stamps (Strict LTR for universal media timeline standard) */}
-      <div className="flex items-center gap-3" dir="ltr">
+      <div className="flex items-center gap-4" dir="ltr">
         {/* Current Time */}
-        <span className="text-xs font-mono text-gold-400 min-w-[45px] text-left select-none font-semibold">
+        <span className="text-[13px] font-mono text-crimson-800 min-w-[50px] text-right select-none font-bold tracking-wider">
           {formatTime(currentTimeMs)}
         </span>
 
@@ -62,21 +62,21 @@ export const AudioControlsBar: React.FC<AudioControlsBarProps> = ({
         <div
           ref={progressBarRef}
           onClick={handleSeekFromClick}
-          className="relative flex-1 group py-2 flex items-center cursor-pointer"
+          className="relative flex-1 group py-3 flex items-center cursor-pointer"
         >
           {/* Base Track */}
-          <div className="w-full h-1.5 group-hover:h-2 bg-charcoal-800 rounded-full overflow-hidden transition-all relative">
-            {/* Gold Progress Fill */}
+          <div className="w-full h-1.5 group-hover:h-2 bg-sand-200/80 rounded-full overflow-hidden transition-all duration-300 relative shadow-inner">
+            {/* Crimson Progress Fill */}
             <div
-              className="h-full bg-gold-500 rounded-full transition-all duration-75 relative shadow-sm shadow-gold-500/50"
+              className="h-full bg-crimson-800 rounded-full transition-all duration-75 relative shadow-[0_0_8px_rgba(106,26,34,0.4)]"
               style={{ width: `${progressPercent}%` }}
             />
           </div>
 
           {/* Scrubber Thumb Circle */}
           <div
-            className="absolute top-1/2 -translate-y-1/2 w-3.5 h-3.5 bg-gold-400 border-2 border-charcoal-950 rounded-full shadow-md transition-all duration-75 pointer-events-none group-hover:scale-125"
-            style={{ left: `calc(${progressPercent}% - 7px)` }}
+            className="absolute top-1/2 -translate-y-1/2 w-4 h-4 bg-sand-50 border-[3px] border-crimson-800 rounded-full shadow-md transition-all duration-75 pointer-events-none group-hover:scale-125 group-hover:bg-crimson-800"
+            style={{ left: `calc(${progressPercent}% - 8px)` }}
           />
 
           {/* Accessible Native Range Slider (Invisible overlay for native touch/keyboard/drag support) */}
@@ -93,7 +93,7 @@ export const AudioControlsBar: React.FC<AudioControlsBarProps> = ({
         </div>
 
         {/* Total Duration */}
-        <span className="text-xs font-mono text-parchment-400 min-w-[45px] text-right select-none">
+        <span className="text-[13px] font-mono text-ink-500 min-w-[50px] text-left select-none tracking-wider">
           {formatTime(durationMs)}
         </span>
       </div>
@@ -101,15 +101,15 @@ export const AudioControlsBar: React.FC<AudioControlsBarProps> = ({
       {/* Controls row */}
       <div className="flex items-center justify-between">
         {/* Left: Speed selector */}
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1.5">
           {SPEEDS.map((speed) => (
             <button
               key={speed}
               onClick={() => onChangeSpeed(speed)}
-              className={`px-2 py-1 rounded text-xs font-mono ltr-num transition-colors ${
+              className={`px-2.5 py-1.5 rounded-lg text-xs font-mono ltr-num transition-all duration-300 ${
                 playbackRate === speed
-                  ? "bg-gold-500/20 text-gold-300 font-bold border border-gold-500/30"
-                  : "text-parchment-400 hover:text-parchment-200 hover:bg-charcoal-800"
+                  ? "bg-crimson-800 text-sand-50 font-bold shadow-sm"
+                  : "text-ink-600 hover:text-ink-900 hover:bg-sand-200 font-medium"
               }`}
             >
               {speed}x
@@ -118,10 +118,10 @@ export const AudioControlsBar: React.FC<AudioControlsBarProps> = ({
         </div>
 
         {/* Center: Playback Controls */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-5">
           <button
             onClick={onPrevVerse}
-            className="p-2 rounded-full text-parchment-300 hover:text-gold-400 hover:bg-charcoal-800 transition-colors"
+            className="p-2.5 rounded-full text-ink-500 hover:text-crimson-800 hover:bg-sand-200/80 transition-colors"
             title="البيت السابق"
           >
             <SkipForward className="w-5 h-5" />
@@ -129,19 +129,19 @@ export const AudioControlsBar: React.FC<AudioControlsBarProps> = ({
 
           <button
             onClick={onTogglePlay}
-            className="p-3.5 rounded-full bg-gold-500 hover:bg-gold-400 text-charcoal-950 shadow-md shadow-gold-500/20 transition-transform active:scale-95"
+            className="w-14 h-14 rounded-full bg-crimson-800 hover:bg-crimson-700 text-sand-50 shadow-[0_4px_12px_-2px_rgba(106,26,34,0.3)] transition-transform duration-200 active:scale-95 flex items-center justify-center border border-crimson-900"
             title={isPlaying ? "إيقاف مؤقت (Space)" : "تشغيل (Space)"}
           >
             {isPlaying ? (
-              <Pause className="w-5 h-5 fill-current" />
+              <Pause className="w-6 h-6 fill-current" />
             ) : (
-              <Play className="w-5 h-5 fill-current ml-0.5" />
+              <Play className="w-6 h-6 fill-current ml-1" />
             )}
           </button>
 
           <button
             onClick={onNextVerse}
-            className="p-2 rounded-full text-parchment-300 hover:text-gold-400 hover:bg-charcoal-800 transition-colors"
+            className="p-2.5 rounded-full text-ink-500 hover:text-crimson-800 hover:bg-sand-200/80 transition-colors"
             title="البيت التالي"
           >
             <SkipBack className="w-5 h-5" />
@@ -149,10 +149,10 @@ export const AudioControlsBar: React.FC<AudioControlsBarProps> = ({
         </div>
 
         {/* Right: Volume Control */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
           <button
             onClick={() => onChangeVolume(volume === 0 ? 0.85 : 0)}
-            className="text-parchment-400 hover:text-parchment-200 p-1"
+            className="text-ink-500 hover:text-crimson-800 transition-colors p-1.5 rounded-full hover:bg-sand-200/80"
           >
             {volume === 0 ? (
               <VolumeX className="w-4 h-4" />
@@ -168,7 +168,7 @@ export const AudioControlsBar: React.FC<AudioControlsBarProps> = ({
             step={0.05}
             value={volume}
             onChange={(e) => onChangeVolume(Number(e.target.value))}
-            className="w-20 h-1.5 bg-charcoal-800 rounded-lg appearance-none cursor-pointer accent-gold-500"
+            className="w-24 h-1.5 bg-sand-300 rounded-lg appearance-none cursor-pointer accent-crimson-800"
           />
         </div>
       </div>
