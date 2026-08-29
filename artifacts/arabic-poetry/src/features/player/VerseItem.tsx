@@ -32,14 +32,18 @@ const VerseItemComponent: React.FC<VerseItemProps> = ({
   explanationError,
   onRetryExplanation,
 }) => {
-  const [showExplanation, setShowExplanation] = useState(false);
+  // The explanation is visible by default; selecting a verse should not be
+  // required just to discover that its explanation exists.
+  const [showExplanation, setShowExplanation] = useState(true);
   const alignment = verse.alignment;
   const items = explanationItems ?? verse.explanations ?? [];
   const hasExplanation = Boolean(verse.explanation || items.length > 0 || explanationStatus !== "idle");
 
   useEffect(() => {
-    if (!isSelected) setShowExplanation(false);
-  }, [isSelected]);
+    // Keep every verse's explanation card open when the list rerenders or
+    // playback moves to another verse.
+    setShowExplanation(true);
+  }, [verse.id]);
 
   const renderWords = (text: string) => {
     const words = text.split(/\s+/).filter(Boolean);
@@ -64,8 +68,10 @@ const VerseItemComponent: React.FC<VerseItemProps> = ({
     <div
       ref={verseRef}
       onClick={() => {
-        onSeekToVerse(verse);
-        onSelectVerse?.(verse);
+        // The parent selection handler performs the seek and loads the
+        // explanation. Keep the legacy seek callback as a fallback only.
+        if (onSelectVerse) onSelectVerse(verse);
+        else onSeekToVerse(verse);
         setShowExplanation(true);
       }}
       className={cn(
@@ -177,7 +183,7 @@ const VerseItemComponent: React.FC<VerseItemProps> = ({
       </div>
 
       {/* Expandable Explanation Panel */}
-      {showExplanation && hasExplanation && (
+      {showExplanation && (hasExplanation || isSelected) && (
         <div
           onClick={(e) => e.stopPropagation()}
           className="mt-3 pt-3 border-t border-charcoal-800 text-xs text-parchment-300 bg-charcoal-950/40 p-3 rounded-xl border border-charcoal-800/60 flex items-start gap-2 animate-fadeIn"

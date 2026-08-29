@@ -152,9 +152,16 @@ export const PoemPlayerView: React.FC<PoemPlayerViewProps> = ({
   }, [loadExplanation]);
 
   useEffect(() => {
+    const firstVerse = poem.verses[0];
     setSelectedVerseId(null);
     setExplanationStates({});
     explanationRequestRef.current += 1;
+    // Show the first explanation immediately when the player opens. This
+    // avoids requiring an extra click before the explanation card appears.
+    if (firstVerse) {
+      setSelectedVerseId(firstVerse.id);
+      void loadExplanation(firstVerse);
+    }
   }, [poem.id]);
 
   useEffect(() => {
