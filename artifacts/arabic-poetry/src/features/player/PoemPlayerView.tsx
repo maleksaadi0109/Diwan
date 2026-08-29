@@ -222,8 +222,8 @@ export const PoemPlayerView: React.FC<PoemPlayerViewProps> = ({
     <div className="h-full flex flex-col justify-between overflow-hidden bg-[#0A0C10] relative">
       {/* Header bar within Player */}
       <div className="px-8 py-4 border-b border-white/[0.08] bg-[#0E1015]/90 backdrop-blur-2xl flex items-center justify-between shrink-0 z-10">
-        <div>
-          <h2 className="font-poetry text-2xl md:text-3xl font-bold text-[#F8F9FA] tracking-wide">
+        <div className="min-w-0 flex-1">
+          <h2 className="font-poetry text-2xl md:text-3xl font-bold text-[#F8F9FA] tracking-wide truncate">
             {poem.title}
           </h2>
           <p className="text-xs text-[#A0AAB7] font-medium mt-1 flex items-center gap-2 font-sans">
@@ -235,11 +235,11 @@ export const PoemPlayerView: React.FC<PoemPlayerViewProps> = ({
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center justify-end gap-2 shrink-0 max-w-full">
           {/* Waveform VAD Debug Toggle */}
           <button
             onClick={() => setShowWaveformDebug(!showWaveformDebug)}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all ${
+            className={`shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all whitespace-nowrap ${
               showWaveformDebug
                 ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/40 shadow-[0_0_12px_rgba(16,185,129,0.2)]"
                 : "bg-white/[0.04] text-[#CED4DA] border-white/[0.08] hover:bg-white/[0.08]"
@@ -253,7 +253,7 @@ export const PoemPlayerView: React.FC<PoemPlayerViewProps> = ({
           {/* Debug Telemetry Toggle */}
           <button
             onClick={() => setShowDebugOverlay(!showDebugOverlay)}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all ${
+            className={`shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all whitespace-nowrap ${
               showDebugOverlay
                 ? "bg-[#D4AF37]/20 text-[#F3E19C] border-[#D4AF37]/40 shadow-[0_0_12px_rgba(212,175,55,0.2)]"
                 : "bg-white/[0.04] text-[#CED4DA] border-white/[0.08] hover:bg-white/[0.08]"
@@ -266,7 +266,7 @@ export const PoemPlayerView: React.FC<PoemPlayerViewProps> = ({
 
           <button
             onClick={() => setShowExport(true)}
-            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-[#D4AF37]/15 text-[#F3E19C] border border-[#D4AF37]/30 hover:bg-[#D4AF37]/25 transition-all shadow-sm"
+            className="shrink-0 flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-[#D4AF37]/15 text-[#F3E19C] border border-[#D4AF37]/30 hover:bg-[#D4AF37]/25 transition-all shadow-sm whitespace-nowrap"
             title="تصدير القصيدة والكلمات المتزامنة (LRC, SRT, JSON)"
           >
             <Download className="w-4 h-4" />
@@ -275,7 +275,7 @@ export const PoemPlayerView: React.FC<PoemPlayerViewProps> = ({
 
           <button
             onClick={() => setShowMetadata(!showMetadata)}
-            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-medium border transition-all ${
+            className={`shrink-0 flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-medium border transition-all whitespace-nowrap ${
               showMetadata
                 ? "bg-white/[0.1] text-[#F8F9FA] border-white/20"
                 : "bg-white/[0.04] text-[#CED4DA] border-white/[0.08] hover:bg-white/[0.08]"
