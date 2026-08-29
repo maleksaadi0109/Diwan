@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Era, Bahr, Poem } from "@/types";
 import { normalizeArabic } from "@/lib/utils";
-import { Upload, CheckCircle, Music, Mic, Wand2, Globe, Edit3 } from "lucide-react";
+import { Upload, CheckCircle, Music, Mic, Wand2, Globe, Edit3, Save } from "lucide-react";
 import { YoutubeIcon } from "@/components/icons/YoutubeIcon";
 import { pickAudioFile, copyAudioToAppData } from "@/lib/audio/fileManager";
 import {
@@ -170,8 +170,6 @@ export const ImportView: React.FC<ImportViewProps> = ({ onImportPoem }) => {
       const poemId = `poem-custom-${Date.now()}`;
       const recId = `rec-${Date.now()}`;
 
-      // Run the real hybrid alignment (ASR + VAD) when audio is attached —
-      // never fabricate fixed 8-second boundaries.
       let alignments: PoemAlignmentResponse["alignments"] = [];
       let recordingDurationMs = 0;
       if (savedAudioPath) {
@@ -258,62 +256,62 @@ export const ImportView: React.FC<ImportViewProps> = ({ onImportPoem }) => {
   };
 
   return (
-    <div className="h-full overflow-y-auto px-8 py-6 max-w-5xl mx-auto w-full select-none">
+    <div className="h-full overflow-y-auto px-10 py-10 max-w-6xl mx-auto w-full select-none scroll-smooth">
       {/* Top Header with Navigation Tabs */}
-      <div className="mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-charcoal-850 pb-4">
+      <div className="mb-10 flex flex-col md:flex-row md:items-end justify-between gap-6 pb-6 border-b border-sand-300">
         <div>
-          <h2 className="text-2xl font-bold text-parchment-100 font-poetry">
-            مركز استيراد القصائد والتسجيلات
+          <h2 className="text-4xl font-bold text-ink-950 font-poetry tracking-wide leading-tight">
+            استيراد القصائد والتسجيلات
           </h2>
-          <p className="text-xs text-parchment-400 mt-1">
+          <p className="text-[15px] text-ink-500 mt-2 font-sans tracking-wide">
             استيراد النصوص المحققة والتسجيلات الصوتية عبر معالج ذكي متكامل
           </p>
         </div>
 
         {/* Tab Navigation */}
-        <div className="flex bg-charcoal-900 p-1 rounded-xl border border-charcoal-800 shrink-0">
+        <div className="flex bg-sand-200/50 p-1.5 rounded-xl border border-sand-300 shrink-0 shadow-inner">
           <button
             onClick={() => setActiveTab("wizard")}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors flex items-center gap-1.5 ${
+            className={`px-4 py-2 rounded-lg text-sm font-bold transition-all duration-300 flex items-center gap-2 font-sans tracking-wide ${
               activeTab === "wizard"
-                ? "bg-gold-500 text-charcoal-950 shadow-sm"
-                : "text-parchment-400 hover:text-parchment-200"
+                ? "bg-crimson-800 text-sand-50 shadow-md scale-100"
+                : "text-ink-600 hover:text-ink-900 hover:bg-sand-100"
             }`}
           >
-            <Wand2 className="w-3.5 h-3.5" />
+            <Wand2 className="w-4 h-4" />
             <span>المعالج الشامل</span>
           </button>
           <button
             onClick={() => setActiveTab("mizan")}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors flex items-center gap-1.5 ${
+            className={`px-4 py-2 rounded-lg text-sm font-bold transition-all duration-300 flex items-center gap-2 font-sans tracking-wide ${
               activeTab === "mizan"
-                ? "bg-gold-500 text-charcoal-950 shadow-sm"
-                : "text-parchment-400 hover:text-parchment-200"
+                ? "bg-crimson-800 text-sand-50 shadow-md scale-100"
+                : "text-ink-600 hover:text-ink-900 hover:bg-sand-100"
             }`}
           >
-            <Globe className="w-3.5 h-3.5" />
+            <Globe className="w-4 h-4" />
             <span>ميزان العرب</span>
           </button>
           <button
             onClick={() => setActiveTab("youtube")}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors flex items-center gap-1.5 ${
+            className={`px-4 py-2 rounded-lg text-sm font-bold transition-all duration-300 flex items-center gap-2 font-sans tracking-wide ${
               activeTab === "youtube"
-                ? "bg-gold-500 text-charcoal-950 shadow-sm"
-                : "text-parchment-400 hover:text-parchment-200"
+                ? "bg-crimson-800 text-sand-50 shadow-md scale-100"
+                : "text-ink-600 hover:text-ink-900 hover:bg-sand-100"
             }`}
           >
-            <YoutubeIcon className="w-3.5 h-3.5" />
+            <YoutubeIcon className="w-4 h-4" />
             <span>YouTube</span>
           </button>
           <button
             onClick={() => setActiveTab("manual")}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors flex items-center gap-1.5 ${
+            className={`px-4 py-2 rounded-lg text-sm font-bold transition-all duration-300 flex items-center gap-2 font-sans tracking-wide ${
               activeTab === "manual"
-                ? "bg-gold-500 text-charcoal-950 shadow-sm"
-                : "text-parchment-400 hover:text-parchment-200"
+                ? "bg-crimson-800 text-sand-50 shadow-md scale-100"
+                : "text-ink-600 hover:text-ink-900 hover:bg-sand-100"
             }`}
           >
-            <Edit3 className="w-3.5 h-3.5" />
+            <Edit3 className="w-4 h-4" />
             <span>إدخال يدوي</span>
           </button>
         </div>
@@ -339,154 +337,147 @@ export const ImportView: React.FC<ImportViewProps> = ({ onImportPoem }) => {
 
       {/* Tab 4: Manual Form */}
       {activeTab === "manual" && (
-        <form onSubmit={handleSave} className="space-y-6 select-text">
+        <form onSubmit={handleSave} className="space-y-8 select-text animate-in fade-in slide-in-from-bottom-4 duration-500 max-w-4xl mx-auto pb-10">
           {successMessage && (
-            <div className="p-4 rounded-xl bg-emerald-500/15 border border-emerald-500/40 text-emerald-300 flex items-center gap-2">
-              <CheckCircle className="w-5 h-5" />
-              <span>{successMessage}</span>
+            <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 flex items-center gap-3 shadow-sm font-sans tracking-wide">
+              <CheckCircle className="w-5 h-5 text-emerald-600" />
+              <span className="font-semibold">{successMessage}</span>
             </div>
           )}
 
-          {/* Basic metadata grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-semibold text-parchment-300 mb-1.5">
-                عنوان القصيدة *
-              </label>
-              <input
-                type="text"
-                required
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                placeholder="مثال: واحر قلباه ممن قلبه شبم"
-                className="w-full bg-charcoal-850 text-parchment-100 placeholder-parchment-400/50 border border-charcoal-700 rounded-xl px-4 py-2.5 text-xs focus:outline-none focus:border-gold-500"
-              />
-            </div>
+          <div className="bg-sand-50 rounded-2xl p-8 border border-sand-300 shadow-sm space-y-6">
+            <h3 className="font-bold text-xl text-ink-900 border-b border-sand-200 pb-4 font-poetry">معلومات القصيدة الأساسية</h3>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 font-sans">
+              <div>
+                <label className="block text-[13px] font-bold text-ink-800 mb-2">عنوان القصيدة <span className="text-crimson-700">*</span></label>
+                <input
+                  type="text"
+                  required
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  placeholder="مثال: واحر قلباه ممن قلبه شبم"
+                  className="w-full bg-white text-ink-900 placeholder-ink-400 border border-sand-300 rounded-xl px-4 py-3 text-[15px] focus:outline-none focus:border-crimson-800 focus:ring-2 focus:ring-crimson-800/10 transition-all shadow-inner"
+                />
+              </div>
 
-            <div>
-              <label className="block text-xs font-semibold text-parchment-300 mb-1.5">
-                اسم الشاعر *
-              </label>
-              <input
-                type="text"
-                required
-                value={poetName}
-                onChange={(e) => setPoetName(e.target.value)}
-                placeholder="مثال: أبو الطيب المتنبي"
-                className="w-full bg-charcoal-850 text-parchment-100 placeholder-parchment-400/50 border border-charcoal-700 rounded-xl px-4 py-2.5 text-xs focus:outline-none focus:border-gold-500"
-              />
-            </div>
+              <div>
+                <label className="block text-[13px] font-bold text-ink-800 mb-2">اسم الشاعر <span className="text-crimson-700">*</span></label>
+                <input
+                  type="text"
+                  required
+                  value={poetName}
+                  onChange={(e) => setPoetName(e.target.value)}
+                  placeholder="مثال: أبو الطيب المتنبي"
+                  className="w-full bg-white text-ink-900 placeholder-ink-400 border border-sand-300 rounded-xl px-4 py-3 text-[15px] focus:outline-none focus:border-crimson-800 focus:ring-2 focus:ring-crimson-800/10 transition-all shadow-inner"
+                />
+              </div>
 
-            <div>
-              <label className="block text-xs font-semibold text-parchment-300 mb-1.5">
-                العصر الأدبي
-              </label>
-              <select
-                value={era}
-                onChange={(e) => setEra(e.target.value as Era)}
-                className="w-full bg-charcoal-850 text-parchment-100 border border-charcoal-700 rounded-xl px-4 py-2.5 text-xs focus:outline-none focus:border-gold-500"
-              >
-                {ERAS.map((e) => (
-                  <option key={e} value={e}>
-                    العصر ال{e}
-                  </option>
-                ))}
-              </select>
-            </div>
+              <div>
+                <label className="block text-[13px] font-bold text-ink-800 mb-2">العصر الأدبي</label>
+                <select
+                  value={era}
+                  onChange={(e) => setEra(e.target.value as Era)}
+                  className="w-full bg-white text-ink-900 border border-sand-300 rounded-xl px-4 py-3 text-[15px] focus:outline-none focus:border-crimson-800 focus:ring-2 focus:ring-crimson-800/10 transition-all shadow-inner cursor-pointer"
+                >
+                  {ERAS.map((e) => (
+                    <option key={e} value={e}>العصر ال{e}</option>
+                  ))}
+                </select>
+              </div>
 
-            <div>
-              <label className="block text-xs font-semibold text-parchment-300 mb-1.5">
-                بحر القصيدة
-              </label>
-              <select
-                value={bahr}
-                onChange={(e) => setBahr(e.target.value as Bahr)}
-                className="w-full bg-charcoal-850 text-parchment-100 border border-charcoal-700 rounded-xl px-4 py-2.5 text-xs focus:outline-none focus:border-gold-500"
-              >
-                {BUHOOR.map((b) => (
-                  <option key={b} value={b}>
-                    بحر {b}
-                  </option>
-                ))}
-              </select>
-            </div>
+              <div>
+                <label className="block text-[13px] font-bold text-ink-800 mb-2">بحر القصيدة</label>
+                <select
+                  value={bahr}
+                  onChange={(e) => setBahr(e.target.value as Bahr)}
+                  className="w-full bg-white text-ink-900 border border-sand-300 rounded-xl px-4 py-3 text-[15px] focus:outline-none focus:border-crimson-800 focus:ring-2 focus:ring-crimson-800/10 transition-all shadow-inner cursor-pointer"
+                >
+                  {BUHOOR.map((b) => (
+                    <option key={b} value={b}>بحر {b}</option>
+                  ))}
+                </select>
+              </div>
 
-            <div>
-              <label className="block text-xs font-semibold text-parchment-300 mb-1.5">
-                القافية والرويّ
-              </label>
-              <input
-                type="text"
-                value={rhyme}
-                onChange={(e) => setRhyme(e.target.value)}
-                placeholder="مثال: الميم المضمومة (ـمُ)"
-                className="w-full bg-charcoal-850 text-parchment-100 placeholder-parchment-400/50 border border-charcoal-700 rounded-xl px-4 py-2.5 text-xs focus:outline-none focus:border-gold-500"
-              />
+              <div className="md:col-span-2">
+                <label className="block text-[13px] font-bold text-ink-800 mb-2">القافية والرويّ</label>
+                <input
+                  type="text"
+                  value={rhyme}
+                  onChange={(e) => setRhyme(e.target.value)}
+                  placeholder="مثال: الميم المضمومة (ـمُ)"
+                  className="w-full bg-white text-ink-900 placeholder-ink-400 border border-sand-300 rounded-xl px-4 py-3 text-[15px] focus:outline-none focus:border-crimson-800 focus:ring-2 focus:ring-crimson-800/10 transition-all shadow-inner"
+                />
+              </div>
             </div>
           </div>
 
-          {/* Verses input */}
-          <div>
-            <div className="flex items-center justify-between mb-1.5">
-              <label className="text-xs font-semibold text-parchment-300">
-                أبيات القصيدة (بيت في كل سطر) *
-              </label>
-              <div className="flex items-center gap-2 text-xs text-parchment-400">
+          <div className="bg-sand-50 rounded-2xl p-8 border border-sand-300 shadow-sm space-y-6">
+             <div className="flex items-center justify-between border-b border-sand-200 pb-4">
+              <h3 className="font-bold text-xl text-ink-900 font-poetry">النص والأبيات</h3>
+              <div className="flex items-center gap-3 text-sm text-ink-600 font-sans font-medium">
                 <span>فاصل الشطرين:</span>
                 <input
                   type="text"
                   value={delimiter}
                   onChange={(e) => setDelimiter(e.target.value)}
-                  className="w-16 bg-charcoal-850 border border-charcoal-700 rounded px-2 py-0.5 text-center text-xs text-gold-300"
+                  className="w-16 bg-white border border-sand-300 rounded-lg px-2 py-1 text-center text-crimson-800 font-bold focus:outline-none focus:border-crimson-800 focus:ring-1 focus:ring-crimson-800/30"
                 />
               </div>
             </div>
+            
             <textarea
-              rows={6}
+              rows={8}
               required
               value={versesRaw}
               onChange={(e) => setVersesRaw(e.target.value)}
-              placeholder="واحَرَّ قَلباهُ مِمَّن قَلبُهُ شَبِمُ ... وَمَن بِجِسمي وَحالي عِندَهُ سَقَمُ"
-              className="w-full bg-charcoal-850 text-parchment-100 placeholder-parchment-400/40 border border-charcoal-700 rounded-xl p-4 text-xs font-poetry leading-relaxed focus:outline-none focus:border-gold-500 font-normal"
+              placeholder="واحَرَّ قَلباهُ مِمَّن قَلبُهُ شَبِمُ ... وَمَن بِجِسمي وَحالي عِندَهُ سَقَمُ&#10;ما لي أُكَتِّمُ حُبّاً قَد بَرى جَسَدي ... وَتَدَّعي حُبَّ سَيفِ الدَولَةِ الأُمَمُ"
+              className="w-full bg-white text-ink-900 placeholder-ink-400 border border-sand-300 rounded-xl p-6 text-lg font-poetry leading-[2] focus:outline-none focus:border-crimson-800 focus:ring-2 focus:ring-crimson-800/10 transition-all shadow-inner resize-y"
             />
           </div>
 
           {/* Audio file selection */}
-          <div className="p-6 rounded-2xl bg-charcoal-900 border border-dashed border-charcoal-700 text-center hover:border-gold-500/50 transition-colors">
-            <Upload className="w-8 h-8 text-gold-400 mx-auto mb-2" />
-            <h4 className="text-sm font-semibold text-parchment-200 mb-1">
-              إرفاق ملف صوتي محلي (MP3, WAV, M4A, OGG)
+          <div className="p-8 rounded-2xl bg-sand-100 border-2 border-dashed border-sand-300 text-center hover:border-crimson-800/50 transition-colors">
+            <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center mx-auto mb-4 shadow-sm border border-sand-200">
+               <Upload className="w-8 h-8 text-crimson-800" />
+            </div>
+            <h4 className="text-lg font-bold text-ink-900 mb-2 font-poetry">
+              إرفاق ملف صوتي محلي للمحاذاة
             </h4>
-            <div className="flex items-center justify-center gap-3 mt-3">
+            <p className="text-[13px] text-ink-500 font-sans mb-6">(MP3, WAV, M4A, OGG)</p>
+            
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
               <button
                 type="button"
                 onClick={handlePickAudio}
-                className="px-5 py-2.5 rounded-xl bg-charcoal-800 hover:bg-charcoal-700 text-gold-400 border border-charcoal-700 text-xs font-semibold flex items-center gap-2"
+                className="px-6 py-3 rounded-xl bg-white hover:bg-sand-50 text-ink-800 border border-sand-300 shadow-sm text-[13px] font-bold font-sans flex items-center gap-2 transition-colors"
               >
-                <Music className="w-4 h-4" />
-                <span>{audioFileName ? `تم اختيار: ${audioFileName}` : "اختيار ملف صوتي..."}</span>
+                <Music className="w-4 h-4 text-ink-500" />
+                <span>{audioFileName ? `تم اختيار: ${audioFileName}` : "تصفح الملفات المحلية..."}</span>
               </button>
+              
               {audioSourcePath && (
                 <button
                   type="button"
                   onClick={handleStartTranscribe}
-                  className="px-4 py-2.5 rounded-xl bg-gold-500/15 hover:bg-gold-500/25 text-gold-300 border border-gold-500/30 text-xs font-semibold flex items-center gap-1.5"
+                  className="px-6 py-3 rounded-xl bg-crimson-800/10 hover:bg-crimson-800/20 text-crimson-800 border border-crimson-800/30 shadow-sm text-[13px] font-bold font-sans flex items-center gap-2 transition-colors"
                 >
                   <Mic className="w-4 h-4" />
-                  <span>بدء التفريغ الصوتي</span>
+                  <span>بدء التفريغ الصوتي (ASR)</span>
                 </button>
               )}
             </div>
           </div>
 
           {/* Submit */}
-          <div className="flex justify-end gap-3 pt-2">
+          <div className="flex justify-end pt-6 border-t border-sand-300">
             <button
               type="submit"
               disabled={parsedVerses.length === 0 || !title.trim() || !poetName.trim() || isProcessing}
-              className="px-6 py-2.5 rounded-xl bg-gold-500 hover:bg-gold-400 disabled:opacity-50 text-charcoal-950 font-bold text-xs shadow-md"
+              className="px-8 py-4 rounded-xl bg-crimson-800 hover:bg-crimson-700 disabled:opacity-50 text-sand-50 font-bold text-[15px] font-sans shadow-lg shadow-crimson-800/20 transition-all flex items-center gap-2"
             >
-              {isProcessing ? "جاري الحفظ..." : "حفظ القصيدة في ديوان"}
+              <Save className="w-5 h-5" />
+              <span>{isProcessing ? "جاري المعالجة والحفظ..." : "حفظ القصيدة في الديوان"}</span>
             </button>
           </div>
         </form>

@@ -1,6 +1,6 @@
 import React from "react";
 import { ActiveTab, Poem } from "@/types";
-import { ChevronLeft } from "lucide-react";
+import { ChevronRight } from "lucide-react";
 
 interface HeaderProps {
   activeTab: ActiveTab;
@@ -31,31 +31,35 @@ export const Header: React.FC<HeaderProps> = ({
   };
 
   return (
-    <header className="h-14 border-b border-charcoal-800 bg-charcoal-900/60 backdrop-blur px-6 flex items-center justify-between shrink-0">
-      <div className="flex items-center gap-3">
+    <header className="h-20 border-b border-sand-300 bg-sand-50/80 backdrop-blur-md px-8 flex items-center justify-between shrink-0 z-10 shadow-[0_4px_12px_-4px_rgba(0,0,0,0.02)] relative">
+      <div className="flex items-center gap-4">
         {activeTab === "player" && activePoem && (
-          <button
-            onClick={onBackToLibrary}
-            className="flex items-center gap-1 text-xs text-parchment-400 hover:text-gold-400 p-1.5 rounded-lg hover:bg-charcoal-800 transition-colors"
-            title="العودة إلى المكتبة"
-          >
-            <ChevronLeft className="w-4 h-4 rotate-180" />
-            <span>المكتبة</span>
-          </button>
+          <>
+            <button
+              onClick={onBackToLibrary}
+              className="flex items-center gap-1.5 text-[13px] font-medium text-ink-500 hover:text-crimson-800 pr-1 pl-3 py-2 rounded-lg hover:bg-sand-200/80 transition-all duration-300"
+              title="العودة إلى المكتبة"
+            >
+              <ChevronRight className="w-4 h-4" strokeWidth={2} />
+              <span>المكتبة</span>
+            </button>
+            <div className="w-[1px] h-6 bg-sand-300"></div>
+          </>
         )}
-        <h2 className="text-base font-semibold text-parchment-100 flex items-center gap-2">
-          <span>{getTitle()}</span>
+        <h2 className="text-xl font-bold text-ink-900 flex items-baseline gap-3">
+          <span className="font-poetry text-2xl tracking-wide">{getTitle()}</span>
           {activeTab === "player" && activePoem && (
-            <span className="text-xs font-normal text-gold-400/90 font-poetry">
-              ({activePoem.poet.name})
+            <span className="text-sm font-normal text-crimson-800 font-sans opacity-80 border border-crimson-800/20 px-2 py-0.5 rounded-full bg-crimson-800/5">
+              {activePoem.poet.name}
             </span>
           )}
         </h2>
       </div>
 
-      <div className="flex items-center gap-2 text-xs text-parchment-400">
-        <span className="hidden sm:inline-block px-2 py-1 rounded bg-charcoal-800/80 border border-charcoal-700 font-mono text-[11px] ltr-num">
-          Space: تشغيل/إيقاف
+      <div className="flex items-center gap-3">
+        <span className="px-3 py-1.5 rounded-md bg-sand-200/60 border border-sand-300/80 font-mono text-[11px] ltr-num text-ink-600 flex items-center gap-2 shadow-sm">
+          <span className="font-sans font-medium text-[10px] text-ink-500 uppercase tracking-widest bg-sand-100 px-1 rounded border border-sand-300">SPACE</span>
+          تشغيل / إيقاف
         </span>
       </div>
     </header>

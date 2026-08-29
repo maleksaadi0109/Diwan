@@ -32,16 +32,12 @@ const VerseItemComponent: React.FC<VerseItemProps> = ({
   explanationError,
   onRetryExplanation,
 }) => {
-  // The explanation is visible by default; selecting a verse should not be
-  // required just to discover that its explanation exists.
   const [showExplanation, setShowExplanation] = useState(true);
   const alignment = verse.alignment;
   const items = explanationItems ?? verse.explanations ?? [];
   const hasExplanation = Boolean(verse.explanation || items.length > 0 || explanationStatus !== "idle");
 
   useEffect(() => {
-    // Keep every verse's explanation card open when the list rerenders or
-    // playback moves to another verse.
     setShowExplanation(true);
   }, [verse.id]);
 
@@ -56,7 +52,7 @@ const VerseItemComponent: React.FC<VerseItemProps> = ({
             onWordClick(w.replace(/[،؛؟.!]/g, ""));
           }
         }}
-        className="inline-block mx-1 hover:text-gold-400 hover:underline cursor-pointer transition-colors"
+        className="inline-block mx-1 hover:text-crimson-700 cursor-pointer transition-colors border-b border-transparent hover:border-crimson-700/40 pb-1"
         title="انقر لعرض المعنى من المعجم"
       >
         {w}
@@ -68,37 +64,48 @@ const VerseItemComponent: React.FC<VerseItemProps> = ({
     <div
       ref={verseRef}
       onClick={() => {
-        // The parent selection handler performs the seek and loads the
-        // explanation. Keep the legacy seek callback as a fallback only.
         if (onSelectVerse) onSelectVerse(verse);
         else onSeekToVerse(verse);
         setShowExplanation(true);
       }}
       className={cn(
-        "group relative p-5 rounded-2xl border transition-all duration-200 cursor-pointer select-text",
+        "group relative p-6 rounded-2xl border transition-all duration-300 cursor-pointer select-text font-sans",
         isActive || isSelected
-          ? "bg-charcoal-850/95 border-gold-500/60 shadow-lg shadow-gold-500/5 ring-1 ring-gold-500/40"
-          : "bg-charcoal-900/50 hover:bg-charcoal-850/70 border-charcoal-800/80 hover:border-charcoal-700"
+          ? "bg-sand-50 border-crimson-800/40 shadow-[0_8px_24px_-8px_rgba(106,26,34,0.15)] ring-1 ring-crimson-800/20 z-10 scale-[1.01]"
+          : "bg-sand-100/50 hover:bg-sand-50 border-sand-300 hover:border-sand-400 hover:shadow-md"
       )}
     >
+      {/* Decorative corners */}
+      {(isActive || isSelected) && (
+        <>
+          <div className="absolute top-2 right-2 w-2 h-2 border-t border-r border-crimson-800/30 rounded-tr-sm"></div>
+          <div className="absolute top-2 left-2 w-2 h-2 border-t border-l border-crimson-800/30 rounded-tl-sm"></div>
+          <div className="absolute bottom-2 right-2 w-2 h-2 border-b border-r border-crimson-800/30 rounded-br-sm"></div>
+          <div className="absolute bottom-2 left-2 w-2 h-2 border-b border-l border-crimson-800/30 rounded-bl-sm"></div>
+        </>
+      )}
+
       {/* Verse Index & Status indicator */}
-      <div className="flex items-center justify-between text-xs mb-3 select-none">
-        <div className="flex items-center gap-2">
+      <div className="flex items-center justify-between mb-5 select-none text-[13px] tracking-wide">
+        <div className="flex items-center gap-3">
           <span
             className={cn(
-              "w-6 h-6 rounded-full flex items-center justify-center font-bold text-xs transition-colors",
-              isActive
-                ? "bg-gold-500 text-charcoal-950 shadow-sm"
-                : "bg-charcoal-800 text-parchment-400 group-hover:bg-charcoal-700"
+              "w-7 h-7 rounded-full flex items-center justify-center font-bold text-sm transition-all duration-300",
+              isActive || isSelected
+                ? "bg-crimson-800 text-sand-50 shadow-sm shadow-crimson-800/20"
+                : "bg-sand-200 text-ink-700 group-hover:bg-sand-300 group-hover:text-ink-900"
             )}
           >
             {toArabicDigits(verse.orderIndex)}
           </span>
 
           {alignment && (
-            <span className="text-[11px] text-parchment-400 font-mono ltr-num flex items-center gap-1">
+            <span className={cn(
+              "font-mono ltr-num flex items-center gap-1.5 px-2 py-0.5 rounded transition-colors duration-300",
+              isActive || isSelected ? "bg-crimson-800/5 text-crimson-800" : "bg-sand-200/50 text-ink-500 group-hover:text-ink-700"
+            )}>
               <span>{formatTime(alignment.startMs)}</span>
-              <span>-</span>
+              <span>—</span>
               <span>{formatTime(alignment.endMs)}</span>
             </span>
           )}
@@ -108,16 +115,16 @@ const VerseItemComponent: React.FC<VerseItemProps> = ({
           {alignment && (
             <span
               className={cn(
-                "px-2 py-0.5 rounded text-[10px] font-medium flex items-center gap-1",
+                "px-2.5 py-1 rounded-md text-[11px] font-medium flex items-center gap-1.5 border transition-colors duration-300",
                 alignment.confidence >= 0.8
-                  ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+                  ? "bg-emerald-50 text-emerald-700 border-emerald-200"
                   : alignment.confidence >= 0.65
-                  ? "bg-amber-500/10 text-amber-300 border border-amber-500/20"
-                  : "bg-rose-500/10 text-rose-400 border border-rose-500/20"
+                  ? "bg-amber-50 text-amber-700 border-amber-200"
+                  : "bg-rose-50 text-rose-700 border-rose-200"
               )}
               title={`دقة المحاذاة: ${Math.round(alignment.confidence * 100)}%`}
             >
-              <CheckCircle2 className="w-2.5 h-2.5" />
+              <CheckCircle2 className="w-3 h-3" />
               <span>{Math.round(alignment.confidence * 100)}%</span>
             </span>
           )}
@@ -130,31 +137,33 @@ const VerseItemComponent: React.FC<VerseItemProps> = ({
                 setShowExplanation(!showExplanation);
               }}
               className={cn(
-                "p-1 rounded-md transition-colors text-xs flex items-center gap-1",
+                "px-2.5 py-1 rounded-md transition-colors duration-300 flex items-center gap-1.5 border text-[11px] font-medium",
                 showExplanation
-                  ? "bg-gold-500/20 text-gold-300"
-                  : "text-parchment-400 hover:text-parchment-200 hover:bg-charcoal-800"
+                  ? "bg-sand-200/80 text-ink-800 border-sand-300"
+                  : "bg-transparent text-ink-500 hover:text-ink-800 border-transparent hover:bg-sand-200 hover:border-sand-300"
               )}
               title="عرض الشرح والمعنى"
             >
               <Info className="w-3.5 h-3.5" />
-              <span className="text-[10px]">شرح</span>
+              <span>الشرح</span>
             </button>
           )}
         </div>
       </div>
 
       {/* Poetic Verse with Two Hemistichs */}
-      <div className="my-2">
-        <div className="flex flex-col md:flex-row items-center justify-between gap-4 md:gap-8 px-2 py-1">
+      <div className="my-4">
+        <div className="flex flex-col md:flex-row items-center justify-between gap-6 md:gap-10 px-4 py-2 relative">
           {/* الصدر (First Hemistich) */}
           <div className="flex-1 text-center md:text-right">
             <span
               className={cn(
-                "font-poetry text-xl md:text-2xl leading-relaxed tracking-wide transition-colors",
+                "font-poetry text-2xl md:text-3xl leading-[1.8] transition-all duration-300",
                 isActive
-                  ? "text-gold-300 font-bold text-shadow-gold"
-                  : "text-parchment-100 group-hover:text-parchment-50"
+                  ? "text-crimson-800 font-bold drop-shadow-[0_2px_8px_rgba(106,26,34,0.15)]"
+                  : isSelected
+                  ? "text-ink-950 font-bold"
+                  : "text-ink-900 group-hover:text-ink-950"
               )}
             >
               {renderWords(verse.firstHemistich)}
@@ -162,18 +171,20 @@ const VerseItemComponent: React.FC<VerseItemProps> = ({
           </div>
 
           {/* فاصل الشطرين */}
-          <div className="shrink-0 flex items-center justify-center text-gold-500/40 select-none">
-            <Sparkles className="w-3.5 h-3.5" />
+          <div className="shrink-0 flex items-center justify-center text-sand-400 select-none group-hover:text-crimson-800/30 transition-colors">
+            <Sparkles className="w-4 h-4" strokeWidth={1.5} />
           </div>
 
           {/* العجز (Second Hemistich) */}
           <div className="flex-1 text-center md:text-left">
             <span
               className={cn(
-                "font-poetry text-xl md:text-2xl leading-relaxed tracking-wide transition-colors",
+                "font-poetry text-2xl md:text-3xl leading-[1.8] transition-all duration-300",
                 isActive
-                  ? "text-gold-300 font-bold text-shadow-gold"
-                  : "text-parchment-100 group-hover:text-parchment-50"
+                  ? "text-crimson-800 font-bold drop-shadow-[0_2px_8px_rgba(106,26,34,0.15)]"
+                  : isSelected
+                  ? "text-ink-950 font-bold"
+                  : "text-ink-900 group-hover:text-ink-950"
               )}
             >
               {renderWords(verse.secondHemistich)}
@@ -186,51 +197,52 @@ const VerseItemComponent: React.FC<VerseItemProps> = ({
       {showExplanation && (hasExplanation || isSelected) && (
         <div
           onClick={(e) => e.stopPropagation()}
-          className="mt-3 pt-3 border-t border-charcoal-800 text-xs text-parchment-300 bg-charcoal-950/40 p-3 rounded-xl border border-charcoal-800/60 flex items-start gap-2 animate-fadeIn"
+          className="mt-6 pt-5 border-t border-sand-300/80 text-[13px] text-ink-800 bg-sand-100/50 p-5 rounded-xl flex items-start gap-4 animate-in fade-in slide-in-from-top-2 duration-300 shadow-inner relative overflow-hidden"
         >
-          <Info className="w-4 h-4 text-gold-400 shrink-0 mt-0.5" />
-          <div>
-            <span className="font-semibold text-gold-400 block mb-1">الشرح والمعاني:</span>
+          <div className="absolute top-0 right-0 w-1 h-full bg-sand-300/80 rounded-r-md"></div>
+          <Info className="w-5 h-5 text-sand-500 shrink-0 mt-0.5" />
+          <div className="flex-1">
+            <span className="font-bold text-ink-900 block mb-2 font-poetry text-lg">الشرح والمعاني</span>
             {explanationStatus === "loading" ? (
-              <div className="flex items-center gap-2 text-parchment-400">
-                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                <span>جاري تحميل شرح البيت من ميزان العرب...</span>
+              <div className="flex items-center gap-3 text-ink-500 p-4">
+                <Loader2 className="w-4 h-4 animate-spin text-crimson-800" />
+                <span className="tracking-wide">جاري استخراج شرح البيت...</span>
               </div>
             ) : explanationStatus === "error" ? (
-              <div className="space-y-2">
-                <p className="leading-normal text-rose-300">{explanationError || "تعذر تحميل الشرح."}</p>
+              <div className="space-y-3 p-4 bg-rose-50/50 rounded-lg border border-rose-200">
+                <p className="leading-relaxed text-rose-800">{explanationError || "تعذر تحميل الشرح."}</p>
                 <button
                   type="button"
                   onClick={(e) => {
                     e.stopPropagation();
                     onRetryExplanation?.();
                   }}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-rose-500/30 bg-rose-500/10 px-2.5 py-1.5 text-[11px] text-rose-200"
+                  className="inline-flex items-center gap-2 rounded-lg border border-rose-300 bg-white px-3 py-1.5 text-xs text-rose-700 hover:bg-rose-50 transition-colors"
                 >
-                  <RefreshCw className="w-3 h-3" /> إعادة المحاولة
+                  <RefreshCw className="w-3.5 h-3.5" /> إعادة المحاولة
                 </button>
               </div>
             ) : items.length > 0 ? (
-              <div className="space-y-3">
+              <div className="space-y-4">
                 {items.map((item) => (
-                  <div key={item.id} className="border-b border-charcoal-800/80 last:border-0 pb-2 last:pb-0">
-                    <div className="flex flex-wrap items-center gap-2 text-[11px] text-gold-300 mb-1">
-                      <span>{item.explanationType === "classical" ? "شرح تراثي" : "معنى البيت"}</span>
-                      {item.author && <span className="text-parchment-400">— {item.author}</span>}
-                      {item.sourceTitle && <span className="text-parchment-500">({item.sourceTitle})</span>}
+                  <div key={item.id} className="border-b border-sand-300/60 last:border-0 pb-4 last:pb-0">
+                    <div className="flex flex-wrap items-center gap-2 text-xs text-ink-500 mb-2 font-medium">
+                      <span className="text-crimson-800 bg-crimson-800/5 px-2 py-0.5 rounded">{item.explanationType === "classical" ? "شرح تراثي" : "معنى البيت"}</span>
+                      {item.author && <span>— {item.author}</span>}
+                      {item.sourceTitle && <span>({item.sourceTitle})</span>}
                     </div>
-                    <p className="leading-relaxed">{item.text}</p>
+                    <p className="leading-[1.8] text-[15px] font-poetry text-ink-900">{item.text}</p>
                   </div>
                 ))}
               </div>
             ) : verse.explanation ? (
-              <p className="leading-normal">{verse.explanation}</p>
+              <p className="leading-[1.8] text-[15px] font-poetry text-ink-900">{verse.explanation}</p>
             ) : (
-              <p className="leading-normal text-parchment-400">لا يتوفر شرح لهذا البيت في المصدر.</p>
+              <p className="leading-relaxed text-ink-500">لا يتوفر شرح لهذا البيت في المصدر.</p>
             )}
             {items.length > 0 && (
-              <div className="mt-3 pt-2 border-t border-charcoal-800 text-[10px] text-parchment-500">
-                المصدر: ميزان العرب
+              <div className="mt-4 pt-3 border-t border-sand-200/80 text-[11px] text-ink-400 font-sans flex items-center justify-between">
+                <span>المصدر: ميزان العرب</span>
               </div>
             )}
           </div>

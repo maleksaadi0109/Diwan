@@ -354,17 +354,17 @@ export const NewPoemWizard: React.FC<NewPoemWizardProps> = ({ onFinishWizard }) 
               <div
                 className={`w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold transition-colors ${
                   currentStep === s.step
-                    ? "bg-gold-500 text-charcoal-950 shadow-lg shadow-gold-500/20"
+                    ? "bg-crimson-800 text-sand-50 shadow-lg shadow-crimson-800/20"
                     : currentStep > s.step
-                    ? "bg-emerald-500 text-charcoal-950"
-                    : "bg-charcoal-800 text-parchment-400"
+                    ? "bg-emerald-500 text-sand-50"
+                    : "bg-sand-200 text-ink-600"
                 }`}
               >
                 {currentStep > s.step ? <CheckCircle2 className="w-4 h-4" /> : s.step}
               </div>
               <span
                 className={`text-[11px] mt-1.5 font-medium ${
-                  currentStep === s.step ? "text-gold-400" : "text-parchment-400"
+                  currentStep === s.step ? "text-crimson-700" : "text-ink-600"
                 }`}
               >
                 {s.label}
@@ -376,25 +376,25 @@ export const NewPoemWizard: React.FC<NewPoemWizardProps> = ({ onFinishWizard }) 
 
       {/* Step 1: Poem Source */}
       {currentStep === 1 && (
-        <div className="bg-charcoal-900 border border-charcoal-800 rounded-2xl p-6 space-y-6 animate-fadeIn select-text">
+        <div className="bg-sand-50 border border-sand-300 rounded-2xl p-6 space-y-6 animate-fadeIn select-text">
           <div className="flex items-center gap-3">
-            <BookOpen className="w-6 h-6 text-gold-400" />
+            <BookOpen className="w-6 h-6 text-crimson-700" />
             <div>
-              <h3 className="text-base font-bold text-parchment-100 font-poetry">
+              <h3 className="text-base font-bold text-ink-900 font-poetry">
                 الخطوة الأولى: مصدر نص القصيدة وبياناتها
               </h3>
-              <p className="text-xs text-parchment-400">
+              <p className="text-xs text-ink-600">
                 اختر استيراد القصيدة من ميزان العرب أو كتابتها ولصقها يدوياً
               </p>
             </div>
           </div>
 
           {/* Mode Selector */}
-          <div className="flex gap-2 p-1 bg-charcoal-950 rounded-xl border border-charcoal-800">
+          <div className="flex gap-2 p-1 bg-sand-100 rounded-xl border border-sand-300">
             <button
               onClick={() => setPoemSourceMode("mizan")}
               className={`flex-1 py-2 rounded-lg text-xs font-bold transition-colors flex items-center justify-center gap-2 ${
-                poemSourceMode === "mizan" ? "bg-gold-500 text-charcoal-950" : "text-parchment-400 hover:text-parchment-200"
+                poemSourceMode === "mizan" ? "bg-crimson-800 text-sand-50" : "text-ink-600 hover:text-ink-800"
               }`}
             >
               <Globe className="w-3.5 h-3.5" />
@@ -403,7 +403,7 @@ export const NewPoemWizard: React.FC<NewPoemWizardProps> = ({ onFinishWizard }) 
             <button
               onClick={() => setPoemSourceMode("manual")}
               className={`flex-1 py-2 rounded-lg text-xs font-bold transition-colors flex items-center justify-center gap-2 ${
-                poemSourceMode === "manual" ? "bg-gold-500 text-charcoal-950" : "text-parchment-400 hover:text-parchment-200"
+                poemSourceMode === "manual" ? "bg-crimson-800 text-sand-50" : "text-ink-600 hover:text-ink-800"
               }`}
             >
               <Upload className="w-3.5 h-3.5" />
@@ -414,7 +414,7 @@ export const NewPoemWizard: React.FC<NewPoemWizardProps> = ({ onFinishWizard }) 
           {/* Mizan URL Input */}
           {poemSourceMode === "mizan" && (
             <div className="space-y-3">
-              <label className="block text-xs font-semibold text-parchment-300">
+              <label className="block text-xs font-semibold text-ink-700">
                 رابط القصيدة في موقع ميزان العرب:
               </label>
               <div className="flex gap-2">
@@ -423,13 +423,13 @@ export const NewPoemWizard: React.FC<NewPoemWizardProps> = ({ onFinishWizard }) 
                   value={mizanUrl}
                   onChange={(e) => setMizanUrl(e.target.value)}
                   placeholder="https://mizanalarab.com/poem/12345"
-                  className="flex-1 bg-charcoal-850 text-parchment-100 border border-charcoal-700 rounded-xl px-4 py-2.5 text-xs focus:border-gold-500 ltr-num"
+                  className="flex-1 bg-white text-ink-900 border border-sand-400 rounded-xl px-4 py-2.5 text-xs focus:border-crimson-800 ltr-num"
                 />
                 <button
                   type="button"
                   onClick={handleFetchMizan}
                   disabled={!mizanUrl.trim() || mizanLoading}
-                  className="px-4 py-2.5 rounded-xl bg-gold-500 hover:bg-gold-400 disabled:opacity-50 text-charcoal-950 font-bold text-xs"
+                  className="px-4 py-2.5 rounded-xl bg-crimson-800 hover:bg-crimson-700 disabled:opacity-50 text-sand-50 font-bold text-xs"
                 >
                   {mizanLoading ? "جاري الجلب..." : "جلب النص"}
                 </button>
@@ -441,30 +441,30 @@ export const NewPoemWizard: React.FC<NewPoemWizardProps> = ({ onFinishWizard }) 
           {/* Poem Metadata Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-semibold text-parchment-300 mb-1">عنوان القصيدة *</label>
+              <label className="block text-xs font-semibold text-ink-700 mb-1">عنوان القصيدة *</label>
               <input
                 type="text"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 placeholder="عنوان القصيدة"
-                className="w-full bg-charcoal-850 text-parchment-100 border border-charcoal-700 rounded-xl px-4 py-2 text-xs focus:border-gold-500"
+                className="w-full bg-white text-ink-900 border border-sand-400 rounded-xl px-4 py-2 text-xs focus:border-crimson-800"
               />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-parchment-300 mb-1">اسم الشاعر *</label>
+              <label className="block text-xs font-semibold text-ink-700 mb-1">اسم الشاعر *</label>
               <input
                 type="text"
                 value={poetName}
                 onChange={(e) => setPoetName(e.target.value)}
                 placeholder="اسم الشاعر"
-                className="w-full bg-charcoal-850 text-parchment-100 border border-charcoal-700 rounded-xl px-4 py-2 text-xs focus:border-gold-500"
+                className="w-full bg-white text-ink-900 border border-sand-400 rounded-xl px-4 py-2 text-xs focus:border-crimson-800"
               />
             </div>
           </div>
 
           {/* Verses textarea */}
           <div>
-            <label className="block text-xs font-semibold text-parchment-300 mb-1">
+            <label className="block text-xs font-semibold text-ink-700 mb-1">
               أبيات القصيدة (كل بيت في سطر مع فاصل " — " أو " - ") *
             </label>
             <textarea
@@ -472,7 +472,7 @@ export const NewPoemWizard: React.FC<NewPoemWizardProps> = ({ onFinishWizard }) 
               value={versesRaw}
               onChange={(e) => setVersesRaw(e.target.value)}
               placeholder="واحَرَّ قَلباهُ مِمَّن قَلبُهُ شَبِمُ — وَمَن بِجِسمي وَحالي عِندَهُ سَقَمُ"
-              className="w-full bg-charcoal-850 text-parchment-100 border border-charcoal-700 rounded-xl p-3 text-xs font-poetry leading-relaxed focus:border-gold-500"
+              className="w-full bg-white text-ink-900 border border-sand-400 rounded-xl p-3 text-xs font-poetry leading-relaxed focus:border-crimson-800"
             />
           </div>
 
@@ -481,7 +481,7 @@ export const NewPoemWizard: React.FC<NewPoemWizardProps> = ({ onFinishWizard }) 
               type="button"
               onClick={() => setCurrentStep(2)}
               disabled={!title.trim() || !poetName.trim() || !versesRaw.trim()}
-              className="px-6 py-2.5 rounded-xl bg-gold-500 hover:bg-gold-400 disabled:opacity-50 text-charcoal-950 font-bold text-xs flex items-center gap-1.5"
+              className="px-6 py-2.5 rounded-xl bg-crimson-800 hover:bg-crimson-700 disabled:opacity-50 text-sand-50 font-bold text-xs flex items-center gap-1.5"
             >
               <span>المتابعة إلى اختيار الصوت</span>
               <ArrowLeft className="w-3.5 h-3.5" />
@@ -492,25 +492,25 @@ export const NewPoemWizard: React.FC<NewPoemWizardProps> = ({ onFinishWizard }) 
 
       {/* Step 2: Audio Source */}
       {currentStep === 2 && (
-        <div className="bg-charcoal-900 border border-charcoal-800 rounded-2xl p-6 space-y-6 animate-fadeIn select-text">
+        <div className="bg-sand-50 border border-sand-300 rounded-2xl p-6 space-y-6 animate-fadeIn select-text">
           <div className="flex items-center gap-3">
-            <Music className="w-6 h-6 text-gold-400" />
+            <Music className="w-6 h-6 text-crimson-700" />
             <div>
-              <h3 className="text-base font-bold text-parchment-100 font-poetry">
+              <h3 className="text-base font-bold text-ink-900 font-poetry">
                 الخطوة الثانية: اختيار التسجيل الصوتي
               </h3>
-              <p className="text-xs text-parchment-400">
+              <p className="text-xs text-ink-600">
                 استيراد تسجيل بصوت ملقي القصيدة من YouTube أو ملف محلي
               </p>
             </div>
           </div>
 
           {/* Mode Selector */}
-          <div className="flex gap-2 p-1 bg-charcoal-950 rounded-xl border border-charcoal-800">
+          <div className="flex gap-2 p-1 bg-sand-100 rounded-xl border border-sand-300">
             <button
               onClick={() => setAudioSourceMode("youtube")}
               className={`flex-1 py-2 rounded-lg text-xs font-bold transition-colors flex items-center justify-center gap-2 ${
-                audioSourceMode === "youtube" ? "bg-gold-500 text-charcoal-950" : "text-parchment-400 hover:text-parchment-200"
+                audioSourceMode === "youtube" ? "bg-crimson-800 text-sand-50" : "text-ink-600 hover:text-ink-800"
               }`}
             >
               <YoutubeIcon className="w-3.5 h-3.5" />
@@ -519,7 +519,7 @@ export const NewPoemWizard: React.FC<NewPoemWizardProps> = ({ onFinishWizard }) 
             <button
               onClick={() => setAudioSourceMode("local")}
               className={`flex-1 py-2 rounded-lg text-xs font-bold transition-colors flex items-center justify-center gap-2 ${
-                audioSourceMode === "local" ? "bg-gold-500 text-charcoal-950" : "text-parchment-400 hover:text-parchment-200"
+                audioSourceMode === "local" ? "bg-crimson-800 text-sand-50" : "text-ink-600 hover:text-ink-800"
               }`}
             >
               <Music className="w-3.5 h-3.5" />
@@ -528,7 +528,7 @@ export const NewPoemWizard: React.FC<NewPoemWizardProps> = ({ onFinishWizard }) 
             <button
               onClick={() => setAudioSourceMode("skip")}
               className={`flex-1 py-2 rounded-lg text-xs font-bold transition-colors flex items-center justify-center gap-2 ${
-                audioSourceMode === "skip" ? "bg-gold-500 text-charcoal-950" : "text-parchment-400 hover:text-parchment-200"
+                audioSourceMode === "skip" ? "bg-crimson-800 text-sand-50" : "text-ink-600 hover:text-ink-800"
               }`}
             >
               <span>تخطي الصوت مؤقتاً</span>
@@ -544,26 +544,26 @@ export const NewPoemWizard: React.FC<NewPoemWizardProps> = ({ onFinishWizard }) 
                   value={youtubeUrl}
                   onChange={(e) => setYoutubeUrl(e.target.value)}
                   placeholder="https://www.youtube.com/watch?v=..."
-                  className="flex-1 bg-charcoal-850 text-parchment-100 border border-charcoal-700 rounded-xl px-4 py-2.5 text-xs focus:border-gold-500 ltr-num"
+                  className="flex-1 bg-white text-ink-900 border border-sand-400 rounded-xl px-4 py-2.5 text-xs focus:border-crimson-800 ltr-num"
                 />
                 <button
                   type="button"
                   onClick={handleFetchYoutube}
                   disabled={!youtubeUrl.trim() || youtubeLoading}
-                  className="px-4 py-2.5 rounded-xl bg-gold-500 hover:bg-gold-400 disabled:opacity-50 text-charcoal-950 font-bold text-xs"
+                  className="px-4 py-2.5 rounded-xl bg-crimson-800 hover:bg-crimson-700 disabled:opacity-50 text-sand-50 font-bold text-xs"
                 >
                   {youtubeLoading ? "جاري الفحص..." : "فحص المقطع"}
                 </button>
               </div>
               {youtubeError && <p className="text-xs text-rose-400">{youtubeError}</p>}
               {youtubeInfo && (
-                <div className="p-3 bg-charcoal-950 rounded-xl border border-charcoal-800 flex gap-3 items-center">
+                <div className="p-3 bg-sand-100 rounded-xl border border-sand-300 flex gap-3 items-center">
                   {youtubeInfo.thumbnail && (
                     <img src={youtubeInfo.thumbnail} alt="" className="w-20 h-14 object-cover rounded-lg" />
                   )}
                   <div className="text-xs">
-                    <h5 className="font-bold text-parchment-100">{youtubeInfo.title}</h5>
-                    <p className="text-parchment-400">{youtubeInfo.channel} • {formatTime(youtubeInfo.duration_ms)}</p>
+                    <h5 className="font-bold text-ink-900">{youtubeInfo.title}</h5>
+                    <p className="text-ink-600">{youtubeInfo.channel} • {formatTime(youtubeInfo.duration_ms)}</p>
                   </div>
                 </div>
               )}
@@ -572,11 +572,11 @@ export const NewPoemWizard: React.FC<NewPoemWizardProps> = ({ onFinishWizard }) 
 
           {/* Local File Option */}
           {audioSourceMode === "local" && (
-            <div className="p-6 bg-charcoal-950 rounded-xl border border-dashed border-charcoal-700 text-center">
+            <div className="p-6 bg-sand-100 rounded-xl border border-dashed border-sand-400 text-center">
               <button
                 type="button"
                 onClick={handlePickLocal}
-                className="px-4 py-2 rounded-xl bg-charcoal-800 hover:bg-charcoal-700 text-gold-400 text-xs font-semibold border border-charcoal-700"
+                className="px-4 py-2 rounded-xl bg-sand-200 hover:bg-sand-300 text-crimson-700 text-xs font-semibold border border-sand-400"
               >
                 {localAudioName ? `تم اختيار: ${localAudioName}` : "اختيار ملف صوتي محلي..."}
               </button>
@@ -587,7 +587,7 @@ export const NewPoemWizard: React.FC<NewPoemWizardProps> = ({ onFinishWizard }) 
             <button
               type="button"
               onClick={() => setCurrentStep(1)}
-              className="px-4 py-2 rounded-xl bg-charcoal-800 text-parchment-300 text-xs flex items-center gap-1"
+              className="px-4 py-2 rounded-xl bg-sand-200 text-ink-700 text-xs flex items-center gap-1"
             >
               <ArrowRight className="w-3.5 h-3.5" />
               <span>السابق</span>
@@ -596,7 +596,7 @@ export const NewPoemWizard: React.FC<NewPoemWizardProps> = ({ onFinishWizard }) 
             <button
               type="button"
               onClick={() => setCurrentStep(3)}
-              className="px-6 py-2.5 rounded-xl bg-gold-500 hover:bg-gold-400 text-charcoal-950 font-bold text-xs flex items-center gap-1.5"
+              className="px-6 py-2.5 rounded-xl bg-crimson-800 hover:bg-crimson-700 text-sand-50 font-bold text-xs flex items-center gap-1.5"
             >
               <span>المتابعة إلى المعاينة</span>
               <ArrowLeft className="w-3.5 h-3.5" />
@@ -607,23 +607,23 @@ export const NewPoemWizard: React.FC<NewPoemWizardProps> = ({ onFinishWizard }) 
 
       {/* Step 3: Preview & Confirm */}
       {currentStep === 3 && (
-        <div className="bg-charcoal-900 border border-charcoal-800 rounded-2xl p-6 space-y-6 animate-fadeIn select-text">
+        <div className="bg-sand-50 border border-sand-300 rounded-2xl p-6 space-y-6 animate-fadeIn select-text">
           <div className="flex items-center gap-3">
-            <Eye className="w-6 h-6 text-gold-400" />
+            <Eye className="w-6 h-6 text-crimson-700" />
             <div>
-              <h3 className="text-base font-bold text-parchment-100 font-poetry">
+              <h3 className="text-base font-bold text-ink-900 font-poetry">
                 الخطوة الثالثة: المعاينة والتأكيد
               </h3>
-              <p className="text-xs text-parchment-400">
+              <p className="text-xs text-ink-600">
                 تأكد من صحة البيانات قبل بدء المعالجة الآلية والمحاذاة
               </p>
             </div>
           </div>
 
           {/* Overview summary */}
-          <div className="p-4 bg-charcoal-950 rounded-xl border border-charcoal-800 space-y-2">
-            <h4 className="font-poetry text-lg font-bold text-gold-300">{title}</h4>
-            <p className="text-xs text-parchment-300 flex items-center gap-2">
+          <div className="p-4 bg-sand-100 rounded-xl border border-sand-300 space-y-2">
+            <h4 className="font-poetry text-lg font-bold text-crimson-600">{title}</h4>
+            <p className="text-xs text-ink-700 flex items-center gap-2">
               <span>الشاعر: {poetName}</span>
               <span>•</span>
               <span>العصر: {era}</span>
@@ -632,7 +632,7 @@ export const NewPoemWizard: React.FC<NewPoemWizardProps> = ({ onFinishWizard }) 
               <span>•</span>
               <span>الأبيات: {toArabicDigits(getParsedVerses().length)} بيت</span>
             </p>
-            <p className="text-xs text-parchment-400">
+            <p className="text-xs text-ink-600">
               المصدر الصوتي: {audioSourceMode === "youtube" ? "مقطع YouTube" : audioSourceMode === "local" ? "ملف محلي" : "تخطي"}
             </p>
           </div>
@@ -641,7 +641,7 @@ export const NewPoemWizard: React.FC<NewPoemWizardProps> = ({ onFinishWizard }) 
             <button
               type="button"
               onClick={() => setCurrentStep(2)}
-              className="px-4 py-2 rounded-xl bg-charcoal-800 text-parchment-300 text-xs flex items-center gap-1"
+              className="px-4 py-2 rounded-xl bg-sand-200 text-ink-700 text-xs flex items-center gap-1"
             >
               <ArrowRight className="w-3.5 h-3.5" />
               <span>السابق</span>
@@ -650,7 +650,7 @@ export const NewPoemWizard: React.FC<NewPoemWizardProps> = ({ onFinishWizard }) 
             <button
               type="button"
               onClick={runPipeline}
-              className="px-6 py-2.5 rounded-xl bg-gold-500 hover:bg-gold-400 text-charcoal-950 font-bold text-xs flex items-center gap-1.5 shadow-lg shadow-gold-500/20"
+              className="px-6 py-2.5 rounded-xl bg-crimson-800 hover:bg-crimson-700 text-sand-50 font-bold text-xs flex items-center gap-1.5 shadow-lg shadow-crimson-800/20"
             >
               <Sparkles className="w-4 h-4" />
               <span>بدء المعالجة والمحاذاة التلقائية</span>
@@ -661,14 +661,14 @@ export const NewPoemWizard: React.FC<NewPoemWizardProps> = ({ onFinishWizard }) 
 
       {/* Step 4: Processing Pipeline */}
       {currentStep === 4 && (
-        <div className="bg-charcoal-900 border border-charcoal-800 rounded-2xl p-6 space-y-6 animate-fadeIn select-text">
+        <div className="bg-sand-50 border border-sand-300 rounded-2xl p-6 space-y-6 animate-fadeIn select-text">
           <div className="flex items-center gap-3">
-            <Cpu className="w-6 h-6 text-gold-400" />
+            <Cpu className="w-6 h-6 text-crimson-700" />
             <div>
-              <h3 className="text-base font-bold text-parchment-100 font-poetry">
+              <h3 className="text-base font-bold text-ink-900 font-poetry">
                 الخطوة الرابعة: خط المعالجة الذكي (Processing Pipeline)
               </h3>
-              <p className="text-xs text-parchment-400">
+              <p className="text-xs text-ink-600">
                 متابعة مراحل المعالجة بالذكاء الاصطناعي مع إمكانية إعادة المحاولة عند اللزوم
               </p>
             </div>
@@ -679,7 +679,7 @@ export const NewPoemWizard: React.FC<NewPoemWizardProps> = ({ onFinishWizard }) 
             {stages.map((stage) => (
               <div
                 key={stage.id}
-                className="p-3.5 bg-charcoal-950 rounded-xl border border-charcoal-800 flex items-center justify-between"
+                className="p-3.5 bg-sand-100 rounded-xl border border-sand-300 flex items-center justify-between"
               >
                 <div className="flex items-center gap-3">
                   <div
@@ -687,10 +687,10 @@ export const NewPoemWizard: React.FC<NewPoemWizardProps> = ({ onFinishWizard }) 
                       stage.status === "completed"
                         ? "bg-emerald-500/20 text-emerald-400"
                         : stage.status === "running"
-                        ? "bg-gold-500/20 text-gold-400 animate-pulse"
+                        ? "bg-crimson-800/20 text-crimson-700 animate-pulse"
                         : stage.status === "failed"
                         ? "bg-rose-500/20 text-rose-400"
-                        : "bg-charcoal-800 text-parchment-400"
+                        : "bg-sand-200 text-ink-600"
                     }`}
                   >
                     {stage.status === "completed" ? (
@@ -700,12 +700,12 @@ export const NewPoemWizard: React.FC<NewPoemWizardProps> = ({ onFinishWizard }) 
                     ) : stage.status === "failed" ? (
                       <AlertCircle className="w-4 h-4" />
                     ) : (
-                      <span className="w-2 h-2 rounded-full bg-charcoal-700" />
+                      <span className="w-2 h-2 rounded-full bg-sand-300" />
                     )}
                   </div>
                   <div>
-                    <h5 className="text-xs font-bold text-parchment-100">{stage.name}</h5>
-                    <p className="text-[11px] text-parchment-400">{stage.description}</p>
+                    <h5 className="text-xs font-bold text-ink-900">{stage.name}</h5>
+                    <p className="text-[11px] text-ink-600">{stage.description}</p>
                     {stage.errorMessage && <p className="text-[11px] text-rose-400 mt-0.5">{stage.errorMessage}</p>}
                   </div>
                 </div>
@@ -726,16 +726,16 @@ export const NewPoemWizard: React.FC<NewPoemWizardProps> = ({ onFinishWizard }) 
 
       {/* Step 5: Review & Open Player */}
       {currentStep === 5 && generatedPoem && (
-        <div className="bg-charcoal-900 border border-charcoal-800 rounded-2xl p-6 space-y-6 animate-fadeIn select-text text-center">
+        <div className="bg-sand-50 border border-sand-300 rounded-2xl p-6 space-y-6 animate-fadeIn select-text text-center">
           <div className="w-14 h-14 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 flex items-center justify-center mx-auto">
             <CheckCircle2 className="w-8 h-8" />
           </div>
 
           <div>
-            <h3 className="text-lg font-bold text-parchment-100 font-poetry">
+            <h3 className="text-lg font-bold text-ink-900 font-poetry">
               تم استيراد ومعالجة قصيدة "{generatedPoem.title}" بنجاح!
             </h3>
-            <p className="text-xs text-parchment-400 mt-1">
+            <p className="text-xs text-ink-600 mt-1">
               تمت محاذاة {toArabicDigits(generatedPoem.versesCount)} بيت مع الصوت بدقة وتحديد فترات التوقف والصمت
             </p>
           </div>
@@ -743,7 +743,7 @@ export const NewPoemWizard: React.FC<NewPoemWizardProps> = ({ onFinishWizard }) 
           <div className="flex justify-center gap-3 pt-2">
             <button
               onClick={() => onFinishWizard(generatedPoem)}
-              className="px-6 py-2.5 rounded-xl bg-gold-500 hover:bg-gold-400 text-charcoal-950 font-bold text-xs flex items-center gap-2 shadow-lg"
+              className="px-6 py-2.5 rounded-xl bg-crimson-800 hover:bg-crimson-700 text-sand-50 font-bold text-xs flex items-center gap-2 shadow-lg"
             >
               <span>فتح القصيدة في المشغل المتزامن</span>
               <ArrowLeft className="w-3.5 h-3.5" />
