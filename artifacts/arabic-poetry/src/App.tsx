@@ -216,7 +216,7 @@ export function App() {
   );
 
   return (
-    <div className="h-screen w-screen flex bg-sand-100 text-ink-900 overflow-hidden select-none min-w-[900px] min-h-[600px]">
+    <div className="h-screen w-screen flex bg-[#0A0C10] text-[#F8F9FA] overflow-hidden select-none min-w-[900px] min-h-[600px]">
       {/* Right-side RTL Navigation */}
       <Navigation
         activeTab={activeTab}
@@ -225,7 +225,7 @@ export function App() {
       />
 
       {/* Main Content Area */}
-      <div className="flex-1 flex flex-col h-full overflow-hidden bg-sand-100">
+      <div className="flex-1 flex flex-col h-full overflow-hidden bg-[#0A0C10]">
         <Header
           activeTab={activeTab}
           activePoem={activePoem}
@@ -234,7 +234,7 @@ export function App() {
 
         <main className="flex-1 overflow-hidden relative">
           {isLoading ? (
-            <div className="h-full flex items-center justify-center text-crimson-700 font-poetry text-lg">
+            <div className="h-full flex items-center justify-center text-[#F3E19C] font-poetry text-xl animate-pulse">
               جاري تحميل ديوان الشعر...
             </div>
           ) : (

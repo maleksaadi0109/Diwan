@@ -7,7 +7,8 @@ import {
   Pause,
   AlertTriangle,
   Split,
-  Settings2
+  Settings2,
+  Sliders
 } from "lucide-react";
 
 interface BoundaryReviewEditorProps {
@@ -39,7 +40,6 @@ export const BoundaryReviewEditor: React.FC<BoundaryReviewEditorProps> = ({
     seekTo,
   } = usePoemPlayback(poem);
 
-  // Local state copy of verse boundaries for fast responsive dragging/nudging
   const [boundaries, setBoundaries] = useState<
     Map<string, { startMs: number; endMs: number; status: AlignmentStatus; confidence: number }>
   >(() => {
@@ -178,44 +178,44 @@ export const BoundaryReviewEditor: React.FC<BoundaryReviewEditorProps> = ({
   };
 
   return (
-    <div className="h-full flex flex-col justify-between overflow-hidden bg-sand-100 select-none">
+    <div className="h-full flex flex-col justify-between overflow-hidden bg-[#0A0C10] select-none text-[#F8F9FA]">
       {/* Editor Header */}
-      <div className="px-8 py-5 border-b border-sand-300 bg-sand-50/50 flex items-center justify-between shrink-0">
+      <div className="px-8 py-4 border-b border-white/[0.08] bg-[#0E1015]/90 backdrop-blur-2xl flex items-center justify-between shrink-0">
         <div>
           <div className="flex items-center gap-3">
-            <h2 className="font-poetry text-2xl font-bold text-ink-950">
+            <h2 className="font-poetry text-2xl md:text-3xl font-bold text-[#F8F9FA] tracking-wide">
               محرر المحاذاة وتدقيق الحدود
             </h2>
-            <span className="px-2.5 py-1 rounded-md text-[11px] font-semibold bg-sand-200 text-ink-700 border border-sand-300 flex items-center gap-1.5 shadow-sm">
-              <Settings2 className="w-3.5 h-3.5" /> محرر دقيق
+            <span className="px-3 py-1 rounded-xl text-xs font-semibold bg-[#D4AF37]/15 text-[#F3E19C] border border-[#D4AF37]/30 flex items-center gap-1.5 shadow-sm">
+              <Sliders className="w-3.5 h-3.5 text-[#D4AF37]" /> محرر دقيق
             </span>
           </div>
-          <p className="text-xs text-ink-500 mt-1 font-sans tracking-wide">
+          <p className="text-xs text-[#A0AAB7] mt-1 font-sans tracking-wide">
             {poem.title} — {poem.poet.name} ({poem.verses.length} بيت)
           </p>
         </div>
 
         {statusMessage && (
-          <div className="px-4 py-2 rounded-xl bg-amber-50 border border-amber-300 text-amber-800 text-xs flex items-center gap-2 shadow-sm font-medium animate-in fade-in zoom-in">
-            <AlertTriangle className="w-4 h-4 text-amber-600" />
+          <div className="px-4 py-2 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-200 text-xs flex items-center gap-2 shadow-sm font-medium animate-in fade-in zoom-in">
+            <AlertTriangle className="w-4 h-4 text-amber-400" />
             <span>{statusMessage}</span>
           </div>
         )}
       </div>
 
       {/* Main Canvas / Scrubber Visualizer */}
-      <div className="p-6 border-b border-sand-300 bg-sand-100/50">
-        <div className="bg-sand-50 p-4 rounded-xl border border-sand-300 shadow-sm space-y-3">
-          <div className="flex items-center justify-between text-xs text-ink-600 font-medium">
+      <div className="p-6 border-b border-white/[0.08] bg-[#12151C]/80">
+        <div className="bg-[#14171E] p-4 rounded-2xl border border-white/[0.08] shadow-xl space-y-3">
+          <div className="flex items-center justify-between text-xs text-[#A0AAB7] font-medium">
             <span>المخطط الزمني للقصيدة والتسجيل</span>
-            <span className="font-mono ltr-num text-crimson-800 font-bold bg-crimson-800/5 px-2 py-0.5 rounded">
+            <span className="font-mono ltr-num text-[#F3E19C] font-bold bg-[#D4AF37]/15 px-3 py-1 rounded-lg border border-[#D4AF37]/30">
               {formatTime(currentTimeMs, true)}
             </span>
           </div>
 
           {/* Simulated Waveform Track */}
-          <div className="relative h-20 bg-sand-100 rounded-lg overflow-hidden border border-sand-300 flex items-center px-3 shadow-inner">
-            <div className="w-full flex items-center justify-between gap-[1px] h-12">
+          <div className="relative h-20 bg-black/40 rounded-xl overflow-hidden border border-white/[0.08] flex items-center px-3 shadow-inner">
+            <div className="w-full flex items-center justify-between gap-[2px] h-14">
               {Array.from({ length: 80 }).map((_, i) => {
                 const height = 15 + Math.sin(i * 0.5) * 35 + ((i % 4) * 10);
                 const isInsideSelected =
@@ -228,8 +228,8 @@ export const BoundaryReviewEditor: React.FC<BoundaryReviewEditorProps> = ({
                     key={i}
                     className={`flex-1 rounded-full transition-all duration-300 ${
                       isInsideSelected
-                        ? "bg-crimson-800 shadow-[0_0_8px_rgba(106,26,34,0.4)] z-10"
-                        : "bg-sand-300 hover:bg-sand-400"
+                        ? "bg-gradient-to-t from-[#B89225] via-[#D4AF37] to-[#F3E19C] shadow-[0_0_10px_rgba(212,175,55,0.6)] z-10 scale-y-110"
+                        : "bg-white/[0.1] hover:bg-white/[0.2]"
                     }`}
                     style={{ height: `${Math.max(10, Math.min(100, height))}%` }}
                   />
@@ -243,7 +243,7 @@ export const BoundaryReviewEditor: React.FC<BoundaryReviewEditorProps> = ({
       {/* Verses Table & Inspector */}
       <div className="flex-1 flex overflow-hidden">
         {/* Left: Verses List */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-3 border-l border-sand-300 bg-sand-100/30">
+        <div className="flex-1 overflow-y-auto p-6 space-y-3 border-l border-white/[0.08] bg-[#0E1015]/40 scroll-smooth">
           {poem.verses.map((verse) => {
             const b = boundaries.get(verse.id);
             const isSelected = verse.id === selectedVerseId;
@@ -253,49 +253,49 @@ export const BoundaryReviewEditor: React.FC<BoundaryReviewEditorProps> = ({
               <div
                 key={verse.id}
                 onClick={() => setSelectedVerseId(verse.id)}
-                className={`p-4 rounded-xl border transition-all duration-300 cursor-pointer flex items-center justify-between gap-4 font-sans tracking-wide ${
+                className={`p-4 rounded-2xl border transition-all duration-300 cursor-pointer flex items-center justify-between gap-4 font-sans tracking-wide ${
                   isSelected
-                    ? "bg-sand-50 border-crimson-800/40 shadow-md ring-1 ring-crimson-800/20"
-                    : "bg-sand-50/50 border-sand-300 hover:border-sand-400 hover:bg-sand-50"
+                    ? "bg-[#181B24] border-[#D4AF37]/50 shadow-[0_8px_24px_rgba(212,175,55,0.15)] ring-1 ring-[#D4AF37]/30"
+                    : "bg-[#12151C]/70 border-white/[0.06] hover:border-white/[0.15] hover:bg-[#161922]"
                 }`}
               >
                 <div className="flex items-center gap-4 flex-1 min-w-0">
-                  <span className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm transition-colors ${
-                    isSelected ? "bg-crimson-800 text-sand-50" : "bg-sand-200 text-ink-600"
+                  <span className={`w-8 h-8 rounded-xl flex items-center justify-center font-bold text-sm transition-colors font-mono ${
+                    isSelected ? "bg-[#D4AF37] text-[#0A0C10] shadow-[0_0_10px_rgba(212,175,55,0.4)]" : "bg-white/[0.06] text-[#CED4DA] border border-white/10"
                   }`}>
                     {toArabicDigits(verse.orderIndex)}
                   </span>
                   <div className={`font-poetry text-xl truncate transition-colors ${
-                    isSelected ? "text-crimson-900 font-bold" : "text-ink-900"
+                    isSelected ? "text-[#FFF8E7] font-bold" : "text-[#E9ECEF]"
                   }`}>
                     <span>{verse.firstHemistich}</span>
-                    <span className="text-sand-400 mx-3">...</span>
+                    <span className="text-[#D4AF37]/60 mx-3 font-sans text-xs">✦</span>
                     <span>{verse.secondHemistich}</span>
                   </div>
                 </div>
 
                 <div className="flex items-center gap-4 shrink-0">
                   {b ? (
-                    <div className="text-right font-mono text-[13px] font-medium ltr-num text-ink-700 bg-sand-200/50 px-2 py-1 rounded">
+                    <div className="text-right font-mono text-[13px] font-medium ltr-num text-[#F3E19C] bg-black/40 px-3 py-1 rounded-lg border border-white/[0.08]">
                       <span>{formatTime(b.startMs, true)}</span>
-                      <span className="text-sand-400 mx-2">→</span>
+                      <span className="text-white/20 mx-2">→</span>
                       <span>{formatTime(b.endMs, true)}</span>
                     </div>
                   ) : (
-                    <span className="text-xs text-ink-400 px-4">—</span>
+                    <span className="text-xs text-[#6C7A8C] px-4">—</span>
                   )}
 
                   <span
-                    className={`px-3 py-1 rounded-md text-[11px] font-bold border w-24 text-center ${
+                    className={`px-3 py-1 rounded-xl text-[11px] font-bold border w-24 text-center ${
                       !b
-                        ? "bg-sand-200 text-ink-600 border-sand-300"
+                        ? "bg-white/[0.04] text-[#6C7A8C] border-white/[0.08]"
                         : status === "reviewed"
-                        ? "bg-emerald-50 text-emerald-700 border-emerald-300"
+                        ? "bg-emerald-500/15 text-emerald-300 border-emerald-500/30"
                         : status === "manual"
-                        ? "bg-amber-50 text-amber-700 border-amber-300"
+                        ? "bg-amber-500/15 text-amber-300 border-amber-500/30"
                         : status === "review"
-                        ? "bg-rose-50 text-rose-700 border-rose-300"
-                        : "bg-sky-50 text-sky-700 border-sky-300"
+                        ? "bg-rose-500/15 text-rose-300 border-rose-500/30"
+                        : "bg-sky-500/15 text-sky-300 border-sky-500/30"
                     }`}
                   >
                     {!b
@@ -316,15 +316,14 @@ export const BoundaryReviewEditor: React.FC<BoundaryReviewEditorProps> = ({
 
         {/* Right: Unaligned verse notice */}
         {selectedVerse && !selectedBoundary && (
-          <div className="w-[420px] bg-sand-50 p-8 shrink-0 flex flex-col gap-4">
-            <h3 className="text-lg font-bold text-ink-900 font-poetry">
+          <div className="w-[420px] bg-[#0E1015]/95 p-8 shrink-0 flex flex-col gap-4 border-r border-white/[0.08]">
+            <h3 className="text-xl font-bold text-[#F8F9FA] font-poetry">
               البيت رقم {toArabicDigits(selectedVerse.orderIndex)}
             </h3>
-            <div className="p-4 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-sm leading-relaxed flex items-start gap-3 shadow-inner">
-              <AlertTriangle className="w-5 h-5 mt-0.5 shrink-0 text-amber-600" />
+            <div className="p-4 rounded-2xl bg-amber-500/15 border border-amber-500/30 text-amber-200 text-sm leading-relaxed flex items-start gap-3 shadow-inner">
+              <AlertTriangle className="w-5 h-5 mt-0.5 shrink-0 text-amber-400" />
               <span>
-                لا توجد محاذاة زمنية لهذا البيت — لم تنجح المحاذاة التلقائية أو حُفظت القصيدة بدون
-                تسجيل صوتي محاذى. استخدم مشغّل القصيدة لإضافة الحدود يدوياً.
+                لا توجد محاذاة زمنية لهذا البيت — استخدم مشغّل القصيدة لإضافة الحدود يدوياً.
               </span>
             </div>
           </div>
@@ -332,16 +331,16 @@ export const BoundaryReviewEditor: React.FC<BoundaryReviewEditorProps> = ({
 
         {/* Right: Fine Nudge & Inspection Controls */}
         {selectedVerse && selectedBoundary && (
-          <div className="w-[420px] bg-sand-50 p-8 overflow-y-auto space-y-8 shrink-0 flex flex-col justify-between shadow-[inset_2px_0_12px_rgba(0,0,0,0.02)]">
+          <div className="w-[420px] bg-[#0E1015]/95 p-8 overflow-y-auto space-y-6 shrink-0 flex flex-col justify-between border-r border-white/[0.08] shadow-2xl">
             <div className="space-y-6">
               <div>
-                <h3 className="text-lg font-bold text-ink-950 flex items-center gap-3 font-poetry">
+                <h3 className="text-xl font-bold text-[#F8F9FA] flex items-center gap-3 font-poetry">
                   <span>البيت رقم {toArabicDigits(selectedVerse.orderIndex)}</span>
-                  <span className="text-[11px] font-sans font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded-full">
+                  <span className="text-[11px] font-sans font-bold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 px-2.5 py-0.5 rounded-full">
                     {Math.round((selectedBoundary.confidence || 0.85) * 100)}% دقة
                   </span>
                 </h3>
-                <p className="font-poetry text-[17px] text-ink-900 mt-4 p-5 bg-sand-100 rounded-xl border border-sand-300 leading-relaxed shadow-inner">
+                <p className="font-poetry text-[17px] text-[#F8F9FA] mt-4 p-5 bg-black/40 rounded-2xl border border-white/[0.08] leading-relaxed shadow-inner">
                   {selectedVerse.text}
                 </p>
               </div>
@@ -349,46 +348,46 @@ export const BoundaryReviewEditor: React.FC<BoundaryReviewEditorProps> = ({
               {/* Loop Audition Button */}
               <button
                 onClick={toggleLoopPlay}
-                className={`w-full py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all border shadow-sm ${
+                className={`w-full py-3 rounded-2xl font-bold text-sm flex items-center justify-center gap-2 transition-all border shadow-sm ${
                   isPlayingLoop
-                    ? "bg-crimson-800 text-sand-50 border-crimson-900 shadow-md"
-                    : "bg-white text-ink-800 border-sand-300 hover:bg-sand-100"
+                    ? "bg-[#D4AF37] text-[#0A0C10] border-[#F3E19C]/40 shadow-[0_0_20px_rgba(212,175,55,0.4)]"
+                    : "bg-white/[0.06] text-[#F8F9FA] border-white/10 hover:bg-white/[0.1]"
                 }`}
               >
-                {isPlayingLoop ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
+                {isPlayingLoop ? <Pause className="w-4 h-4 fill-current" /> : <Play className="w-4 h-4 fill-current" />}
                 <span>{isPlayingLoop ? "إيقاف التكرار التجريبي" : "استماع تكراري لحدود البيت (Loop)"}</span>
               </button>
 
               {/* Start Timestamp Adjuster */}
-              <div className="bg-sand-100 p-5 rounded-xl border border-sand-300 space-y-3 shadow-inner">
+              <div className="bg-black/30 p-5 rounded-2xl border border-white/[0.08] space-y-3 shadow-inner">
                 <div className="flex items-center justify-between text-sm">
-                  <span className="text-ink-800 font-bold font-sans">طابع البداية:</span>
-                  <span className="font-mono ltr-num text-crimson-800 font-bold bg-white px-2 py-0.5 rounded border border-sand-300">
+                  <span className="text-[#A0AAB7] font-bold font-sans">طابع البداية:</span>
+                  <span className="font-mono ltr-num text-[#F3E19C] font-bold bg-black/50 px-3 py-1 rounded-lg border border-white/10">
                     {formatTime(selectedBoundary.startMs, true)}
                   </span>
                 </div>
                 <div className="grid grid-cols-4 gap-2 pt-2">
                   <button
                     onClick={() => handleNudgeStart(-200)}
-                    className="py-1.5 bg-white hover:bg-sand-200 text-xs font-mono rounded-lg text-ink-800 border border-sand-300 transition-colors font-medium shadow-sm"
+                    className="py-2 bg-white/[0.05] hover:bg-white/[0.1] text-xs font-mono rounded-xl text-[#CED4DA] border border-white/10 transition-colors font-medium shadow-sm"
                   >
                     -200
                   </button>
                   <button
                     onClick={() => handleNudgeStart(-50)}
-                    className="py-1.5 bg-white hover:bg-sand-200 text-xs font-mono rounded-lg text-ink-800 border border-sand-300 transition-colors font-medium shadow-sm"
+                    className="py-2 bg-white/[0.05] hover:bg-white/[0.1] text-xs font-mono rounded-xl text-[#CED4DA] border border-white/10 transition-colors font-medium shadow-sm"
                   >
                     -50
                   </button>
                   <button
                     onClick={() => handleNudgeStart(50)}
-                    className="py-1.5 bg-white hover:bg-sand-200 text-xs font-mono rounded-lg text-ink-800 border border-sand-300 transition-colors font-medium shadow-sm"
+                    className="py-2 bg-white/[0.05] hover:bg-white/[0.1] text-xs font-mono rounded-xl text-[#CED4DA] border border-white/10 transition-colors font-medium shadow-sm"
                   >
                     +50
                   </button>
                   <button
                     onClick={() => handleNudgeStart(200)}
-                    className="py-1.5 bg-white hover:bg-sand-200 text-xs font-mono rounded-lg text-ink-800 border border-sand-300 transition-colors font-medium shadow-sm"
+                    className="py-2 bg-white/[0.05] hover:bg-white/[0.1] text-xs font-mono rounded-xl text-[#CED4DA] border border-white/10 transition-colors font-medium shadow-sm"
                   >
                     +200
                   </button>
@@ -396,35 +395,35 @@ export const BoundaryReviewEditor: React.FC<BoundaryReviewEditorProps> = ({
               </div>
 
               {/* End Timestamp Adjuster */}
-              <div className="bg-sand-100 p-5 rounded-xl border border-sand-300 space-y-3 shadow-inner">
+              <div className="bg-black/30 p-5 rounded-2xl border border-white/[0.08] space-y-3 shadow-inner">
                 <div className="flex items-center justify-between text-sm">
-                  <span className="text-ink-800 font-bold font-sans">طابع النهاية:</span>
-                  <span className="font-mono ltr-num text-crimson-800 font-bold bg-white px-2 py-0.5 rounded border border-sand-300">
+                  <span className="text-[#A0AAB7] font-bold font-sans">طابع النهاية:</span>
+                  <span className="font-mono ltr-num text-[#F3E19C] font-bold bg-black/50 px-3 py-1 rounded-lg border border-white/10">
                     {formatTime(selectedBoundary.endMs, true)}
                   </span>
                 </div>
                 <div className="grid grid-cols-4 gap-2 pt-2">
                   <button
                     onClick={() => handleNudgeEnd(-200)}
-                    className="py-1.5 bg-white hover:bg-sand-200 text-xs font-mono rounded-lg text-ink-800 border border-sand-300 transition-colors font-medium shadow-sm"
+                    className="py-2 bg-white/[0.05] hover:bg-white/[0.1] text-xs font-mono rounded-xl text-[#CED4DA] border border-white/10 transition-colors font-medium shadow-sm"
                   >
                     -200
                   </button>
                   <button
                     onClick={() => handleNudgeEnd(-50)}
-                    className="py-1.5 bg-white hover:bg-sand-200 text-xs font-mono rounded-lg text-ink-800 border border-sand-300 transition-colors font-medium shadow-sm"
+                    className="py-2 bg-white/[0.05] hover:bg-white/[0.1] text-xs font-mono rounded-xl text-[#CED4DA] border border-white/10 transition-colors font-medium shadow-sm"
                   >
                     -50
                   </button>
                   <button
                     onClick={() => handleNudgeEnd(50)}
-                    className="py-1.5 bg-white hover:bg-sand-200 text-xs font-mono rounded-lg text-ink-800 border border-sand-300 transition-colors font-medium shadow-sm"
+                    className="py-2 bg-white/[0.05] hover:bg-white/[0.1] text-xs font-mono rounded-xl text-[#CED4DA] border border-white/10 transition-colors font-medium shadow-sm"
                   >
                     +50
                   </button>
                   <button
                     onClick={() => handleNudgeEnd(200)}
-                    className="py-1.5 bg-white hover:bg-sand-200 text-xs font-mono rounded-lg text-ink-800 border border-sand-300 transition-colors font-medium shadow-sm"
+                    className="py-2 bg-white/[0.05] hover:bg-white/[0.1] text-xs font-mono rounded-xl text-[#CED4DA] border border-white/10 transition-colors font-medium shadow-sm"
                   >
                     +200
                   </button>
@@ -435,44 +434,44 @@ export const BoundaryReviewEditor: React.FC<BoundaryReviewEditorProps> = ({
               <div className="flex gap-2">
                 <button
                   onClick={handleSplitVerse}
-                  className="flex-1 py-2.5 bg-white hover:bg-sand-200 border border-sand-300 rounded-xl text-xs font-bold text-ink-800 flex items-center justify-center gap-2 transition-colors shadow-sm"
+                  className="flex-1 py-3 bg-white/[0.05] hover:bg-white/[0.1] border border-white/10 rounded-2xl text-xs font-bold text-[#F8F9FA] flex items-center justify-center gap-2 transition-colors shadow-sm"
                 >
-                  <Split className="w-4 h-4 text-ink-500" />
+                  <Split className="w-4 h-4 text-[#D4AF37]" />
                   <span>توسيط نقطة النهاية (شطرين متكافئين)</span>
                 </button>
               </div>
             </div>
 
             {/* Status Validation Actions */}
-            <div className="pt-6 border-t border-sand-300 space-y-3">
-              <span className="text-xs font-bold text-ink-800 font-sans tracking-wide block">حالة التدقيق:</span>
+            <div className="pt-6 border-t border-white/[0.08] space-y-3">
+              <span className="text-xs font-bold text-[#A0AAB7] font-sans tracking-wide block">حالة التدقيق:</span>
               <div className="grid grid-cols-3 gap-3">
                 <button
                   onClick={() => handleStatusToggle("auto")}
-                  className={`py-2 rounded-lg text-xs font-bold border transition-colors shadow-sm ${
+                  className={`py-2.5 rounded-xl text-xs font-bold border transition-colors shadow-sm ${
                     selectedBoundary.status === "auto"
-                      ? "bg-sky-100 text-sky-800 border-sky-300 ring-2 ring-sky-300/50 ring-offset-1 ring-offset-sand-50"
-                      : "bg-white text-ink-600 border-sand-300 hover:bg-sand-100"
+                      ? "bg-sky-500/20 text-sky-300 border-sky-500/40"
+                      : "bg-white/[0.05] text-[#A0AAB7] border-white/10 hover:bg-white/[0.08]"
                   }`}
                 >
                   آلي
                 </button>
                 <button
                   onClick={() => handleStatusToggle("reviewed")}
-                  className={`py-2 rounded-lg text-xs font-bold border transition-colors shadow-sm ${
+                  className={`py-2.5 rounded-xl text-xs font-bold border transition-colors shadow-sm ${
                     selectedBoundary.status === "reviewed"
-                      ? "bg-emerald-100 text-emerald-800 border-emerald-300 ring-2 ring-emerald-300/50 ring-offset-1 ring-offset-sand-50"
-                      : "bg-white text-ink-600 border-sand-300 hover:bg-sand-100"
+                      ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/40"
+                      : "bg-white/[0.05] text-[#A0AAB7] border-white/10 hover:bg-white/[0.08]"
                   }`}
                 >
                   مدقق
                 </button>
                 <button
                   onClick={() => handleStatusToggle("manual")}
-                  className={`py-2 rounded-lg text-xs font-bold border transition-colors shadow-sm ${
+                  className={`py-2.5 rounded-xl text-xs font-bold border transition-colors shadow-sm ${
                     selectedBoundary.status === "manual"
-                      ? "bg-amber-100 text-amber-800 border-amber-300 ring-2 ring-amber-300/50 ring-offset-1 ring-offset-sand-50"
-                      : "bg-white text-ink-600 border-sand-300 hover:bg-sand-100"
+                      ? "bg-amber-500/20 text-amber-300 border-amber-500/40"
+                      : "bg-white/[0.05] text-[#A0AAB7] border-white/10 hover:bg-white/[0.08]"
                   }`}
                 >
                   يدوي

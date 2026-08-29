@@ -30,10 +30,10 @@ export const FilterPills: React.FC<FilterPillsProps> = ({
             key={era}
             onClick={() => onSelectEra(era)}
             className={cn(
-              "px-4 py-2 rounded-lg text-[13px] font-sans tracking-wide whitespace-nowrap transition-all duration-300",
+              "px-4 py-2.5 rounded-xl text-[13px] font-sans tracking-wide whitespace-nowrap transition-all duration-300 font-medium",
               isSelected
-                ? "bg-ink-900 text-sand-50 shadow-md border border-ink-950"
-                : "bg-sand-100 text-ink-600 hover:bg-sand-200/80 hover:text-ink-900 border border-sand-300 shadow-sm"
+                ? "bg-gradient-to-r from-[#D4AF37] to-[#B89225] text-[#0A0C10] font-bold shadow-[0_0_16px_rgba(212,175,55,0.3)] border border-[#F3E19C]/40"
+                : "bg-white/[0.04] text-[#A0AAB7] hover:bg-white/[0.08] hover:text-[#F8F9FA] border border-white/[0.06]"
             )}
           >
             {era === "الكل" ? "كل العصور" : `العصر ال${era}`}

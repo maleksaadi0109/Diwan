@@ -1,6 +1,6 @@
 import React from "react";
 import { ActiveTab, Poem } from "@/types";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, Sparkles } from "lucide-react";
 
 interface HeaderProps {
   activeTab: ActiveTab;
@@ -31,36 +31,43 @@ export const Header: React.FC<HeaderProps> = ({
   };
 
   return (
-    <header className="h-20 border-b border-sand-300 bg-sand-50/80 backdrop-blur-md px-8 flex items-center justify-between shrink-0 z-10 shadow-[0_4px_12px_-4px_rgba(0,0,0,0.02)] relative">
+    <header className="h-20 border-b border-white/[0.08] bg-[#0E1015]/80 backdrop-blur-2xl px-8 flex items-center justify-between shrink-0 z-10 relative">
       <div className="flex items-center gap-4">
         {activeTab === "player" && activePoem && (
           <>
             <button
               onClick={onBackToLibrary}
-              className="flex items-center gap-1.5 text-[13px] font-medium text-ink-500 hover:text-crimson-800 pr-1 pl-3 py-2 rounded-lg hover:bg-sand-200/80 transition-all duration-300"
+              className="flex items-center gap-2 text-[13px] font-medium text-[#A0AAB7] hover:text-[#F8F9FA] px-3 py-2 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.06] transition-all duration-300 shadow-sm"
               title="العودة إلى المكتبة"
             >
-              <ChevronRight className="w-4 h-4" strokeWidth={2} />
+              <ChevronRight className="w-4 h-4 text-[#D4AF37]" strokeWidth={2.5} />
               <span>المكتبة</span>
             </button>
-            <div className="w-[1px] h-6 bg-sand-300"></div>
+            <div className="w-[1px] h-6 bg-white/[0.1]"></div>
           </>
         )}
-        <h2 className="text-xl font-bold text-ink-900 flex items-baseline gap-3">
-          <span className="font-poetry text-2xl tracking-wide">{getTitle()}</span>
+        <div className="flex items-center gap-3">
+          <h2 className="text-xl font-bold text-[#F8F9FA] flex items-baseline gap-3">
+            <span className="font-poetry text-2xl md:text-3xl tracking-wide font-bold drop-shadow-sm text-transparent bg-clip-text bg-gradient-to-r from-white via-[#F5F2EA] to-[#D4AF37]">
+              {getTitle()}
+            </span>
+          </h2>
           {activeTab === "player" && activePoem && (
-            <span className="text-sm font-normal text-crimson-800 font-sans opacity-80 border border-crimson-800/20 px-2 py-0.5 rounded-full bg-crimson-800/5">
-              {activePoem.poet.name}
+            <span className="text-xs font-medium text-[#F3E19C] border border-[#D4AF37]/30 px-3 py-1 rounded-full bg-[#D4AF37]/10 flex items-center gap-1.5 shadow-[0_0_12px_rgba(212,175,55,0.15)]">
+              <Sparkles className="w-3 h-3 text-[#D4AF37]" />
+              <span>{activePoem.poet.name}</span>
             </span>
           )}
-        </h2>
+        </div>
       </div>
 
       <div className="flex items-center gap-3">
-        <span className="px-3 py-1.5 rounded-md bg-sand-200/60 border border-sand-300/80 font-mono text-[11px] ltr-num text-ink-600 flex items-center gap-2 shadow-sm">
-          <span className="font-sans font-medium text-[10px] text-ink-500 uppercase tracking-widest bg-sand-100 px-1 rounded border border-sand-300">SPACE</span>
-          تشغيل / إيقاف
-        </span>
+        <div className="px-3.5 py-1.5 rounded-xl bg-white/[0.04] border border-white/[0.08] font-mono text-[11px] ltr-num text-[#CED4DA] flex items-center gap-2.5 shadow-sm backdrop-blur-md">
+          <kbd className="font-sans font-bold text-[10px] text-[#F3E19C] bg-[#D4AF37]/15 px-2 py-0.5 rounded-md border border-[#D4AF37]/30 shadow-inner">
+            SPACE
+          </kbd>
+          <span className="font-sans text-xs text-[#A0AAB7]">تشغيل / إيقاف</span>
+        </div>
       </div>
     </header>
   );
