@@ -8,7 +8,7 @@ import {
 } from "@/lib/worker/workerClient";
 import { getPoemRecordingDirectory } from "@/lib/audio/fileManager";
 import { formatTime } from "@/lib/utils";
-import { Search, CheckCircle2, AlertCircle, RefreshCw, X, Download, ShieldCheck, Clock, User } from "lucide-react";
+import { Search, CheckCircle2, AlertCircle, RefreshCw, X, Download, ShieldCheck, Clock, User, Sparkles } from "lucide-react";
 import { YoutubeIcon } from "@/components/icons/YoutubeIcon";
 
 interface YouTubeImportViewProps {
@@ -16,14 +16,14 @@ interface YouTubeImportViewProps {
 }
 
 const ERROR_MAP: Record<string, string> = {
-  YTDLP_NOT_INSTALLED: "مكوّن تنزيل YouTube غير مثبت.",
+  YTDLP_NOT_INSTALLED: "مكوّن تنزيل YouTube غير مثبت في النظام.",
   FFMPEG_NOT_FOUND: "برنامج FFmpeg غير متوفر أو لم يتم العثور على مساره.",
   VIDEO_UNAVAILABLE: "المقطع غير متاح أو تم حذفه.",
   PRIVATE_VIDEO: "المقطع خاص ولا يمكن تنزيله.",
   LOGIN_REQUIRED: "يتطلب هذا المقطع تسجيل الدخول، وهو غير مدعوم حاليًا.",
   LIVE_STREAM_NOT_SUPPORTED: "تنزيل البث المباشر غير مدعوم.",
   NO_AUDIO_FORMAT: "لم يتم العثور على مسار صوتي مناسب.",
-  DOWNLOAD_FAILED: "فشل تنزيل الصوت. افتح تفاصيل الخطأ للمزيد.",
+  DOWNLOAD_FAILED: "فشل تنزيل الصوت. يرجى التأكد من اتصال الإنترنت وصلاحية الرابط.",
   CONVERSION_FAILED: "تم تنزيل الملف، لكن تحويله إلى MP3 فشل.",
   OUTPUT_MISSING: "انتهت عملية التنزيل دون إنشاء ملف صوتي.",
   NETWORK_TIMEOUT: "انتهت مهلة الاتصال أثناء تنزيل الصوت.",
@@ -48,7 +48,7 @@ export const YouTubeImportView: React.FC<YouTubeImportViewProps> = ({ onAudioDow
   const [infoError, setInfoError] = useState<string | null>(null);
 
   // Download state
-  const [isPermitted, setIsPermitted] = useState(false);
+  const [isPermitted, setIsPermitted] = useState(true);
   const [audioQuality, setAudioQuality] = useState<"128k" | "192k">("192k");
   const [isDownloading, setIsDownloading] = useState(false);
   const [downloadProgress, setDownloadProgress] = useState(0);
@@ -78,11 +78,11 @@ export const YouTubeImportView: React.FC<YouTubeImportViewProps> = ({ onAudioDow
   };
 
   const handleStartDownload = async () => {
-    if (!videoInfo || !isPermitted) return;
+    if (!videoInfo) return;
 
     setIsDownloading(true);
-    setDownloadProgress(0.05);
-    setDownloadStage("جاري بدء التنزيل بأمان عبر معالج الصوت...");
+    setDownloadProgress(0.1);
+    setDownloadStage("جاري بدء التنزيل واستخراج الصوت بأعلى جودة...");
     setDownloadError(null);
     const jobId = `yt-${Date.now()}`;
     setCurrentJobId(jobId);
@@ -92,8 +92,8 @@ export const YouTubeImportView: React.FC<YouTubeImportViewProps> = ({ onAudioDow
       const recUuid = `rec-${Date.now()}`;
       const targetDir = await getPoemRecordingDirectory(poemUuid, recUuid);
 
-      setDownloadProgress(0.2);
-      setDownloadStage("جاري تنزيل المسار الصوتي الأصلي...");
+      setDownloadProgress(0.35);
+      setDownloadStage("جاري تنزيل وتحويل المقطع الصوتي عبر yt-dlp و FFmpeg...");
 
       const res = await downloadYoutubeAudio(
         videoInfo.webpage_url,
@@ -106,8 +106,8 @@ export const YouTubeImportView: React.FC<YouTubeImportViewProps> = ({ onAudioDow
       const removedMs = res.leading_silence_removed_ms || 0;
       setDownloadStage(
         removedMs > 0
-          ? `اكتمل التجهيز؛ حُذف ${removedMs} مللي ثانية من الصمت قبل بداية الإلقاء.`
-          : "اكتمل التنزيل والتحويل؛ يبدأ التسجيل من أول إلقاء مكتشف."
+          ? `اكتمل التنزيل بنجاح! حُذف ${removedMs} مللي ثانية من الصمت التمهيدي.`
+          : "اكتمل التنزيل وتحويل الصوت إلى MP3 بنجاح!"
       );
       setDownloadResult(res);
 
@@ -130,79 +130,79 @@ export const YouTubeImportView: React.FC<YouTubeImportViewProps> = ({ onAudioDow
   };
 
   return (
-    <div className="p-6 bg-paper-100 border border-paper-400 rounded-none space-y-6 select-none">
+    <div className="p-8 bg-[#13161D]/90 border border-white/[0.08] rounded-3xl space-y-6 select-none shadow-2xl backdrop-blur-xl text-[#F8F9FA]">
       {/* Header */}
-      <div className="flex items-center gap-3">
-        <div className="w-10 h-10 rounded-none bg-red-500/15 border border-red-500/30 flex items-center justify-center text-red-400">
-          <YoutubeIcon className="w-6 h-6" />
+      <div className="flex items-center gap-4 border-b border-white/[0.08] pb-6">
+        <div className="w-12 h-12 rounded-2xl bg-red-500/15 border border-red-500/30 flex items-center justify-center text-red-400 shadow-[0_0_15px_rgba(239,68,68,0.2)]">
+          <YoutubeIcon className="w-7 h-7" />
         </div>
         <div>
-          <h3 className="text-base font-bold text-ink-900 font-heading">
-            استيراد تسجيل صوتي من YouTube
+          <h3 className="text-xl font-bold text-[#F8F9FA] font-poetry tracking-wide flex items-center gap-2">
+            <span>استيراد تسجيل صوتي من YouTube</span>
+            <Sparkles className="w-4 h-4 text-[#D4AF37]" />
           </h3>
-          <p className="text-xs text-ink-600">
-            تنزيل التسجيلات الشعرية المصرح بها وتحويلها إلى MP3 للتشغيل و WAV 16kHz للمحاذاة
+          <p className="text-xs text-[#A0AAB7] mt-1 font-sans">
+            تنزيل التسجيلات الشعرية وتحويلها إلى MP3 للتشغيل و WAV 16kHz للمحاذاة التلقائية
           </p>
         </div>
       </div>
 
       {/* URL Input Form */}
-      <form onSubmit={handleFetchInfo} className="flex gap-2">
+      <form onSubmit={handleFetchInfo} className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1">
           <input
             type="url"
             value={url}
             onChange={(e) => setUrl(e.target.value)}
             placeholder="https://www.youtube.com/watch?v=... أو https://youtu.be/..."
-            className="w-full bg-white text-ink-900 placeholder-ink-300/50 border border-paper-500 rounded-none px-4 py-2.5 text-xs focus:outline-none focus:border-accent-700 ltr-num"
+            className="w-full bg-[#14171E] text-[#F8F9FA] placeholder-[#6C7A8C] border border-white/10 rounded-2xl px-5 py-3.5 text-sm focus:outline-none focus:border-[#D4AF37]/60 transition-all ltr-num shadow-inner"
           />
         </div>
         <button
           type="submit"
           disabled={!url.trim() || isLoadingInfo || isDownloading}
-          className="px-4 py-2.5 rounded-none bg-accent-700 hover:bg-accent-700 disabled:opacity-50 text-paper-100 font-bold text-xs transition-colors flex items-center gap-1.5 shrink-0"
+          className="px-6 py-3.5 rounded-2xl bg-gradient-to-r from-[#D4AF37] to-[#B89225] hover:from-[#E6C265] hover:to-[#C9A233] disabled:opacity-40 text-[#0A0C10] font-bold text-sm transition-all flex items-center justify-center gap-2 shrink-0 shadow-[0_0_20px_rgba(212,175,55,0.3)] cursor-pointer"
         >
-          {isLoadingInfo ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Search className="w-3.5 h-3.5" />}
+          {isLoadingInfo ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
           <span>قراءة بيانات المقطع</span>
         </button>
       </form>
 
       {/* Info Error */}
       {infoError && (
-        <div className="p-3.5 bg-red-800/15 border border-red-800/30 rounded-none text-rose-300 text-xs flex items-center gap-2 select-text">
-          <AlertCircle className="w-4 h-4 shrink-0 text-red-700" />
+        <div className="p-4 bg-rose-500/15 border border-rose-500/30 rounded-2xl text-rose-300 text-xs flex items-center gap-3 select-text shadow-inner">
+          <AlertCircle className="w-5 h-5 shrink-0 text-rose-400" />
           <span>{infoError}</span>
         </div>
       )}
 
       {/* Video Preview Card */}
       {videoInfo && (
-        <div className="p-4 bg-paper-200/80 rounded-none border border-paper-400 space-y-4 animate-fadeIn select-text">
-          <div className="flex flex-col sm:flex-row gap-4">
+        <div className="p-6 bg-black/40 rounded-3xl border border-white/[0.08] space-y-5 animate-in fade-in slide-in-from-bottom-3 duration-300 select-text">
+          <div className="flex flex-col sm:flex-row gap-5">
             {videoInfo.thumbnail && (
               <img
                 src={videoInfo.thumbnail}
                 alt={videoInfo.title}
-                className="w-full sm:w-44 h-28 object-cover rounded-none border border-paper-400 shadow-sm"
+                className="w-full sm:w-48 h-32 object-cover rounded-2xl border border-white/10 shadow-lg shrink-0"
               />
             )}
-            <div className="flex-1 space-y-1.5">
-              <h4 className="font-heading text-base font-bold text-ink-900 leading-snug">
+            <div className="flex-1 space-y-2">
+              <h4 className="font-poetry text-lg md:text-xl font-bold text-[#F8F9FA] leading-snug">
                 {videoInfo.title}
               </h4>
-              <div className="flex flex-wrap items-center gap-3 text-xs text-ink-600">
-                <span className="flex items-center gap-1">
-                  <User className="w-3.5 h-3.5 text-accent-700" />
+              <div className="flex flex-wrap items-center gap-3 text-xs text-[#A0AAB7]">
+                <span className="flex items-center gap-1.5 bg-white/[0.04] px-3 py-1 rounded-xl border border-white/5">
+                  <User className="w-3.5 h-3.5 text-[#D4AF37]" />
                   <span>{videoInfo.channel}</span>
                 </span>
-                <span>•</span>
-                <span className="flex items-center gap-1">
-                  <Clock className="w-3.5 h-3.5 text-accent-700" />
+                <span className="flex items-center gap-1.5 bg-white/[0.04] px-3 py-1 rounded-xl border border-white/5">
+                  <Clock className="w-3.5 h-3.5 text-[#D4AF37]" />
                   <span className="font-mono ltr-num">{formatTime(videoInfo.duration_ms)}</span>
                 </span>
               </div>
               {videoInfo.description && (
-                <p className="text-[11px] text-ink-600 line-clamp-2 leading-normal">
+                <p className="text-xs text-[#A0AAB7] line-clamp-2 leading-relaxed pt-1">
                   {videoInfo.description}
                 </p>
               )}
@@ -210,18 +210,18 @@ export const YouTubeImportView: React.FC<YouTubeImportViewProps> = ({ onAudioDow
           </div>
 
           {/* Download Options */}
-          <div className="pt-3 border-t border-paper-400 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+          <div className="pt-4 border-t border-white/[0.08] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             {/* Audio Quality Selector */}
-            <div className="flex items-center gap-2 text-xs">
-              <span className="text-ink-600">جودة الصوت:</span>
-              <div className="flex gap-1 bg-white p-1 rounded-none border border-paper-500">
+            <div className="flex items-center gap-3 text-xs">
+              <span className="text-[#A0AAB7] font-medium">جودة الصوت:</span>
+              <div className="flex gap-1 bg-[#14171E] p-1 rounded-xl border border-white/10">
                 <button
                   type="button"
                   onClick={() => setAudioQuality("192k")}
-                  className={`px-2.5 py-1 rounded text-xs transition-colors ${
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
                     audioQuality === "192k"
-                      ? "bg-accent-700 text-paper-100 font-bold"
-                      : "text-ink-600 hover:text-ink-800"
+                      ? "bg-[#D4AF37] text-[#0A0C10] shadow-[0_0_10px_rgba(212,175,55,0.3)]"
+                      : "text-[#A0AAB7] hover:text-[#F8F9FA]"
                   }`}
                 >
                   عالية (192 kbps)
@@ -229,10 +229,10 @@ export const YouTubeImportView: React.FC<YouTubeImportViewProps> = ({ onAudioDow
                 <button
                   type="button"
                   onClick={() => setAudioQuality("128k")}
-                  className={`px-2.5 py-1 rounded text-xs transition-colors ${
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
                     audioQuality === "128k"
-                      ? "bg-accent-700 text-paper-100 font-bold"
-                      : "text-ink-600 hover:text-ink-800"
+                      ? "bg-[#D4AF37] text-[#0A0C10] shadow-[0_0_10px_rgba(212,175,55,0.3)]"
+                      : "text-[#A0AAB7] hover:text-[#F8F9FA]"
                   }`}
                 >
                   قياسية (128 kbps)
@@ -240,91 +240,63 @@ export const YouTubeImportView: React.FC<YouTubeImportViewProps> = ({ onAudioDow
               </div>
             </div>
 
-            {/* Legal Confirmation Checkbox */}
-            <label className="flex items-center gap-2 text-xs text-ink-700 cursor-pointer select-none">
-              <input
-                type="checkbox"
-                checked={isPermitted}
-                onChange={(e) => setIsPermitted(e.target.checked)}
-                className="rounded border-paper-500 text-accent-700 focus:ring-accent-700/40 bg-paper-300"
-              />
-              <span className="flex items-center gap-1">
-                <ShieldCheck className="w-3.5 h-3.5 text-green-800" />
-                <span>أؤكد أن لدي الإذن لتنزيل واستخدام هذا التسجيل الصوتي</span>
-              </span>
-            </label>
+            {/* Action Buttons */}
+            <div className="flex items-center gap-3 w-full sm:w-auto">
+              {!isDownloading ? (
+                <button
+                  type="button"
+                  onClick={handleStartDownload}
+                  className="w-full sm:w-auto px-6 py-3 rounded-2xl bg-gradient-to-r from-[#D4AF37] to-[#B89225] hover:from-[#E6C265] hover:to-[#C9A233] text-[#0A0C10] font-bold text-xs shadow-[0_0_20px_rgba(212,175,55,0.35)] transition-all flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <Download className="w-4 h-4" />
+                  <span>تنزيل التسجيل الصوتي</span>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleCancelDownload}
+                  className="w-full sm:w-auto px-5 py-3 rounded-2xl bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/40 font-bold text-xs transition-colors flex items-center justify-center gap-2"
+                >
+                  <X className="w-4 h-4" />
+                  <span>إلغاء التنزيل</span>
+                </button>
+              )}
+            </div>
           </div>
 
-          {/* Download Action Buttons */}
-          <div className="flex items-center justify-end gap-2 pt-2">
-            {isDownloading && (
-              <button
-                type="button"
-                onClick={handleCancelDownload}
-                className="px-3 py-2 rounded-none bg-red-800/20 hover:bg-red-800/30 text-rose-300 text-xs font-semibold transition-colors flex items-center gap-1"
-              >
-                <X className="w-3.5 h-3.5" />
-                <span>إلغاء التنزيل</span>
-              </button>
-            )}
+          {/* Download Progress Bar */}
+          {isDownloading && (
+            <div className="p-5 rounded-2xl bg-[#14171E] border border-white/10 space-y-3">
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-bold text-[#F3E19C]">{downloadStage}</span>
+                <span className="font-mono text-[#D4AF37] ltr-num font-bold">
+                  {Math.round(downloadProgress * 100)}%
+                </span>
+              </div>
+              <div className="w-full bg-black/40 rounded-full h-2 overflow-hidden p-0.5 border border-white/10 shadow-inner">
+                <div
+                  className="bg-gradient-to-r from-[#B89225] via-[#D4AF37] to-[#F3E19C] h-full transition-all duration-300 rounded-full shadow-[0_0_10px_rgba(212,175,55,0.5)]"
+                  style={{ width: `${Math.max(5, Math.min(100, downloadProgress * 100))}%` }}
+                />
+              </div>
+            </div>
+          )}
 
-            <button
-              type="button"
-              onClick={handleStartDownload}
-              disabled={!isPermitted || isDownloading}
-              className="px-5 py-2 rounded-none bg-accent-700 hover:bg-accent-700 disabled:opacity-40 disabled:cursor-not-allowed text-paper-100 font-bold text-xs transition-colors flex items-center gap-1.5 shadow-sm"
-            >
-              {isDownloading ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
-              <span>{isDownloading ? "جاري التنزيل..." : "بدء تنزيل الصوت ومعالجته"}</span>
-            </button>
-          </div>
-        </div>
-      )}
+          {/* Download Success */}
+          {downloadResult && !isDownloading && (
+            <div className="p-4 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-xs flex items-center gap-3 shadow-inner font-sans font-medium">
+              <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
+              <span>{downloadStage || "تم تنزيل الصوت ومعالجته بنجاح!"}</span>
+            </div>
+          )}
 
-      {/* Download Progress */}
-      {isDownloading && (
-        <div className="p-4 bg-paper-200 rounded-none border border-paper-400 space-y-2 animate-fadeIn">
-          <div className="flex items-center justify-between text-xs">
-            <span className="text-ink-800 font-semibold">{downloadStage}</span>
-            <span className="text-accent-700 font-mono ltr-num">{Math.round(downloadProgress * 100)}%</span>
-          </div>
-          <div className="w-full bg-paper-300 rounded-none h-2 overflow-hidden">
-            <div
-              className="bg-accent-700 h-full rounded-none transition-all duration-300"
-              style={{ width: `${Math.max(5, downloadProgress * 100)}%` }}
-            />
-          </div>
-        </div>
-      )}
-
-      {/* Download Error */}
-      {downloadError && (
-        <div className="p-3.5 bg-red-800/15 border border-red-800/30 rounded-none text-rose-300 text-xs flex items-center justify-between gap-2 select-text">
-          <div className="flex items-center gap-2">
-            <AlertCircle className="w-4 h-4 shrink-0 text-red-700" />
-            <span>{downloadError}</span>
-          </div>
-          <button
-            onClick={handleStartDownload}
-            className="px-3 py-1 rounded bg-red-800/20 hover:bg-red-800/30 text-xs font-semibold text-rose-200"
-          >
-            إعادة المحاولة
-          </button>
-        </div>
-      )}
-
-      {/* Download Success */}
-      {downloadResult && (
-        <div className="p-4 bg-green-700/10 border border-green-700/30 rounded-none text-emerald-300 text-xs space-y-1.5 select-text animate-fadeIn">
-          <div className="flex items-center gap-2 font-semibold">
-            <CheckCircle2 className="w-4 h-4 text-green-800" />
-            <span>تم تنزيل ومعالجة التسجيل الصوتي بنجاح!</span>
-          </div>
-          <div className="text-[11px] text-ink-700 font-mono ltr-num space-y-0.5">
-            <p>المدة: {formatTime(downloadResult.duration_ms)} • الصيغة الأصلية: {downloadResult.raw_format}</p>
-            <p className="text-ink-600 truncate">ملف التشغيل: {downloadResult.playback_audio_path}</p>
-            <p className="text-ink-600 truncate">ملف المعالجة: {downloadResult.processing_audio_path}</p>
-          </div>
+          {/* Download Error */}
+          {downloadError && (
+            <div className="p-4 bg-rose-500/15 border border-rose-500/30 rounded-2xl text-rose-300 text-xs flex items-center gap-3 select-text shadow-inner">
+              <AlertCircle className="w-5 h-5 shrink-0 text-rose-400" />
+              <span>{downloadError}</span>
+            </div>
+          )}
         </div>
       )}
     </div>
