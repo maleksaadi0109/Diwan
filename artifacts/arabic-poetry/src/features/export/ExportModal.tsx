@@ -52,105 +52,105 @@ export const ExportModal: React.FC<ExportModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-sand-100/75 backdrop-blur-sm p-4 select-none animate-fadeIn">
-      <div className="bg-sand-50 border border-sand-300 rounded-2xl w-full max-w-xl overflow-hidden shadow-2xl flex flex-col max-h-[85vh]">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink-900/60 backdrop-blur-sm p-4 select-none animate-fadeIn font-ui">
+      <div className="bg-paper-100 border-2 border-paper-400 rounded-none w-full max-w-xl overflow-hidden shadow-md flex flex-col max-h-[85vh]">
         {/* Header */}
-        <div className="px-6 py-4 border-b border-sand-300 flex items-center justify-between">
-          <div className="flex items-center gap-2.5 text-crimson-700">
+        <div className="px-6 py-4 border-b border-paper-400 bg-paper-200 flex items-center justify-between">
+          <div className="flex items-center gap-3 text-accent-700">
             <Download className="w-5 h-5" />
             <div>
-              <h3 className="text-sm font-bold font-poetry text-ink-900">
+              <h3 className="text-xl font-bold font-heading text-ink-900">
                 تصدير القصيدة والكلمات المتزامنة
               </h3>
-              <p className="text-xs text-ink-600">
+              <p className="text-[13px] font-bold text-ink-600 font-ui mt-0.5">
                 تصدير بتنسيقات LRC و SRT و Diwan JSON
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="text-ink-600 hover:text-ink-800 p-1 rounded-lg hover:bg-sand-200 transition-colors"
+            className="text-ink-600 hover:text-ink-900 p-1.5 rounded-none hover:bg-paper-300 transition-colors"
           >
-            <X className="w-4 h-4" />
+            <X className="w-5 h-5" strokeWidth={2.5} />
           </button>
         </div>
 
         {/* Body */}
-        <div className="p-6 overflow-y-auto space-y-4 flex-1">
+        <div className="p-6 overflow-y-auto space-y-6 flex-1 bg-paper-100">
           {/* Format selection cards */}
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-3 gap-4">
             <button
               onClick={() => setSelectedFormat("lrc")}
-              className={`p-3 rounded-xl border text-center transition-all ${
+              className={`p-4 border text-center transition-colors rounded-none shadow-sm ${
                 selectedFormat === "lrc"
-                  ? "bg-crimson-800/15 border-crimson-800/40 text-crimson-600 shadow-sm"
-                  : "bg-white border-sand-300 text-ink-600 hover:text-ink-800"
+                  ? "bg-paper-300 border-accent-700 text-accent-700"
+                  : "bg-paper-200 border-paper-400 text-ink-700 hover:text-ink-900 hover:bg-paper-300"
               }`}
             >
-              <Music className="w-5 h-5 mx-auto mb-1.5" />
-              <div className="text-xs font-bold font-mono">LRC</div>
-              <div className="text-[10px] opacity-75">كلمات متزامنة</div>
+              <Music className="w-6 h-6 mx-auto mb-2" />
+              <div className="text-[14px] font-bold font-mono">LRC</div>
+              <div className="text-[12px] opacity-75 font-bold mt-1">كلمات متزامنة</div>
             </button>
 
             <button
               onClick={() => setSelectedFormat("srt")}
-              className={`p-3 rounded-xl border text-center transition-all ${
+              className={`p-4 border text-center transition-colors rounded-none shadow-sm ${
                 selectedFormat === "srt"
-                  ? "bg-crimson-800/15 border-crimson-800/40 text-crimson-600 shadow-sm"
-                  : "bg-white border-sand-300 text-ink-600 hover:text-ink-800"
+                  ? "bg-paper-300 border-accent-700 text-accent-700"
+                  : "bg-paper-200 border-paper-400 text-ink-700 hover:text-ink-900 hover:bg-paper-300"
               }`}
             >
-              <FileText className="w-5 h-5 mx-auto mb-1.5" />
-              <div className="text-xs font-bold font-mono">SRT</div>
-              <div className="text-[10px] opacity-75">ترجمة وتسميات</div>
+              <FileText className="w-6 h-6 mx-auto mb-2" />
+              <div className="text-[14px] font-bold font-mono">SRT</div>
+              <div className="text-[12px] opacity-75 font-bold mt-1">ترجمة وتسميات</div>
             </button>
 
             <button
               onClick={() => setSelectedFormat("json")}
-              className={`p-3 rounded-xl border text-center transition-all ${
+              className={`p-4 border text-center transition-colors rounded-none shadow-sm ${
                 selectedFormat === "json"
-                  ? "bg-crimson-800/15 border-crimson-800/40 text-crimson-600 shadow-sm"
-                  : "bg-white border-sand-300 text-ink-600 hover:text-ink-800"
+                  ? "bg-paper-300 border-accent-700 text-accent-700"
+                  : "bg-paper-200 border-paper-400 text-ink-700 hover:text-ink-900 hover:bg-paper-300"
               }`}
             >
-              <Download className="w-5 h-5 mx-auto mb-1.5" />
-              <div className="text-xs font-bold font-mono">JSON</div>
-              <div className="text-[10px] opacity-75">حزمة ديوان الشاملة</div>
+              <Download className="w-6 h-6 mx-auto mb-2" />
+              <div className="text-[14px] font-bold font-mono">JSON</div>
+              <div className="text-[12px] opacity-75 font-bold mt-1">حزمة ديوان الشاملة</div>
             </button>
           </div>
 
           {/* Code Preview */}
-          <div className="space-y-1.5">
-            <span className="text-xs font-semibold text-ink-700 block">
+          <div className="space-y-3">
+            <span className="text-[14px] font-bold text-ink-800 block">
               معاينة الملف المصدّر:
             </span>
-            <pre className="p-3 bg-sand-100 rounded-xl border border-sand-300 font-mono text-[11px] text-ink-800 max-h-48 overflow-y-auto leading-relaxed select-text ltr-num text-left">
+            <pre className="p-4 bg-paper-200 rounded-none border border-paper-400 font-mono text-[13px] text-ink-900 max-h-56 overflow-y-auto leading-[2] select-text ltr-num text-left shadow-inner font-bold">
               {getPreview()}
             </pre>
           </div>
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-3 border-t border-sand-300 bg-white/50 flex items-center justify-between">
+        <div className="px-6 py-4 border-t border-paper-400 bg-paper-200 flex items-center justify-between">
           <div>
             {downloadSuccess && (
-              <span className="text-xs text-emerald-400 flex items-center gap-1.5">
-                <CheckCircle2 className="w-4 h-4" />
+              <span className="text-[14px] font-bold text-green-700 flex items-center gap-2">
+                <CheckCircle2 className="w-5 h-5" strokeWidth={2.5} />
                 <span>تم تنزيل الملف بنجاح!</span>
               </span>
             )}
           </div>
 
-          <div className="flex gap-2">
+          <div className="flex gap-3">
             <button
               onClick={onClose}
-              className="px-4 py-2 rounded-xl bg-sand-200 hover:bg-sand-300 text-ink-700 text-xs font-medium border border-sand-400 transition-colors"
+              className="px-6 py-2.5 rounded-none bg-transparent hover:bg-paper-300 text-ink-800 text-[14px] font-bold border border-paper-500 transition-colors"
             >
               إلغاء
             </button>
             <button
               onClick={handleExport}
-              className="px-5 py-2 rounded-xl bg-crimson-800 hover:bg-crimson-700 text-sand-50 text-xs font-bold transition-all shadow-md flex items-center gap-1.5"
+              className="px-6 py-2.5 rounded-none bg-accent-700 hover:bg-accent-600 text-paper-100 text-[14px] font-bold transition-colors shadow-sm flex items-center gap-2 border border-accent-700"
             >
               <Download className="w-4 h-4" />
               <span>تنزيل الملف</span>

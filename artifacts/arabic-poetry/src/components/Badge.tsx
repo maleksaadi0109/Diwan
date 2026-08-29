@@ -15,23 +15,23 @@ export const Badge: React.FC<BadgeProps> = ({
   size = "sm",
 }) => {
   const variantStyles = {
-    gold: "bg-[#D4AF37]/15 text-[#F3E19C] border border-[#D4AF37]/30 shadow-[0_0_12px_rgba(212,175,55,0.15)]",
-    charcoal: "bg-white/[0.06] text-[#CED4DA] border border-white/10 hover:bg-white/[0.1]",
-    success: "bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 shadow-[0_0_12px_rgba(16,185,129,0.15)]",
-    warning: "bg-amber-500/15 text-amber-300 border border-amber-500/30",
-    danger: "bg-rose-500/15 text-rose-300 border border-rose-500/30",
-    outline: "bg-transparent text-[#A0AAB7] border border-white/15",
+    gold: "text-accent-700 border border-accent-700 bg-paper-200 font-bold",
+    charcoal: "text-ink-800 border border-ink-500 bg-paper-100",
+    success: "text-green-800 border border-green-800 bg-green-50",
+    warning: "text-amber-800 border border-amber-800 bg-amber-50",
+    danger: "text-red-800 border border-red-800 bg-red-50",
+    outline: "text-ink-700 border border-paper-500 bg-transparent",
   };
 
   const sizeStyles = {
-    sm: "text-[11px] px-2.5 py-0.5 rounded-full font-sans tracking-wide",
-    md: "text-xs px-3 py-1 rounded-full font-sans tracking-wide",
+    sm: "text-[12px] px-2 py-0.5",
+    md: "text-[14px] px-3 py-1",
   };
 
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1.5 font-medium transition-all whitespace-nowrap backdrop-blur-sm",
+        "inline-flex items-center gap-1.5 transition-colors whitespace-nowrap font-ui shadow-sm rounded-none",
         variantStyles[variant],
         sizeStyles[size],
         className

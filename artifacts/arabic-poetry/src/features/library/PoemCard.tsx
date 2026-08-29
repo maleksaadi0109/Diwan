@@ -1,7 +1,7 @@
 import React from "react";
 import { Poem } from "@/types";
 import { Badge } from "@/components/Badge";
-import { Mic, BookOpen, ChevronLeft, Feather, Sparkles } from "lucide-react";
+import { Mic, BookOpen, ChevronLeft, Feather } from "lucide-react";
 import { toArabicDigits } from "@/lib/utils";
 
 interface PoemCardProps {
@@ -16,11 +16,8 @@ export const PoemCard: React.FC<PoemCardProps> = ({ poem, onOpenPoem }) => {
   return (
     <div
       onClick={() => onOpenPoem(poem)}
-      className="group relative bg-[#13161D]/90 border border-white/[0.08] hover:border-[#D4AF37]/40 rounded-2xl p-6 cursor-pointer transition-all duration-500 shadow-[0_4px_20px_rgba(0,0,0,0.4)] hover:shadow-[0_12px_36px_rgba(212,175,55,0.15)] hover:-translate-y-1.5 flex flex-col justify-between overflow-hidden backdrop-blur-xl"
+      className="group bg-paper-100 border border-paper-400 hover:border-accent-700 rounded-none p-6 cursor-pointer transition-colors shadow-sm hover:shadow-md flex flex-col justify-between relative"
     >
-      {/* Subtle top-right ambient gold flare */}
-      <div className="absolute top-0 right-0 w-36 h-36 bg-gradient-to-br from-[#D4AF37]/10 to-transparent rounded-bl-full -z-10 transition-transform duration-700 group-hover:scale-125 pointer-events-none" />
-
       <div>
         {/* Header Badges */}
         <div className="flex items-center justify-between gap-2 mb-4">
@@ -33,43 +30,43 @@ export const PoemCard: React.FC<PoemCardProps> = ({ poem, onOpenPoem }) => {
             </Badge>
           </div>
           {hasAudio && (
-            <span className="inline-flex items-center gap-1.5 text-[11px] px-2.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 font-medium font-sans shadow-[0_0_10px_rgba(16,185,129,0.2)]">
-              <Mic className="w-3 h-3 text-emerald-400" strokeWidth={2} />
-              <span>تسجيل صوتي</span>
+            <span className="inline-flex items-center gap-1.5 text-[11px] px-2 py-0.5 border border-ink-600 text-ink-700 font-bold font-ui bg-paper-200">
+              <Mic className="w-3 h-3 text-ink-700" strokeWidth={2} />
+              <span>صوتي</span>
             </span>
           )}
         </div>
 
         {/* Title & Poet */}
-        <h3 className="font-poetry text-2xl font-bold text-[#F8F9FA] group-hover:text-[#F3E19C] transition-colors mb-2 line-clamp-1 leading-normal tracking-wide">
+        <h3 className="font-heading text-2xl font-bold text-ink-900 group-hover:text-accent-700 transition-colors mb-2 line-clamp-1 leading-normal">
           {poem.title}
         </h3>
-        <p className="text-[13px] font-medium text-[#A0AAB7] mb-5 flex items-center gap-2 font-sans">
-          <Feather className="w-3.5 h-3.5 text-[#D4AF37]/70" />
+        <p className="text-[14px] font-medium text-ink-600 mb-5 flex items-center gap-2 font-ui">
+          <Feather className="w-3.5 h-3.5 text-accent-700" />
           <span>{poem.poet.name}</span>
         </p>
 
         {/* First verse sample preview */}
         {firstVerse && (
-          <div className="bg-black/30 border border-white/[0.06] rounded-xl px-4 py-4 mb-5 relative before:absolute before:inset-y-3 before:right-0 before:w-1 before:bg-gradient-to-b before:from-[#F3E19C] before:to-[#D4AF37] before:rounded-l-md group-hover:border-[#D4AF37]/20 transition-colors">
-            <p className="font-poetry text-[17px] text-[#E9ECEF] text-center leading-[2] tracking-wide">
-              <span className="group-hover:text-[#FFF5DC] transition-colors">{firstVerse.firstHemistich}</span>
-              <span className="text-[#D4AF37]/70 mx-3 font-sans text-xs select-none">✦</span>
-              <span className="group-hover:text-[#FFF5DC] transition-colors">{firstVerse.secondHemistich}</span>
+          <div className="bg-paper-200 border border-paper-400 rounded-none px-4 py-4 mb-5 relative before:absolute before:inset-y-0 before:right-0 before:w-1 before:bg-accent-700 transition-colors">
+            <p className="font-poetry text-[19px] text-ink-800 font-bold text-center leading-[2] tracking-wide">
+              <span>{firstVerse.firstHemistich}</span>
+              <span className="text-accent-700 mx-3 font-ui text-xs select-none">✦</span>
+              <span>{firstVerse.secondHemistich}</span>
             </p>
           </div>
         )}
       </div>
 
       {/* Footer Info */}
-      <div className="pt-4 border-t border-white/[0.08] flex items-center justify-between text-[13px] text-[#A0AAB7] font-sans tracking-wide">
+      <div className="pt-4 border-t border-paper-400 flex items-center justify-between text-[14px] text-ink-600 font-ui tracking-wide">
         <div className="flex items-center gap-3">
           <span className="flex items-center gap-1.5">
-            <BookOpen className="w-4 h-4 text-[#D4AF37]/80" strokeWidth={1.75} />
-            <span><strong className="text-[#F8F9FA] px-0.5">{toArabicDigits(poem.versesCount)}</strong> أبيات</span>
+            <BookOpen className="w-4 h-4 text-ink-500" strokeWidth={1.5} />
+            <span><strong className="text-ink-800 px-0.5">{toArabicDigits(poem.versesCount)}</strong> أبيات</span>
           </span>
-          <span className="text-white/20">•</span>
-          <span>الرويّ: <strong className="text-[#F3E19C]">{poem.rhyme}</strong></span>
+          <span className="text-paper-400">•</span>
+          <span>الرويّ: <strong className="text-ink-800">{poem.rhyme}</strong></span>
         </div>
 
         <button
@@ -77,9 +74,9 @@ export const PoemCard: React.FC<PoemCardProps> = ({ poem, onOpenPoem }) => {
             e.stopPropagation();
             onOpenPoem(poem);
           }}
-          className="flex items-center gap-1.5 text-[#F3E19C] hover:text-[#FFF5DC] transition-colors font-semibold group/btn text-xs bg-[#D4AF37]/10 hover:bg-[#D4AF37]/20 px-3 py-1.5 rounded-lg border border-[#D4AF37]/20"
+          className="flex items-center gap-1.5 text-accent-700 hover:text-paper-100 font-bold font-ui text-[13px] bg-transparent hover:bg-accent-700 px-3 py-1.5 border border-accent-700 rounded-none transition-colors group/btn"
         >
-          <span>فتح</span>
+          <span>تصفح</span>
           <ChevronLeft className="w-3.5 h-3.5 transition-transform group-hover/btn:-translate-x-1" strokeWidth={2.5} />
         </button>
       </div>

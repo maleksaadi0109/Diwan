@@ -256,26 +256,26 @@ export const ImportView: React.FC<ImportViewProps> = ({ onImportPoem }) => {
   };
 
   return (
-    <div className="h-full overflow-y-auto px-8 md:px-12 py-10 max-w-6xl mx-auto w-full select-none scroll-smooth text-[#F8F9FA]">
+    <div className="h-full overflow-y-auto px-8 md:px-12 py-10 max-w-6xl mx-auto w-full select-none scroll-smooth text-ink-900">
       {/* Top Header with Navigation Tabs */}
-      <div className="mb-10 flex flex-col md:flex-row md:items-end justify-between gap-6 pb-6 border-b border-white/[0.08]">
+      <div className="mb-10 flex flex-col md:flex-row md:items-end justify-between gap-6 pb-6 border-b border-paper-400">
         <div>
-          <h2 className="text-4xl md:text-5xl font-bold text-[#F8F9FA] font-poetry tracking-wide leading-tight">
+          <h2 className="text-5xl font-bold text-ink-900 font-heading">
             استيراد القصائد والتسجيلات
           </h2>
-          <p className="text-[15px] text-[#A0AAB7] mt-2 font-sans tracking-wide">
+          <p className="text-[16px] text-ink-600 mt-3 font-ui font-medium">
             استيراد النصوص المحققة والتسجيلات الصوتية عبر معالج ذكي متكامل
           </p>
         </div>
 
         {/* Tab Navigation */}
-        <div className="flex bg-[#13161D] p-1.5 rounded-2xl border border-white/[0.08] shrink-0 shadow-inner">
+        <div className="flex bg-paper-200 p-1 rounded-none border border-paper-400 shrink-0 shadow-sm">
           <button
             onClick={() => setActiveTab("wizard")}
-            className={`px-4 py-2.5 rounded-xl text-sm font-bold transition-all duration-300 flex items-center gap-2 font-sans tracking-wide ${
+            className={`px-4 py-2 text-[14px] font-bold font-ui transition-colors flex items-center gap-2 ${
               activeTab === "wizard"
-                ? "bg-[#D4AF37] text-[#0A0C10] shadow-[0_0_12px_rgba(212,175,55,0.3)] scale-100"
-                : "text-[#A0AAB7] hover:text-[#F8F9FA] hover:bg-white/[0.05]"
+                ? "bg-accent-700 text-paper-100 border border-accent-700"
+                : "bg-transparent text-ink-700 hover:bg-paper-300 hover:text-ink-900 border border-transparent"
             }`}
           >
             <Wand2 className="w-4 h-4" />
@@ -283,10 +283,10 @@ export const ImportView: React.FC<ImportViewProps> = ({ onImportPoem }) => {
           </button>
           <button
             onClick={() => setActiveTab("mizan")}
-            className={`px-4 py-2.5 rounded-xl text-sm font-bold transition-all duration-300 flex items-center gap-2 font-sans tracking-wide ${
+            className={`px-4 py-2 text-[14px] font-bold font-ui transition-colors flex items-center gap-2 ${
               activeTab === "mizan"
-                ? "bg-[#D4AF37] text-[#0A0C10] shadow-[0_0_12px_rgba(212,175,55,0.3)] scale-100"
-                : "text-[#A0AAB7] hover:text-[#F8F9FA] hover:bg-white/[0.05]"
+                ? "bg-accent-700 text-paper-100 border border-accent-700"
+                : "bg-transparent text-ink-700 hover:bg-paper-300 hover:text-ink-900 border border-transparent"
             }`}
           >
             <Globe className="w-4 h-4" />
@@ -294,10 +294,10 @@ export const ImportView: React.FC<ImportViewProps> = ({ onImportPoem }) => {
           </button>
           <button
             onClick={() => setActiveTab("youtube")}
-            className={`px-4 py-2.5 rounded-xl text-sm font-bold transition-all duration-300 flex items-center gap-2 font-sans tracking-wide ${
+            className={`px-4 py-2 text-[14px] font-bold font-ui transition-colors flex items-center gap-2 ${
               activeTab === "youtube"
-                ? "bg-[#D4AF37] text-[#0A0C10] shadow-[0_0_12px_rgba(212,175,55,0.3)] scale-100"
-                : "text-[#A0AAB7] hover:text-[#F8F9FA] hover:bg-white/[0.05]"
+                ? "bg-accent-700 text-paper-100 border border-accent-700"
+                : "bg-transparent text-ink-700 hover:bg-paper-300 hover:text-ink-900 border border-transparent"
             }`}
           >
             <YoutubeIcon className="w-4 h-4" />
@@ -305,10 +305,10 @@ export const ImportView: React.FC<ImportViewProps> = ({ onImportPoem }) => {
           </button>
           <button
             onClick={() => setActiveTab("manual")}
-            className={`px-4 py-2.5 rounded-xl text-sm font-bold transition-all duration-300 flex items-center gap-2 font-sans tracking-wide ${
+            className={`px-4 py-2 text-[14px] font-bold font-ui transition-colors flex items-center gap-2 ${
               activeTab === "manual"
-                ? "bg-[#D4AF37] text-[#0A0C10] shadow-[0_0_12px_rgba(212,175,55,0.3)] scale-100"
-                : "text-[#A0AAB7] hover:text-[#F8F9FA] hover:bg-white/[0.05]"
+                ? "bg-accent-700 text-paper-100 border border-accent-700"
+                : "bg-transparent text-ink-700 hover:bg-paper-300 hover:text-ink-900 border border-transparent"
             }`}
           >
             <Edit3 className="w-4 h-4" />
@@ -339,46 +339,46 @@ export const ImportView: React.FC<ImportViewProps> = ({ onImportPoem }) => {
       {activeTab === "manual" && (
         <form onSubmit={handleSave} className="space-y-8 select-text animate-in fade-in slide-in-from-bottom-4 duration-500 max-w-4xl mx-auto pb-10">
           {successMessage && (
-            <div className="p-4 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 flex items-center gap-3 shadow-sm font-sans tracking-wide">
-              <CheckCircle className="w-5 h-5 text-emerald-400" />
-              <span className="font-semibold">{successMessage}</span>
+            <div className="p-5 bg-green-50 border border-green-800 text-green-800 flex items-center gap-3 font-ui font-bold shadow-sm rounded-none">
+              <CheckCircle className="w-5 h-5" />
+              <span>{successMessage}</span>
             </div>
           )}
 
-          <div className="bg-[#13161D]/90 rounded-3xl p-8 border border-white/[0.08] shadow-2xl space-y-6 backdrop-blur-xl">
-            <h3 className="font-bold text-2xl text-[#F8F9FA] border-b border-white/[0.08] pb-4 font-poetry">معلومات القصيدة الأساسية</h3>
+          <div className="bg-paper-100 rounded-none p-8 border border-paper-400 shadow-sm space-y-6">
+            <h3 className="font-bold text-3xl text-ink-900 border-b border-paper-400 pb-4 font-heading">معلومات القصيدة الأساسية</h3>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 font-sans">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 font-ui">
               <div>
-                <label className="block text-[13px] font-bold text-[#CED4DA] mb-2">عنوان القصيدة <span className="text-[#D4AF37]">*</span></label>
+                <label className="block text-[14px] font-bold text-ink-800 mb-2">عنوان القصيدة <span className="text-accent-700">*</span></label>
                 <input
                   type="text"
                   required
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                   placeholder="مثال: واحر قلباه ممن قلبه شبم"
-                  className="w-full bg-[#14171E] text-[#F8F9FA] placeholder-[#6C7A8C] border border-white/10 rounded-2xl px-4 py-3 text-[15px] focus:outline-none focus:border-[#D4AF37]/60 transition-all shadow-inner"
+                  className="w-full bg-paper-200 text-ink-900 placeholder-ink-500 border border-paper-400 rounded-none px-4 py-3 text-[15px] focus:outline-none focus:border-accent-700 transition-colors shadow-sm"
                 />
               </div>
 
               <div>
-                <label className="block text-[13px] font-bold text-[#CED4DA] mb-2">اسم الشاعر <span className="text-[#D4AF37]">*</span></label>
+                <label className="block text-[14px] font-bold text-ink-800 mb-2">اسم الشاعر <span className="text-accent-700">*</span></label>
                 <input
                   type="text"
                   required
                   value={poetName}
                   onChange={(e) => setPoetName(e.target.value)}
                   placeholder="مثال: أبو الطيب المتنبي"
-                  className="w-full bg-[#14171E] text-[#F8F9FA] placeholder-[#6C7A8C] border border-white/10 rounded-2xl px-4 py-3 text-[15px] focus:outline-none focus:border-[#D4AF37]/60 transition-all shadow-inner"
+                  className="w-full bg-paper-200 text-ink-900 placeholder-ink-500 border border-paper-400 rounded-none px-4 py-3 text-[15px] focus:outline-none focus:border-accent-700 transition-colors shadow-sm"
                 />
               </div>
 
               <div>
-                <label className="block text-[13px] font-bold text-[#CED4DA] mb-2">العصر الأدبي</label>
+                <label className="block text-[14px] font-bold text-ink-800 mb-2">العصر الأدبي</label>
                 <select
                   value={era}
                   onChange={(e) => setEra(e.target.value as Era)}
-                  className="w-full bg-[#14171E] text-[#F8F9FA] border border-white/10 rounded-2xl px-4 py-3 text-[15px] focus:outline-none focus:border-[#D4AF37]/60 transition-all shadow-inner cursor-pointer"
+                  className="w-full bg-paper-200 text-ink-900 border border-paper-400 rounded-none px-4 py-3 text-[15px] focus:outline-none focus:border-accent-700 transition-colors shadow-sm cursor-pointer"
                 >
                   {ERAS.map((e) => (
                     <option key={e} value={e}>العصر ال{e}</option>
@@ -387,11 +387,11 @@ export const ImportView: React.FC<ImportViewProps> = ({ onImportPoem }) => {
               </div>
 
               <div>
-                <label className="block text-[13px] font-bold text-[#CED4DA] mb-2">بحر القصيدة</label>
+                <label className="block text-[14px] font-bold text-ink-800 mb-2">بحر القصيدة</label>
                 <select
                   value={bahr}
                   onChange={(e) => setBahr(e.target.value as Bahr)}
-                  className="w-full bg-[#14171E] text-[#F8F9FA] border border-white/10 rounded-2xl px-4 py-3 text-[15px] focus:outline-none focus:border-[#D4AF37]/60 transition-all shadow-inner cursor-pointer"
+                  className="w-full bg-paper-200 text-ink-900 border border-paper-400 rounded-none px-4 py-3 text-[15px] focus:outline-none focus:border-accent-700 transition-colors shadow-sm cursor-pointer"
                 >
                   {BUHOOR.map((b) => (
                     <option key={b} value={b}>بحر {b}</option>
@@ -400,28 +400,28 @@ export const ImportView: React.FC<ImportViewProps> = ({ onImportPoem }) => {
               </div>
 
               <div className="md:col-span-2">
-                <label className="block text-[13px] font-bold text-[#CED4DA] mb-2">القافية والرويّ</label>
+                <label className="block text-[14px] font-bold text-ink-800 mb-2">القافية والرويّ</label>
                 <input
                   type="text"
                   value={rhyme}
                   onChange={(e) => setRhyme(e.target.value)}
                   placeholder="مثال: الميم المضمومة (ـمُ)"
-                  className="w-full bg-[#14171E] text-[#F8F9FA] placeholder-[#6C7A8C] border border-white/10 rounded-2xl px-4 py-3 text-[15px] focus:outline-none focus:border-[#D4AF37]/60 transition-all shadow-inner"
+                  className="w-full bg-paper-200 text-ink-900 placeholder-ink-500 border border-paper-400 rounded-none px-4 py-3 text-[15px] focus:outline-none focus:border-accent-700 transition-colors shadow-sm"
                 />
               </div>
             </div>
           </div>
 
-          <div className="bg-[#13161D]/90 rounded-3xl p-8 border border-white/[0.08] shadow-2xl space-y-6 backdrop-blur-xl">
-             <div className="flex items-center justify-between border-b border-white/[0.08] pb-4">
-              <h3 className="font-bold text-2xl text-[#F8F9FA] font-poetry">النص والأبيات</h3>
-              <div className="flex items-center gap-3 text-sm text-[#A0AAB7] font-sans font-medium">
+          <div className="bg-paper-100 rounded-none p-8 border border-paper-400 shadow-sm space-y-6">
+             <div className="flex items-center justify-between border-b border-paper-400 pb-4">
+              <h3 className="font-bold text-3xl text-ink-900 font-heading">النص والأبيات</h3>
+              <div className="flex items-center gap-3 text-[14px] text-ink-800 font-ui font-bold">
                 <span>فاصل الشطرين:</span>
                 <input
                   type="text"
                   value={delimiter}
                   onChange={(e) => setDelimiter(e.target.value)}
-                  className="w-16 bg-[#14171E] border border-white/10 rounded-xl px-2 py-1 text-center text-[#F3E19C] font-bold focus:outline-none focus:border-[#D4AF37]/50"
+                  className="w-16 bg-paper-200 border border-paper-400 rounded-none px-2 py-1 text-center text-ink-900 focus:outline-none focus:border-accent-700"
                 />
               </div>
             </div>
@@ -432,27 +432,27 @@ export const ImportView: React.FC<ImportViewProps> = ({ onImportPoem }) => {
               value={versesRaw}
               onChange={(e) => setVersesRaw(e.target.value)}
               placeholder="واحَرَّ قَلباهُ مِمَّن قَلبُهُ شَبِمُ ... وَمَن بِجِسمي وَحالي عِندَهُ سَقَمُ&#10;ما لي أُكَتِّمُ حُبّاً قَد بَرى جَسَدي ... وَتَدَّعي حُبَّ سَيفِ الدَولَةِ الأُمَمُ"
-              className="w-full bg-[#14171E] text-[#F8F9FA] placeholder-[#6C7A8C] border border-white/10 rounded-2xl p-6 text-lg font-poetry leading-[2.2] focus:outline-none focus:border-[#D4AF37]/50 transition-all shadow-inner resize-y"
+              className="w-full bg-paper-200 text-ink-900 placeholder-ink-500 border border-paper-400 rounded-none p-6 text-[22px] font-poetry leading-[2.4] focus:outline-none focus:border-accent-700 transition-colors shadow-sm resize-y"
             />
           </div>
 
           {/* Audio file selection */}
-          <div className="p-8 rounded-3xl bg-[#13161D]/70 border-2 border-dashed border-white/15 text-center hover:border-[#D4AF37]/50 transition-colors backdrop-blur-xl">
-            <div className="w-16 h-16 bg-white/[0.06] rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-sm border border-white/10">
-               <Upload className="w-8 h-8 text-[#D4AF37]" />
+          <div className="p-8 rounded-none bg-paper-200 border-2 border-dashed border-paper-400 text-center hover:border-accent-700 transition-colors shadow-sm">
+            <div className="w-16 h-16 bg-paper-100 border border-paper-400 flex items-center justify-center mx-auto mb-4 shadow-sm rounded-none">
+               <Upload className="w-8 h-8 text-accent-700" />
             </div>
-            <h4 className="text-xl font-bold text-[#F8F9FA] mb-2 font-poetry">
+            <h4 className="text-2xl font-bold text-ink-900 mb-2 font-heading">
               إرفاق ملف صوتي محلي للمحاذاة
             </h4>
-            <p className="text-[13px] text-[#A0AAB7] font-sans mb-6">(MP3, WAV, M4A, OGG)</p>
+            <p className="text-[14px] text-ink-600 font-ui font-bold mb-6">(MP3, WAV, M4A, OGG)</p>
             
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
               <button
                 type="button"
                 onClick={handlePickAudio}
-                className="px-6 py-3.5 rounded-xl bg-white/[0.06] hover:bg-white/[0.1] text-[#F8F9FA] border border-white/10 shadow-sm text-[13px] font-bold font-sans flex items-center gap-2 transition-colors"
+                className="px-6 py-3 bg-paper-100 hover:bg-paper-300 text-ink-800 border border-paper-500 shadow-sm text-[14px] font-bold font-ui flex items-center gap-2 transition-colors rounded-none"
               >
-                <Music className="w-4 h-4 text-[#D4AF37]" />
+                <Music className="w-4 h-4 text-ink-700" />
                 <span>{audioFileName ? `تم اختيار: ${audioFileName}` : "تصفح الملفات المحلية..."}</span>
               </button>
               
@@ -460,7 +460,7 @@ export const ImportView: React.FC<ImportViewProps> = ({ onImportPoem }) => {
                 <button
                   type="button"
                   onClick={handleStartTranscribe}
-                  className="px-6 py-3.5 rounded-xl bg-[#D4AF37]/15 hover:bg-[#D4AF37]/25 text-[#F3E19C] border border-[#D4AF37]/30 shadow-sm text-[13px] font-bold font-sans flex items-center gap-2 transition-colors"
+                  className="px-6 py-3 bg-accent-700 hover:bg-accent-600 text-paper-100 border border-accent-700 shadow-sm text-[14px] font-bold font-ui flex items-center gap-2 transition-colors rounded-none"
                 >
                   <Mic className="w-4 h-4" />
                   <span>بدء التفريغ الصوتي (ASR)</span>
@@ -470,11 +470,11 @@ export const ImportView: React.FC<ImportViewProps> = ({ onImportPoem }) => {
           </div>
 
           {/* Submit */}
-          <div className="flex justify-end pt-6 border-t border-white/[0.08]">
+          <div className="flex justify-end pt-8 border-t-2 border-paper-400">
             <button
               type="submit"
               disabled={parsedVerses.length === 0 || !title.trim() || !poetName.trim() || isProcessing}
-              className="px-8 py-4 rounded-2xl bg-gradient-to-r from-[#D4AF37] to-[#B89225] hover:from-[#E6C265] hover:to-[#C9A233] disabled:opacity-40 text-[#0A0C10] font-bold text-[15px] font-sans shadow-[0_0_25px_rgba(212,175,55,0.3)] transition-all flex items-center gap-2"
+              className="px-10 py-4 bg-ink-900 hover:bg-ink-800 text-paper-100 border border-ink-900 disabled:opacity-50 font-bold text-[16px] font-ui shadow-sm transition-colors flex items-center gap-2 rounded-none"
             >
               <Save className="w-5 h-5" />
               <span>{isProcessing ? "جاري المعالجة والحفظ..." : "حفظ القصيدة في الديوان"}</span>

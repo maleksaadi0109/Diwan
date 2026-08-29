@@ -18,57 +18,57 @@ export const DictionaryWordModal: React.FC<DictionaryWordModalProps> = ({
   if (!word) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-md p-4 select-none animate-fadeIn">
-      <div className="bg-[#14171E] border border-[#D4AF37]/30 rounded-3xl w-full max-w-md overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.8)]">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink-900/60 backdrop-blur-sm p-4 select-none animate-fadeIn">
+      <div className="bg-paper-100 border-2 border-paper-500 rounded-none w-full max-w-lg overflow-hidden shadow-lg">
         {/* Header */}
-        <div className="px-6 py-4 border-b border-white/[0.08] flex items-center justify-between bg-white/[0.02]">
-          <div className="flex items-center gap-2 text-[#F3E19C]">
-            <BookOpen className="w-5 h-5 text-[#D4AF37]" />
-            <h3 className="text-sm font-bold font-poetry tracking-wide">معجم المعاني والشعر</h3>
+        <div className="px-6 py-4 border-b border-paper-400 flex items-center justify-between bg-paper-200">
+          <div className="flex items-center gap-2 text-ink-900">
+            <BookOpen className="w-5 h-5 text-accent-700" />
+            <h3 className="text-lg font-bold font-heading">معجم المعاني والشعر</h3>
           </div>
           <button
             onClick={onClose}
-            className="text-[#A0AAB7] hover:text-[#F8F9FA] p-1.5 rounded-xl hover:bg-white/[0.08] transition-colors"
+            className="text-ink-600 hover:text-ink-900 p-1.5 rounded-none hover:bg-paper-300 transition-colors"
           >
-            <X className="w-4 h-4" />
+            <X className="w-5 h-5" strokeWidth={2} />
           </button>
         </div>
 
         {/* Content */}
-        <div className="p-6 space-y-4">
-          <div className="text-center py-2">
-            <h2 className="font-poetry text-4xl font-bold text-[#F3E19C] tracking-wide drop-shadow-sm">
+        <div className="p-6 space-y-5">
+          <div className="text-center py-2 border-b border-paper-300 pb-5">
+            <h2 className="font-heading text-5xl font-bold text-accent-700">
               {word}
             </h2>
             {definition?.root && (
-              <span className="inline-block mt-2 px-3 py-1 rounded-full text-xs font-semibold bg-[#D4AF37]/15 text-[#F3E19C] border border-[#D4AF37]/30 shadow-sm">
+              <span className="inline-block mt-3 px-4 py-1 text-sm font-bold bg-paper-200 text-ink-800 border border-paper-400 font-ui shadow-sm rounded-none">
                 الجذر: {definition.root}
               </span>
             )}
           </div>
 
           {isLoading ? (
-            <div className="text-center py-6 text-xs text-[#A0AAB7]">
+            <div className="text-center py-8 text-sm font-bold text-ink-600 font-ui">
               جاري البحث في المعجم المحلي...
             </div>
           ) : definition ? (
-            <div className="bg-black/30 p-5 rounded-2xl border border-white/[0.08] space-y-3 select-text">
-              <span className="text-xs font-semibold text-[#D4AF37] block">المعنى والشرح:</span>
-              <p className="text-base text-[#F8F9FA] font-poetry leading-[2]">
+            <div className="bg-paper-200 p-6 rounded-none border border-paper-400 space-y-4 select-text shadow-sm">
+              <span className="text-sm font-bold text-accent-700 block font-ui">المعنى والشرح:</span>
+              <p className="text-lg text-ink-900 font-poetry leading-[2.2]">
                 {definition.meaning}
               </p>
-              <div className="pt-3 border-t border-white/[0.08] flex justify-between text-[11px] text-[#A0AAB7]">
+              <div className="pt-4 border-t border-paper-400 flex justify-between text-[13px] text-ink-600 font-ui font-bold mt-2">
                 <span>المصدر المعجمي:</span>
-                <span className="text-[#F3E19C] font-semibold">{definition.source}</span>
+                <span className="text-ink-900">{definition.source}</span>
               </div>
             </div>
           ) : (
-            <div className="bg-black/30 p-5 rounded-2xl border border-white/[0.08] text-center space-y-2">
-              <Sparkles className="w-6 h-6 text-[#D4AF37]/60 mx-auto" />
-              <p className="text-xs text-[#E9ECEF]">
+            <div className="bg-paper-200 p-6 rounded-none border border-paper-400 text-center space-y-3 shadow-sm">
+              <Sparkles className="w-6 h-6 text-ink-500 mx-auto" />
+              <p className="text-md font-bold text-ink-800 font-ui">
                 الكلمة «{word}» فصيحة من أبيات القصيدة.
               </p>
-              <p className="text-[11px] text-[#6C7A8C]">
+              <p className="text-[13px] font-bold text-ink-500 font-ui">
                 المعجم المحلي يحتوي على المفردات النادرة والشواهد الشعرية.
               </p>
             </div>
@@ -76,10 +76,10 @@ export const DictionaryWordModal: React.FC<DictionaryWordModalProps> = ({
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-3.5 border-t border-white/[0.08] bg-black/20 flex justify-end">
+        <div className="px-6 py-4 border-t border-paper-400 bg-paper-200 flex justify-end">
           <button
             onClick={onClose}
-            className="px-5 py-2 rounded-xl bg-white/[0.06] hover:bg-white/[0.1] text-[#F8F9FA] text-xs font-medium border border-white/10 transition-colors"
+            className="px-6 py-2.5 bg-transparent hover:bg-paper-300 text-ink-800 text-[14px] font-bold border border-paper-500 transition-colors rounded-none font-ui"
           >
             إغلاق
           </button>
