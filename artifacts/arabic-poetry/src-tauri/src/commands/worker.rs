@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 use std::io::{BufRead, BufReader, Write};
+use std::path::PathBuf;
 use std::process::{Command, Stdio};
 use std::sync::Mutex;
 use tauri::{AppHandle, Emitter};
@@ -46,6 +47,52 @@ impl Default for WorkerState {
     }
 }
 
+/// Dynamically locates the Python worker directory (`worker/diwan_worker`)
+fn resolve_worker_dir() -> PathBuf {
+    // 1. Explicit environment variable
+    if let Ok(val) = std::env::var("DIWAN_WORKER_DIR") {
+        let p = PathBuf::from(val);
+        if p.join("diwan_worker").exists() {
+            return p;
+        }
+    }
+
+    // 2. Relative paths from current working directory
+    let relative_candidates = [
+        "worker",
+        "../worker",
+        "../../worker",
+        "artifacts/arabic-poetry/worker",
+        "../../artifacts/arabic-poetry/worker",
+    ];
+
+    if let Ok(cwd) = std::env::current_dir() {
+        for candidate in &relative_candidates {
+            let p = cwd.join(candidate);
+            if p.join("diwan_worker").exists() {
+                return p;
+            }
+        }
+    }
+
+    // 3. Search relative to current executable
+    if let Ok(exe) = std::env::current_exe() {
+        let mut cur = exe.parent();
+        while let Some(dir) = cur {
+            for candidate in &relative_candidates {
+                let p = dir.join(candidate);
+                if p.join("diwan_worker").exists() {
+                    return p;
+                }
+            }
+            cur = dir.parent();
+        }
+    }
+
+    // Fallback default
+    PathBuf::from("worker")
+}
+
 #[tauri::command]
 pub async fn execute_worker_command(
     app: AppHandle,
@@ -54,15 +101,23 @@ pub async fn execute_worker_command(
     let req_json = serde_json::to_string(&request)
         .map_err(|e| format!("Failed to serialize request: {}", e))?;
 
-    // Spawn python worker process
+    let worker_dir = resolve_worker_dir();
+
+    // Spawn python worker process with resolved PYTHONPATH
     let mut child = Command::new("python3")
         .args(["-m", "diwan_worker.cli"])
-        .env("PYTHONPATH", "worker")
+        .env("PYTHONPATH", &worker_dir)
+        .current_dir(&worker_dir)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::inherit())
         .spawn()
-        .map_err(|e| format!("Failed to start python worker: {}", e))?;
+        .map_err(|e| {
+            format!(
+                "Failed to start python worker at {:?}: {}",
+                worker_dir, e
+            )
+        })?;
 
     let mut stdin = child
         .stdin
