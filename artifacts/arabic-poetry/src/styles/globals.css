@@ -1,66 +1,105 @@
-@import url('https://fonts.googleapis.com/css2?family=Amiri:ital,wght@0,400;0,700;1,400;1,700&family=Aref+Ruqaa:wght@400;700&family=Noto+Naskh+Arabic:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Amiri:ital,wght@0,400;0,700;1,400;1,700&family=Aref+Ruqaa:wght@400;700&family=Cairo:wght@300;400;500;600;700;800;900&family=Scheherazade+New:wght@400;600;700&family=Noto+Naskh+Arabic:wght@400;500;600;700&display=swap');
 @import "tailwindcss";
 
 @theme {
-  --color-paper-100: #FDFBF7;
-  --color-paper-200: #F4EFE6;
-  --color-paper-300: #EBE3D5;
-  --color-paper-400: #DFD5C4;
-  --color-paper-500: #D1C5B0;
-  
-  --color-ink-900: #1A1614;
-  --color-ink-800: #2C2622;
-  --color-ink-700: #423933;
-  --color-ink-600: #594E46;
-  --color-ink-500: #73665C;
+  --color-charcoal-950: #0b0d10;
+  --color-charcoal-900: #111419;
+  --color-charcoal-850: #161a22;
+  --color-charcoal-800: #1c212b;
+  --color-charcoal-700: #272e3c;
+  --color-charcoal-600: #363f52;
 
-  --color-accent-700: #8E2822;
-  --color-accent-600: #A8332B;
-  --color-accent-500: #C24138;
+  --color-parchment-50: #fdfbf7;
+  --color-parchment-100: #f7f3ea;
+  --color-parchment-200: #eee4d0;
+  --color-parchment-300: #dfcfb0;
+  --color-parchment-400: #c7b189;
 
-  --font-poetry: "Amiri", serif;
-  --font-heading: "Aref Ruqaa", serif;
-  --font-ui: "Noto Naskh Arabic", serif;
-  --font-mono: "Courier New", Courier, monospace;
+  --color-paper-100: #161a22;
+  --color-paper-200: #111419;
+  --color-paper-300: #1c212b;
+  --color-paper-400: #272e3c;
+  --color-paper-500: #363f52;
+
+  --color-ink-900: #f7f3ea;
+  --color-ink-800: #eee4d0;
+  --color-ink-700: #dfcfb0;
+  --color-ink-600: #a0aab7;
+  --color-ink-500: #6c7a8c;
+  --color-ink-400: #495057;
+  --color-ink-300: #343a40;
+
+  --color-accent-700: #d4af37;
+  --color-accent-600: #e9be4f;
+  --color-accent-500: #f5d77f;
+
+  --color-gold-300: #f5d77f;
+  --color-gold-400: #e9be4f;
+  --color-gold-500: #d4af37;
+  --color-gold-600: #b89326;
+  --color-gold-700: #8c6e17;
+
+  --color-crimson-500: #e63946;
+  --color-crimson-600: #c92a3a;
+  --color-crimson-700: #a32230;
+  --color-crimson-800: #7a1924;
+  --color-crimson-900: #4a1017;
+
+  --font-poetry: "Amiri", "Scheherazade New", "Noto Naskh Arabic", "Traditional Arabic", serif;
+  --font-sans: "Cairo", "Almarai", "Noto Sans Arabic", "Segoe UI", Tahoma, sans-serif;
+  --font-heading: "Aref Ruqaa", "Amiri", serif;
+  --font-ui: "Cairo", "Noto Sans Arabic", sans-serif;
 }
 
 @layer base {
   :root {
-    color-scheme: light;
+    color-scheme: dark;
   }
+
   body {
-    background-color: var(--color-paper-200);
-    color: var(--color-ink-800);
-    font-family: var(--font-ui);
+    background-color: #0b0d10;
+    color: #f7f3ea;
+    font-family: 'Cairo', 'Noto Sans Arabic', system-ui, -apple-system, sans-serif;
     direction: rtl;
+    user-select: none;
     -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
   }
-  body::after {
-    content: "";
-    position: fixed;
-    inset: 0;
-    pointer-events: none;
-    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.05'/%3E%3C/svg%3E");
-    z-index: 50;
-  }
+
+  /* Custom scrollbars */
   ::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
+    width: 6px;
+    height: 6px;
   }
   ::-webkit-scrollbar-track {
-    background: var(--color-paper-200);
-    border-left: 1px solid var(--color-paper-400);
+    background: #111419;
   }
   ::-webkit-scrollbar-thumb {
-    background: var(--color-paper-500);
-    border-radius: 0;
+    background: #272e3c;
+    border-radius: 4px;
   }
   ::-webkit-scrollbar-thumb:hover {
-    background: var(--color-ink-500);
+    background: #363f52;
   }
 }
 
 @layer utilities {
+  .font-poetry {
+    font-family: 'Amiri', 'Scheherazade New', 'Noto Naskh Arabic', 'Traditional Arabic', serif;
+  }
+  
+  .font-heading {
+    font-family: 'Aref Ruqaa', 'Amiri', serif;
+  }
+
+  .font-sans {
+    font-family: 'Cairo', 'Almarai', 'Noto Sans Arabic', 'Segoe UI', Tahoma, sans-serif;
+  }
+
+  .text-shadow-gold {
+    text-shadow: 0 0 16px rgba(212, 175, 55, 0.4);
+  }
+
   .ltr-num {
     direction: ltr;
     display: inline-block;
