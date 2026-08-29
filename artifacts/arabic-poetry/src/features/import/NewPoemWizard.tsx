@@ -6,6 +6,7 @@ import {
   fetchYoutubeVideoInfo,
   downloadYoutubeAudio,
   convertAudioFile,
+  inspectAudioFile,
   detectSpeechIntervals,
   transcribeArabicAudio,
   alignPoemAudio,
@@ -203,7 +204,9 @@ export const NewPoemWizard: React.FC<NewPoemWizardProps> = ({ onFinishWizard }) 
 
     let sourceAudioPath = localAudioPath || "/recordings/mutanabbi_waharra.mp3";
     let processingWavPath = "/recordings/mutanabbi_waharra_16k.wav";
-    let durationMs = parsedVerses.length * 8000;
+    // Real duration only — filled from YouTube metadata or audio inspection;
+    // never a fabricated verse-count estimate.
+    let durationMs = 0;
 
     try {
       // Stage 1: Download (if YouTube)
@@ -225,6 +228,14 @@ export const NewPoemWizard: React.FC<NewPoemWizardProps> = ({ onFinishWizard }) 
         sourceAudioPath = await copyAudioToAppData(localAudioPath, localAudioName);
         processingWavPath = sourceAudioPath.replace(/\.[^.]+$/, "_16k.wav");
         await convertAudioFile(sourceAudioPath, processingWavPath);
+        if (!durationMs) {
+          try {
+            const meta = await inspectAudioFile(sourceAudioPath);
+            durationMs = meta.duration_ms;
+          } catch {
+            // duration stays 0 (unknown); never fabricated
+          }
+        }
       }
       updateStage("convert", { status: "completed", progress: 1.0 });
 

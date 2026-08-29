@@ -263,7 +263,7 @@ export class WebMemoryAdapter implements DatabaseAdapter {
           ...existing,
           start_ms: Number(params[0]),
           end_ms: Number(params[1]),
-          status: String(params[2]) as "auto" | "reviewed" | "manual",
+          status: String(params[2]) as "auto" | "review" | "reviewed" | "manual",
           confidence: params[3] === null || params[3] === undefined
             ? existing.confidence
             : Number(params[3]),

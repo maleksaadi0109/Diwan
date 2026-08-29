@@ -53,6 +53,27 @@ def normalize_arabic(text: str) -> str:
 
     return normalized
 
+# Phonetically-confusable Arabic consonant classes (common ASR substitutions)
+_PHONETIC_CLASS_MAP = {
+    "ت": "t", "ط": "t", "د": "d", "ض": "d",
+    "س": "s", "ص": "s", "ث": "s",
+    "ز": "z", "ذ": "z", "ظ": "z",
+    "ه": "h", "ح": "h",
+    "ء": "", "ؤ": "", "ئ": "",
+    "ق": "q", "ك": "k",
+    "ج": "j", "غ": "g", "خ": "x", "ع": "3",
+}
+
+def phonetic_key(token: str) -> str:
+    """
+    Collapses a normalized Arabic token into a phonetic class string so that
+    common ASR consonant confusions (ت/ط، س/ص/ث، ذ/ز/ظ، ه/ح ...) still match.
+    """
+    out = []
+    for ch in token:
+        out.append(_PHONETIC_CLASS_MAP.get(ch, ch))
+    return "".join(out)
+
 def tokenize_normalized(text: str) -> list[str]:
     """Normalizes text and splits into tokens."""
     norm = normalize_arabic(text)

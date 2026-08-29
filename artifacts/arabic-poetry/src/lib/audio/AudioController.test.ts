@@ -94,6 +94,52 @@ describe("AudioController Engine & Synchronization Architecture", () => {
     expect(controller.findActiveVerseIndex(27499)).toBe(2);
   });
 
+  it("keeps the previous verse highlighted during a silent gap between verses", () => {
+    const gappedVerses: Verse[] = mockVerses.map((v, i) => ({
+      ...v,
+      alignment: v.alignment
+        ? {
+            ...v.alignment,
+            // Non-contiguous boundaries: gap between end and next start
+            startMs: [2500, 11000, 20000][i],
+            endMs: [9000, 18000, 27500][i],
+          }
+        : undefined,
+    }));
+
+    // Inside the silence between v1 (ends 9000) and v2 (starts 11000):
+    // highlight must stay on v1, never jump early to v2.
+    expect(findActiveVerseIndexBinary(gappedVerses, 9500)).toBe(0);
+    expect(findActiveVerseIndexBinary(gappedVerses, 10999)).toBe(0);
+    expect(findActiveVerseIndexBinary(gappedVerses, 11000)).toBe(1);
+    // Silence between v2 and v3
+    expect(findActiveVerseIndexBinary(gappedVerses, 19000)).toBe(1);
+    expect(findActiveVerseIndexBinary(gappedVerses, 20000)).toBe(2);
+  });
+
+  it("returns -1 for a wholly unaligned poem (no fabricated 8s slots)", () => {
+    const unaligned: Verse[] = mockVerses.map((v) => ({ ...v, alignment: undefined }));
+    expect(findActiveVerseIndexBinary(unaligned, 0)).toBe(-1);
+    expect(findActiveVerseIndexBinary(unaligned, 8500)).toBe(-1);
+    expect(findActiveVerseIndexBinary(unaligned, 999999)).toBe(-1);
+  });
+
+  it("skips unaligned verses in a mixed poem instead of fabricating timing", () => {
+    // Middle verse has no alignment: it must never be returned as active.
+    const mixed: Verse[] = mockVerses.map((v, i) =>
+      i === 1 ? { ...v, alignment: undefined } : v
+    );
+    const v0 = mixed[0].alignment!;
+    const v2 = mixed[2].alignment!;
+    // Inside v0's span
+    expect(findActiveVerseIndexBinary(mixed, Number(v0.startMs) + 10)).toBe(0);
+    // Between v0's end and v2's start: previous TIMED verse (0), never 1
+    expect(findActiveVerseIndexBinary(mixed, Number(v0.endMs) + 10)).toBe(0);
+    // Inside v2's span
+    expect(findActiveVerseIndexBinary(mixed, Number(v2.startMs) + 10)).toBe(2);
+    expect(findActiveVerseIndexBinary(mixed, Number(v2.endMs) + 999)).toBe(2);
+  });
+
   it("handles seeking forward and backward with immediate active verse recomputation", () => {
     // Seek forward to Verse 2
     controller.seekTo(12000);

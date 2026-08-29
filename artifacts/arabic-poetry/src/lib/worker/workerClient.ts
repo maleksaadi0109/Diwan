@@ -78,7 +78,7 @@ export interface VerseAlignmentItem {
   start_ms: number;
   end_ms: number;
   confidence: number;
-  status: "auto" | "reviewed" | "manual";
+  status: "auto" | "review" | "reviewed" | "manual";
   first_hemistich_end_ms?: number;
   second_hemistich_start_ms?: number;
 }
@@ -368,21 +368,32 @@ export async function alignPoemAudio(
     throw new Error(resp.error_message || "Poem alignment failed");
   }
 
-  // Web fallback simulation
+  // Web fallback simulation: no real ASR ran here, so boundaries are
+  // word-count-proportional estimates flagged for review — never presented
+  // as high-confidence alignments.
+  const wordCounts = verses.map((v) => Math.max(1, v.text.trim().split(/\s+/).length));
+  const totalWords = wordCounts.reduce((a, b) => a + b, 0);
+  const estTotalMs = totalWords * 600;
+  let cursor = 0;
   return {
     poem_id: poemId,
     recording_id: recordingId,
-    overall_confidence: 0.92,
-    alignments: verses.map((v, i) => ({
-      verse_id: v.id,
-      order_index: v.orderIndex,
-      start_ms: i * 7500,
-      end_ms: (i + 1) * 7500,
-      confidence: 0.92,
-      status: "auto",
-      first_hemistich_end_ms: i * 7500 + 3500,
-      second_hemistich_start_ms: i * 7500 + 3600,
-    })),
+    overall_confidence: 0.2,
+    alignments: verses.map((v, i) => {
+      const span = Math.round((wordCounts[i] / totalWords) * estTotalMs);
+      const start = cursor;
+      cursor += span;
+      return {
+        verse_id: v.id,
+        order_index: v.orderIndex,
+        start_ms: start,
+        end_ms: cursor,
+        confidence: 0.2,
+        status: "review" as const,
+        first_hemistich_end_ms: start + Math.round(span / 2),
+        second_hemistich_start_ms: start + Math.round(span / 2),
+      };
+    }),
   };
 }
 

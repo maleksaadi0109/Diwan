@@ -4,7 +4,13 @@ import { normalizeArabic } from "@/lib/utils";
 import { Upload, CheckCircle, Music, Mic, Wand2, Globe, Edit3 } from "lucide-react";
 import { YoutubeIcon } from "@/components/icons/YoutubeIcon";
 import { pickAudioFile, copyAudioToAppData } from "@/lib/audio/fileManager";
-import { transcribeArabicAudio, TranscriptResult } from "@/lib/worker/workerClient";
+import {
+  transcribeArabicAudio,
+  alignPoemAudio,
+  inspectAudioFile,
+  TranscriptResult,
+  PoemAlignmentResponse,
+} from "@/lib/worker/workerClient";
 import { TranscriptionModal } from "./TranscriptionModal";
 import { MizanImportView } from "./MizanImportView";
 import { YouTubeImportView } from "./YouTubeImportView";
@@ -164,6 +170,38 @@ export const ImportView: React.FC<ImportViewProps> = ({ onImportPoem }) => {
       const poemId = `poem-custom-${Date.now()}`;
       const recId = `rec-${Date.now()}`;
 
+      // Run the real hybrid alignment (ASR + VAD) when audio is attached —
+      // never fabricate fixed 8-second boundaries.
+      let alignments: PoemAlignmentResponse["alignments"] = [];
+      let recordingDurationMs = 0;
+      if (savedAudioPath) {
+        try {
+          const meta = await inspectAudioFile(savedAudioPath);
+          recordingDurationMs = meta.duration_ms;
+          const alignRes = await alignPoemAudio(
+            savedAudioPath,
+            parsedVerses.map((v) => ({
+              id: v.id,
+              orderIndex: v.orderIndex,
+              text: v.text,
+              firstHemistich: v.firstHemistich,
+              secondHemistich: v.secondHemistich,
+            })),
+            poemId,
+            recId
+          );
+          alignments = alignRes.alignments;
+        } catch (alignErr) {
+          console.warn("Alignment failed; saving without alignment:", alignErr);
+          setSuccessMessage(null);
+          setTranscribeError(
+            alignErr instanceof Error
+              ? `تعذرت المحاذاة التلقائية: ${alignErr.message}. حُفظت القصيدة بدون محاذاة، يمكنك ضبط الحدود يدويًا من المحرر.`
+              : "تعذرت المحاذاة التلقائية. حُفظت القصيدة بدون محاذاة."
+          );
+        }
+      }
+
       const newPoem: Poem = {
         id: poemId,
         title: title.trim(),
@@ -176,21 +214,24 @@ export const ImportView: React.FC<ImportViewProps> = ({ onImportPoem }) => {
         bahr,
         rhyme: rhyme.trim() || "غير محدد",
         versesCount: parsedVerses.length,
-        verses: parsedVerses.map((v, i) => ({
-          ...v,
-          poemId,
-          alignment: savedAudioPath
-            ? {
-                id: `align-${poemId}-${i + 1}`,
-                verseId: v.id,
-                recordingId: recId,
-                startMs: i * 8000,
-                endMs: (i + 1) * 8000,
-                confidence: 0.88,
-                status: "auto",
-              }
-            : undefined,
-        })),
+        verses: parsedVerses.map((v, i) => {
+          const item = alignments.find((a) => a.order_index === v.orderIndex);
+          return {
+            ...v,
+            poemId,
+            alignment: item
+              ? {
+                  id: `align-${poemId}-${i + 1}`,
+                  verseId: v.id,
+                  recordingId: recId,
+                  startMs: item.start_ms,
+                  endMs: item.end_ms,
+                  confidence: item.confidence,
+                  status: item.status,
+                }
+              : undefined,
+          };
+        }),
         recordings: savedAudioPath
           ? [
               {
@@ -199,7 +240,7 @@ export const ImportView: React.FC<ImportViewProps> = ({ onImportPoem }) => {
                 title: audioFileName || "تسجيل صوتي",
                 reciter: poetName.trim(),
                 audioPath: savedAudioPath,
-                durationMs: parsedVerses.length * 8000,
+                durationMs: recordingDurationMs,
                 createdAt: new Date().toISOString().split("T")[0],
               },
             ]

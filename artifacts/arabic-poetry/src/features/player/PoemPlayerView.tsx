@@ -21,6 +21,7 @@ interface PoemPlayerViewProps {
     endMs: number,
     status?: "reviewed" | "manual"
   ) => Promise<void> | void;
+  onCreateBoundary?: (verseId: string, startMs: number, endMs: number) => Promise<void> | void;
   onSaveExplanations?: (verseId: string, items: VerseExplanationItem[]) => Promise<void>;
   onApplyOffset?: (
     verseId: string,
@@ -38,6 +39,7 @@ interface ExplanationViewState {
 export const PoemPlayerView: React.FC<PoemPlayerViewProps> = ({
   poem,
   onUpdateBoundary,
+  onCreateBoundary,
   onSaveExplanations,
   onApplyOffset,
 }) => {
@@ -203,8 +205,10 @@ export const PoemPlayerView: React.FC<PoemPlayerViewProps> = ({
     poem.bahr
   );
 
-  const activeStartMs = activeVerse?.alignment?.startMs ?? (activeVerseIndex >= 0 ? activeVerseIndex * 8000 : 0);
-  const activeEndMs = activeVerse?.alignment?.endMs ?? (activeVerseIndex >= 0 ? (activeVerseIndex + 1) * 8000 : 0);
+  // Unaligned verses are never active (findActiveVerseIndexBinary skips
+  // them), so no fabricated fallback timing is needed here.
+  const activeStartMs = activeVerse?.alignment?.startMs ?? 0;
+  const activeEndMs = activeVerse?.alignment?.endMs ?? 0;
   const activeDiffMs = currentTimeMs - activeStartMs;
   const selectedVerse =
     poem.verses.find((verse) => verse.id === selectedVerseId) ||
@@ -347,6 +351,11 @@ export const PoemPlayerView: React.FC<PoemPlayerViewProps> = ({
                 }
                 await onUpdateBoundary(alignmentId, startMs, endMs, status);
               }}
+              onCreate={
+                onCreateBoundary
+                  ? (verseId, startMs, endMs) => onCreateBoundary(verseId, startMs, endMs)
+                  : undefined
+              }
               onApplyOffset={
                 onApplyOffset
                   ? (offsetMs, includeFollowing) =>

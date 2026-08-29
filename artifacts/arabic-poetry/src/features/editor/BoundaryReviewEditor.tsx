@@ -43,13 +43,17 @@ export const BoundaryReviewEditor: React.FC<BoundaryReviewEditorProps> = ({
     Map<string, { startMs: number; endMs: number; status: AlignmentStatus; confidence: number }>
   >(() => {
     const map = new Map();
-    poem.verses.forEach((v, i) => {
-      map.set(v.id, {
-        startMs: v.alignment?.startMs ?? i * 8000,
-        endMs: v.alignment?.endMs ?? (i + 1) * 8000,
-        status: v.alignment?.status ?? "auto",
-        confidence: v.alignment?.confidence ?? 0.85,
-      });
+    // Only verses with a real alignment get boundaries — no fabricated
+    // 8-second slots; unaligned verses are shown explicitly as such.
+    poem.verses.forEach((v) => {
+      if (v.alignment) {
+        map.set(v.id, {
+          startMs: v.alignment.startMs,
+          endMs: v.alignment.endMs,
+          status: v.alignment.status,
+          confidence: v.alignment.confidence,
+        });
+      }
     });
     return map;
   });
@@ -59,13 +63,15 @@ export const BoundaryReviewEditor: React.FC<BoundaryReviewEditorProps> = ({
 
   useEffect(() => {
     const next = new Map<string, { startMs: number; endMs: number; status: AlignmentStatus; confidence: number }>();
-    poem.verses.forEach((verse, index) => {
-      next.set(verse.id, {
-        startMs: verse.alignment?.startMs ?? index * 8000,
-        endMs: verse.alignment?.endMs ?? (index + 1) * 8000,
-        status: verse.alignment?.status ?? "auto",
-        confidence: verse.alignment?.confidence ?? 0.85,
-      });
+    poem.verses.forEach((verse) => {
+      if (verse.alignment) {
+        next.set(verse.id, {
+          startMs: verse.alignment.startMs,
+          endMs: verse.alignment.endMs,
+          status: verse.alignment.status,
+          confidence: verse.alignment.confidence,
+        });
+      }
     });
     setBoundaries(next);
     setSelectedVerseId(poem.verses[0]?.id || "");
@@ -158,7 +164,11 @@ export const BoundaryReviewEditor: React.FC<BoundaryReviewEditorProps> = ({
     }
   };
 
-  const totalDuration = durationMs || poem.recordings[0]?.durationMs || poem.verses.length * 8000;
+  const lastAlignedEnd = poem.verses.reduce(
+    (max, v) => (v.alignment ? Math.max(max, v.alignment.endMs) : max),
+    0
+  );
+  const totalDuration = durationMs || poem.recordings[0]?.durationMs || lastAlignedEnd;
 
   // Move the selected boundary to the middle for quick manual auditioning.
   const handleSplitVerse = () => {
@@ -263,28 +273,61 @@ export const BoundaryReviewEditor: React.FC<BoundaryReviewEditorProps> = ({
                 </div>
 
                 <div className="flex items-center gap-3 shrink-0">
-                  <div className="text-right font-mono text-xs ltr-num text-parchment-300">
-                    <span>{formatTime(b?.startMs || 0, true)}</span>
-                    <span className="text-charcoal-600 mx-1">→</span>
-                    <span>{formatTime(b?.endMs || 0, true)}</span>
-                  </div>
+                  {b ? (
+                    <div className="text-right font-mono text-xs ltr-num text-parchment-300">
+                      <span>{formatTime(b.startMs, true)}</span>
+                      <span className="text-charcoal-600 mx-1">→</span>
+                      <span>{formatTime(b.endMs, true)}</span>
+                    </div>
+                  ) : (
+                    <span className="text-xs text-parchment-500">—</span>
+                  )}
 
                   <span
                     className={`px-2 py-0.5 rounded-md text-[10px] font-semibold border ${
-                      status === "reviewed"
+                      !b
+                        ? "bg-charcoal-800 text-parchment-400 border-charcoal-700"
+                        : status === "reviewed"
                         ? "bg-emerald-500/15 text-emerald-300 border-emerald-500/30"
                         : status === "manual"
                         ? "bg-amber-500/15 text-amber-300 border-amber-500/30"
+                        : status === "review"
+                        ? "bg-rose-500/15 text-rose-300 border-rose-500/30"
                         : "bg-sky-500/15 text-sky-300 border-sky-500/30"
                     }`}
                   >
-                    {status === "reviewed" ? "مدقق" : status === "manual" ? "يدوي" : "آلي"}
+                    {!b
+                      ? "غير محاذى"
+                      : status === "reviewed"
+                      ? "مدقق"
+                      : status === "manual"
+                      ? "يدوي"
+                      : status === "review"
+                      ? "بحاجة لمراجعة"
+                      : "آلي"}
                   </span>
                 </div>
               </div>
             );
           })}
         </div>
+
+        {/* Right: Unaligned verse notice */}
+        {selectedVerse && !selectedBoundary && (
+          <div className="w-96 bg-charcoal-900/50 p-6 shrink-0 flex flex-col gap-3">
+            <h3 className="text-sm font-bold text-parchment-100">
+              البيت رقم {toArabicDigits(selectedVerse.orderIndex)}
+            </h3>
+            <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs leading-relaxed flex items-start gap-2">
+              <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+              <span>
+                لا توجد محاذاة زمنية لهذا البيت — لم تنجح المحاذاة التلقائية أو حُفظت القصيدة بدون
+                تسجيل صوتي محاذى. لا تُعرض حدود زمنية مصطنعة؛ أعد تشغيل المحاذاة من الاستيراد أو
+                أضف الحدود يدويًا من مشغّل القصيدة.
+              </span>
+            </div>
+          </div>
+        )}
 
         {/* Right: Fine Nudge & Inspection Controls */}
         {selectedVerse && selectedBoundary && (

@@ -1,9 +1,27 @@
+"""
+Boundary refinement between verses.
+
+The boundary between verse i and verse i+1 is placed just before the first
+word of verse i+1 (anchor-based), never at the midpoint of a long silence:
+the previous verse stays highlighted while the reciter pauses. A VAD silence
+that covers the inter-verse gap raises boundary confidence; silences *inside*
+a verse are never chosen as boundaries because candidates are restricted to
+the gap between the last matched word of verse i and the first matched word
+of verse i+1.
+"""
 from __future__ import annotations
-import math
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import List, Dict, Any, Optional, Tuple
-from ..schemas.transcript import TimedWord
-from ..audio.vad import AudioRegion, VadAnalysisResult
+from ..audio.vad import AudioRegion
+
+# Switch the highlight this many ms before the next verse's first word starts.
+BOUNDARY_LEAD_MS = 100
+# Minimum silence duration considered a real inter-verse pause.
+MIN_BOUNDARY_SILENCE_MS = 250
+# Every verse keeps a strictly positive span even when ASR timestamps
+# overlap or interpolation lands in a zero-width gap; anchored boundaries
+# are moved by the minimum amount necessary (1ms), never by a fixed pad.
+MIN_POSITIVE_SPAN_MS = 1
 
 @dataclass
 class VerseSyncDiagnostic:
@@ -15,7 +33,7 @@ class VerseSyncDiagnostic:
     final_end_ms: int
     next_verse_start_ms: int
     boundary_confidence: float
-    method: str  # 'vad' | 'asr' | 'manual'
+    method: str  # 'vad' | 'anchor' | 'asr' | 'interpolated'
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -30,114 +48,85 @@ class VerseSyncDiagnostic:
             "method": self.method,
         }
 
-def score_silence_candidate(
-    silence: AudioRegion,
-    asr_boundary_ms: int,
-    min_silence_ms: int = 280,
-    max_useful_pause_ms: int = 2500,
-    search_window_ms: int = 1500,
-) -> float:
-    """
-    Computes boundary score:
-    score = 0.45 * silenceDurationScore + 0.35 * distanceFromAsrBoundaryScore + 0.20 * nextSpeechConfidenceScore
-    """
-    # 1. Duration score (normalized between min_silence_ms and 1200ms)
-    dur = silence.duration_ms
-    if dur < min_silence_ms:
-        return 0.0
-    duration_score = min(1.0, max(0.2, (dur - min_silence_ms) / 1000.0 + 0.4))
-
-    # 2. Distance score (closer to ASR boundary -> higher score)
-    silence_mid = (silence.start_ms + silence.end_ms) / 2.0
-    dist = abs(silence_mid - asr_boundary_ms)
-    if dist > search_window_ms:
-        return 0.0
-    distance_score = max(0.0, 1.0 - (dist / search_window_ms))
-
-    # 3. Next speech confidence score
-    confidence_score = silence.confidence
-
-    score = (
-        0.45 * duration_score +
-        0.35 * distance_score +
-        0.20 * confidence_score
-    )
-    return score
+def _find_gap_silence(
+    silence_regions: List[AudioRegion],
+    gap_start_ms: int,
+    gap_end_ms: int,
+) -> Optional[AudioRegion]:
+    """Largest silence that overlaps the inter-verse gap (never inside a verse)."""
+    best: Optional[AudioRegion] = None
+    for sil in silence_regions:
+        ov_start = max(sil.start_ms, gap_start_ms)
+        ov_end = min(sil.end_ms, gap_end_ms)
+        overlap = ov_end - ov_start
+        if overlap >= MIN_BOUNDARY_SILENCE_MS:
+            if best is None or overlap > (min(best.end_ms, gap_end_ms) - max(best.start_ms, gap_start_ms)):
+                best = sil
+    return best
 
 def refine_boundaries_with_silence(
     raw_verse_alignments: List[Dict[str, Any]],
     silence_regions: List[AudioRegion],
     audio_duration_ms: int,
-    search_window_ms: int = 1500,
-    lead_time_ms: int = 100,
+    lead_time_ms: int = BOUNDARY_LEAD_MS,
 ) -> Tuple[List[Dict[str, Any]], List[VerseSyncDiagnostic]]:
-    """
-    Refines ASR verse boundaries using nearby VAD silence detection.
-    Sets nextVerse.start_ms = max(silenceStart, silenceEnd - 100).
-    Keeps first verse start timestamp intact.
-    """
     if not raw_verse_alignments:
         return [], []
 
-    refined_alignments: List[Dict[str, Any]] = []
+    refined: List[Dict[str, Any]] = []
     diagnostics: List[VerseSyncDiagnostic] = []
-    n_verses = len(raw_verse_alignments)
+    n = len(raw_verse_alignments)
 
-    # First verse start remains exact
-    first_v_start = raw_verse_alignments[0]["start_ms"]
+    current_start = raw_verse_alignments[0]["start_ms"]
 
-    current_verse_start = first_v_start
-
-    for i in range(n_verses):
+    for i in range(n):
         curr = raw_verse_alignments[i]
+        info = curr["info"]
+        v_id = info["id"]
+        order_idx = info["order_index"]
         asr_end = curr["last_word_end_ms"]
-        v_id = curr["info"]["id"]
-        order_idx = curr["info"]["order_index"]
+        anchored = bool(curr.get("anchored", True))
 
-        if i < n_verses - 1:
+        sil_start_rec: Optional[int] = None
+        sil_end_rec: Optional[int] = None
+
+        if i < n - 1:
             nxt = raw_verse_alignments[i + 1]
-            asr_midpoint = (curr["last_word_end_ms"] + nxt["first_word_start_ms"]) // 2
+            next_first = nxt["first_word_start_ms"]
+            gap_start = curr["last_word_end_ms"]
 
-            # Search for candidate silences within search_window_ms (±1500ms) of ASR midpoint
-            candidate_silences: List[Tuple[AudioRegion, float]] = []
-            for sil in silence_regions:
-                # Must occur after current speech start and before next speech end
-                if sil.start_ms >= curr["first_word_start_ms"] and sil.end_ms <= nxt["last_word_end_ms"] + 1000:
-                    sc = score_silence_candidate(sil, asr_midpoint, search_window_ms=search_window_ms)
-                    if sc > 0.35:
-                        candidate_silences.append((sil, sc))
-
-            if candidate_silences:
-                # Pick best scoring silence
-                best_sil, best_sc = max(candidate_silences, key=lambda x: x[1])
-                sil_start = best_sil.start_ms
-                sil_end = best_sil.end_ms
-
-                # Switch ~100ms before next speech begins, keeping previous verse highlighted during silence
-                next_start = max(sil_start, sil_end - lead_time_ms)
-                final_end = next_start
-                method = "vad"
-                confidence = min(1.0, max(curr["confidence"], best_sc))
-                sil_start_rec = sil_start
-                sil_end_rec = sil_end
+            if next_first > gap_start:
+                # Boundary sits just before the next verse's first word,
+                # so silence in the gap keeps THIS verse highlighted.
+                boundary = max(gap_start, next_first - lead_time_ms)
+                method = "anchor"
+                confidence = curr["confidence"]
+                sil = _find_gap_silence(silence_regions, gap_start, next_first)
+                if sil is not None:
+                    method = "vad"
+                    sil_start_rec = sil.start_ms
+                    sil_end_rec = sil.end_ms
+                    confidence = min(1.0, confidence + 0.05)
             else:
-                # Fallback to ASR midpoint
-                next_start = asr_midpoint
-                final_end = asr_midpoint
+                # Overlapping/touching words: fall back to midpoint
+                boundary = (gap_start + next_first) // 2 if next_first < gap_start else gap_start
                 method = "asr"
                 confidence = curr["confidence"]
-                sil_start_rec = None
-                sil_end_rec = None
+
+            boundary = max(boundary, current_start)
+            final_end = boundary
+            next_start = boundary
         else:
-            # Final verse extends up to end of recording or last word + 500ms
-            final_end = max(curr["last_word_end_ms"] + 500, min(audio_duration_ms, curr["last_word_end_ms"] + 1500))
-            if audio_duration_ms > 0 and final_end > audio_duration_ms:
-                final_end = audio_duration_ms
+            final_end = curr["last_word_end_ms"] + 500
+            if audio_duration_ms > 0:
+                final_end = min(max(final_end, curr["last_word_end_ms"]), audio_duration_ms)
+            final_end = max(final_end, current_start)
             next_start = final_end
-            method = "asr"
+            method = "anchor" if anchored else "interpolated"
             confidence = curr["confidence"]
-            sil_start_rec = None
-            sil_end_rec = None
+
+        if not anchored:
+            method = "interpolated"
 
         diag = VerseSyncDiagnostic(
             verse_id=v_id,
@@ -152,28 +141,71 @@ def refine_boundaries_with_silence(
         )
         diagnostics.append(diag)
 
-        duration = max(1000, final_end - current_verse_start)
-        h1_len = len(curr["info"]["first_tokens"])
-        h2_len = len(curr["info"]["second_tokens"])
-        h1_ratio = h1_len / (h1_len + h2_len) if (h1_len + h2_len) > 0 else 0.5
-        h1_end = int(current_verse_start + (duration * h1_ratio))
+        # Hemistich split: prefer anchor-derived split, else word-count ratio
+        split = curr.get("hemistich_split_ms")
+        if split is None or not (current_start < split < final_end):
+            duration = max(1, final_end - current_start)
+            h1_len = len(info["first_tokens"])
+            h2_len = len(info["second_tokens"])
+            h1_ratio = h1_len / (h1_len + h2_len) if (h1_len + h2_len) > 0 else 0.5
+            split = int(current_start + duration * h1_ratio)
 
-        refined_alignments.append({
+        status = "auto" if anchored else "review"
+
+        refined.append({
             "verse_id": v_id,
             "order_index": order_idx,
-            "start_ms": current_verse_start,
+            "start_ms": current_start,
             "end_ms": final_end,
             "confidence": confidence,
-            "status": "auto",
-            "first_hemistich_end_ms": h1_end,
-            "second_hemistich_start_ms": h1_end,
+            "status": status,
+            "first_hemistich_end_ms": split,
+            "second_hemistich_start_ms": split,
             "matched_words_count": curr["matched_count"],
-            "total_words_count": len(curr["info"]["tokens"]),
+            "total_words_count": len(info["tokens"]),
             "first_word_start_ms": curr["first_word_start_ms"],
             "last_word_end_ms": curr["last_word_end_ms"],
             "diagnostic": diag.to_dict(),
         })
 
-        current_verse_start = next_start
+        current_start = next_start
 
-    return refined_alignments, diagnostics
+    # --- Boundary-chain normalization -------------------------------------
+    # Guarantees, in priority order:
+    #   1. end_ms <= audio_duration_ms for every verse (hard bound)
+    #   2. strictly positive spans (end > start) whenever the recording allows
+    #   3. monotonic non-decreasing boundaries
+    # Anchored timestamps are only moved by the minimum needed (1ms steps),
+    # never padded by a fixed amount.
+    chain = [refined[0]["start_ms"]] + [r["end_ms"] for r in refined]
+    chain[0] = max(0, chain[0])
+    for i in range(1, n + 1):
+        chain[i] = max(chain[i], chain[i - 1] + MIN_POSITIVE_SPAN_MS)
+    if audio_duration_ms > 0 and chain[n] > audio_duration_ms:
+        chain[n] = audio_duration_ms
+        for i in range(n - 1, -1, -1):
+            chain[i] = min(chain[i], chain[i + 1] - MIN_POSITIVE_SPAN_MS)
+        chain[0] = max(0, chain[0])
+        for i in range(1, n + 1):
+            # Re-assert monotonicity; cap at the recording length so the
+            # duration bound is never violated even for degenerate audio.
+            lower = chain[i - 1] + MIN_POSITIVE_SPAN_MS
+            chain[i] = max(chain[i], min(lower, audio_duration_ms))
+
+    for i, r in enumerate(refined):
+        start, end = chain[i], chain[i + 1]
+        if r["start_ms"] != start or r["end_ms"] != end:
+            r["start_ms"] = start
+            r["end_ms"] = end
+            split = r["first_hemistich_end_ms"]
+            if not (start < split < end):
+                split = start + max(1, (end - start) // 2)
+            r["first_hemistich_end_ms"] = split
+            r["second_hemistich_start_ms"] = split
+            r["diagnostic"]["final_end_ms"] = end
+            diagnostics[i].final_end_ms = end
+            if i < n - 1:
+                r["diagnostic"]["next_verse_start_ms"] = chain[i + 1]
+                diagnostics[i].next_verse_start_ms = chain[i + 1]
+
+    return refined, diagnostics
