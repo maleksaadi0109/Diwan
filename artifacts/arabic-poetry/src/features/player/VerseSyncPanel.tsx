@@ -18,12 +18,15 @@ interface VerseSyncPanelProps {
     status: "reviewed" | "manual"
   ) => Promise<void> | void;
   onApplyOffset?: (offsetMs: number, includeFollowing: boolean) => Promise<void> | void;
+  onCreate?: (verseId: string, startMs: number, endMs: number) => Promise<void> | void;
 }
 
 function initialBoundary(verse: Verse): { startMs: number; endMs: number } {
+  // No fabricated timing: an unaligned verse starts from empty (0/0) values
+  // that the user must fill in manually, with an explicit notice shown.
   return {
-    startMs: verse.alignment?.startMs ?? Math.max(0, (verse.orderIndex - 1) * 8000),
-    endMs: verse.alignment?.endMs ?? verse.orderIndex * 8000,
+    startMs: verse.alignment?.startMs ?? 0,
+    endMs: verse.alignment?.endMs ?? 0,
   };
 }
 
@@ -37,6 +40,7 @@ export const VerseSyncPanel: React.FC<VerseSyncPanelProps> = ({
   onTogglePlay,
   onSave,
   onApplyOffset,
+  onCreate,
 }) => {
   const [startMs, setStartMs] = useState(() => initialBoundary(verse).startMs);
   const [endMs, setEndMs] = useState(() => initialBoundary(verse).endMs);
@@ -90,7 +94,7 @@ export const VerseSyncPanel: React.FC<VerseSyncPanelProps> = ({
   };
 
   const saveBoundary = async () => {
-    if (!verse.alignment) {
+    if (!verse.alignment && !onCreate) {
       showMessage("لا توجد محاذاة محفوظة لهذا البيت بعد.");
       return;
     }
@@ -101,7 +105,11 @@ export const VerseSyncPanel: React.FC<VerseSyncPanelProps> = ({
     }
     setIsSaving(true);
     try {
-      await onSave(verse.alignment.id, Math.round(startMs), Math.round(endMs), "manual");
+      if (verse.alignment) {
+        await onSave(verse.alignment.id, Math.round(startMs), Math.round(endMs), "manual");
+      } else {
+        await onCreate!(verse.id, Math.round(startMs), Math.round(endMs));
+      }
       showMessage("تم حفظ تصحيح توقيت البيت.");
     } catch (err) {
       showMessage(err instanceof Error ? err.message : "تعذر حفظ التصحيح.");
@@ -169,6 +177,13 @@ export const VerseSyncPanel: React.FC<VerseSyncPanelProps> = ({
           {isLooping ? "إيقاف التكرار" : "تكرار البيت"}
         </button>
       </div>
+
+      {!verse.alignment && (
+        <div className="rounded-xl bg-rose-500/10 border border-rose-500/30 px-3 py-2 text-[11px] text-rose-300 leading-relaxed">
+          هذا البيت غير محاذى بعد — لا تُعرض حدود زمنية مصطنعة. استخدم زري الالتقاط لتحديد
+          البداية والنهاية من موضع الصوت الحالي ثم احفظ.
+        </div>
+      )}
 
       <div className="grid grid-cols-2 gap-2 text-xs">
         <label className="space-y-1">

@@ -70,7 +70,7 @@ export interface Verse {
   explanations?: VerseExplanationItem[];
 }
 
-export type AlignmentStatus = 'auto' | 'reviewed' | 'manual';
+export type AlignmentStatus = 'auto' | 'review' | 'reviewed' | 'manual';
 
 export interface VerseAlignment {
   id: string;

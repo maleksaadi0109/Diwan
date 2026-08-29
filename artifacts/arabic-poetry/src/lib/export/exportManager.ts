@@ -50,10 +50,14 @@ export function exportLrc(poem: Poem): string {
     "",
   ];
 
-  poem.verses.forEach((verse, idx) => {
-    const startMs = verse.alignment?.startMs ?? idx * 8000;
-    const tag = formatLrcTimestamp(startMs);
-    lines.push(`${tag}${verse.text}`);
+  // Only verses with a real alignment get timestamps — unaligned verses are
+  // included as untimed comment lines rather than with invented timing.
+  poem.verses.forEach((verse) => {
+    if (verse.alignment) {
+      lines.push(`${formatLrcTimestamp(verse.alignment.startMs)}${verse.text}`);
+    } else {
+      lines.push(`# [غير محاذى] ${verse.text}`);
+    }
   });
 
   return lines.join("\n");
@@ -65,15 +69,16 @@ export function exportLrc(poem: Poem): string {
 export function exportSrt(poem: Poem): string {
   const blocks: string[] = [];
 
-  poem.verses.forEach((verse, idx) => {
-    const startMs = verse.alignment?.startMs ?? idx * 8000;
-    const endMs = verse.alignment?.endMs ?? (idx + 1) * 8000;
-
-    const startTag = formatSrtTimestamp(startMs);
-    const endTag = formatSrtTimestamp(endMs);
-
+  // SRT is strictly timed: unaligned verses are skipped entirely instead of
+  // being exported with fabricated timestamps.
+  let counter = 0;
+  poem.verses.forEach((verse) => {
+    if (!verse.alignment) return;
+    counter += 1;
+    const startTag = formatSrtTimestamp(verse.alignment.startMs);
+    const endTag = formatSrtTimestamp(verse.alignment.endMs);
     blocks.push(
-      `${idx + 1}\n${startTag} --> ${endTag}\n${verse.firstHemistich} ... ${verse.secondHemistich}`
+      `${counter}\n${startTag} --> ${endTag}\n${verse.firstHemistich} ... ${verse.secondHemistich}`
     );
   });
 

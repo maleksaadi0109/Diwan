@@ -112,6 +112,40 @@ export function App() {
     [repo, activePoem]
   );
 
+  const handleCreateBoundary = useCallback(
+    async (verseId: string, startMs: number, endMs: number) => {
+      if (!repo || !activePoem) throw new Error("لا توجد قاعدة بيانات نشطة.");
+      const verse = activePoem.verses.find((item) => item.id === verseId);
+      if (!verse) throw new Error("تعذر العثور على البيت.");
+      if (verse.alignment) throw new Error("هذا البيت محاذى بالفعل.");
+      const recording =
+        activePoem.recordings.find((item) => item.id === activePoem.defaultRecordingId) ||
+        activePoem.recordings[0];
+      if (!recording) throw new Error("لا يوجد تسجيل صوتي لهذه القصيدة.");
+      if (!Number.isFinite(startMs) || !Number.isFinite(endMs) || startMs < 0 || endMs <= startMs + 300) {
+        throw new Error("يجب أن تكون حدود البيت صحيحة ومدة البيت أكثر من 300 مللي ثانية.");
+      }
+      if (recording.durationMs > 0 && endMs > recording.durationMs) {
+        throw new Error("نهاية البيت تتجاوز مدة التسجيل.");
+      }
+      await repo.saveAlignment({
+        id: `align-manual-${verseId}-${Date.now()}`,
+        verseId,
+        recordingId: recording.id,
+        startMs: Math.round(startMs),
+        endMs: Math.round(endMs),
+        confidence: 1.0,
+        status: "manual",
+      });
+      const refreshed = await repo.getPoemById(activePoem.id);
+      if (refreshed) {
+        setActivePoem(refreshed);
+        setPoems((prev) => prev.map((p) => (p.id === refreshed.id ? refreshed : p)));
+      }
+    },
+    [repo, activePoem]
+  );
+
   const handleSaveExplanations = useCallback(
     async (verseId: string, items: VerseExplanationItem[]) => {
       if (repo) await repo.saveVerseExplanations(verseId, items);
@@ -217,6 +251,7 @@ export function App() {
                 <PoemPlayerView
                   poem={activePoem}
                   onUpdateBoundary={handleUpdateBoundary}
+                  onCreateBoundary={handleCreateBoundary}
                   onSaveExplanations={handleSaveExplanations}
                   onApplyOffset={handleApplyOffset}
                 />

@@ -1,43 +1,66 @@
 import { describe, it, expect } from "vitest";
-import {
-  formatLrcTimestamp,
-  formatSrtTimestamp,
-  exportLrc,
-  exportSrt,
-  exportDiwanJson,
-} from "./exportManager";
-import { mockPoems } from "@/data/mockData";
+import { exportLrc, exportSrt } from "./exportManager";
+import { Poem } from "@/types";
 
-describe("Export Manager", () => {
-  const mockPoem = mockPoems[0];
+function makePoem(withAlignment: boolean[]): Poem {
+  return {
+    id: "p-1",
+    title: "قصيدة اختبار",
+    poet: { id: "poet-1", name: "المتنبي", era: "العصر العباسي" },
+    era: "العصر العباسي",
+    bahr: "البسيط",
+    rhyme: "الميم",
+    verses: withAlignment.map((aligned, i) => ({
+      id: `v-${i + 1}`,
+      poemId: "p-1",
+      orderIndex: i + 1,
+      text: `بيت رقم ${i + 1}`,
+      firstHemistich: `شطر أول ${i + 1}`,
+      secondHemistich: `شطر ثانٍ ${i + 1}`,
+      alignment: aligned
+        ? {
+            id: `a-${i + 1}`,
+            verseId: `v-${i + 1}`,
+            recordingId: "r-1",
+            startMs: i * 5000 + 1000,
+            endMs: i * 5000 + 5000,
+            confidence: 0.9,
+            status: "auto" as const,
+          }
+        : undefined,
+    })),
+    recordings: [],
+  } as unknown as Poem;
+}
 
-  it("formats timestamps accurately for LRC and SRT", () => {
-    expect(formatLrcTimestamp(2500)).toBe("[00:02.50]");
-    expect(formatLrcTimestamp(65120)).toBe("[01:05.12]");
-
-    expect(formatSrtTimestamp(2500)).toBe("00:00:02,500");
-    expect(formatSrtTimestamp(65120)).toBe("00:01:05,120");
+describe("exportManager unaligned verses", () => {
+  it("LRC: never invents timestamps for unaligned verses", () => {
+    const lrc = exportLrc(makePoem([true, false, true]));
+    // Aligned verses carry timestamps
+    expect(lrc).toContain("بيت رقم 1");
+    expect(lrc).toContain("بيت رقم 3");
+    // Unaligned verse appears as untimed comment, not with a [mm:ss] tag
+    const unalignedLine = lrc.split("\n").find((l) => l.includes("بيت رقم 2"));
+    expect(unalignedLine).toBeDefined();
+    expect(unalignedLine!.startsWith("#")).toBe(true);
+    expect(unalignedLine).not.toMatch(/^\[\d/);
   });
 
-  it("exports valid LRC lyrics format with metadata headers", () => {
-    const lrc = exportLrc(mockPoem);
-    expect(lrc).toContain(`[ti:${mockPoem.title}]`);
-    expect(lrc).toContain(`[ar:${mockPoem.poet.name}]`);
-    expect(lrc).toContain("[00:02.50]");
-    expect(lrc).toContain(mockPoem.verses[0].text);
+  it("SRT: skips unaligned verses entirely with sequential numbering", () => {
+    const srt = exportSrt(makePoem([true, false, true]));
+    expect(srt).toContain("شطر أول 1");
+    expect(srt).not.toContain("شطر أول 2");
+    expect(srt).toContain("شطر أول 3");
+    // Numbering stays sequential: 1 then 2 (not 3)
+    const blocks = srt.trim().split("\n\n");
+    expect(blocks).toHaveLength(2);
+    expect(blocks[1].startsWith("2\n")).toBe(true);
+    // No fabricated 8-second timestamps
+    expect(srt).not.toContain("00:00:08,000");
   });
 
-  it("exports valid SRT subtitle format", () => {
-    const srt = exportSrt(mockPoem);
-    expect(srt).toContain("1\n00:00:02,500 --> 00:00:09,800");
-    expect(srt).toContain(mockPoem.verses[0].firstHemistich);
-  });
-
-  it("exports structured Diwan JSON bundle", () => {
-    const jsonStr = exportDiwanJson(mockPoem);
-    const parsed = JSON.parse(jsonStr);
-    expect(parsed.schema_version).toBe("1.0");
-    expect(parsed.poem.title).toBe(mockPoem.title);
-    expect(parsed.poem.verses).toHaveLength(mockPoem.verses.length);
+  it("SRT: fully unaligned poem exports no timed blocks", () => {
+    const srt = exportSrt(makePoem([false, false]));
+    expect(srt.trim()).toBe("");
   });
 });

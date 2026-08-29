@@ -129,8 +129,12 @@ def transcribe_arabic_audio(
     try:
         from faster_whisper import WhisperModel  # type: ignore
     except ImportError:
-        # Graceful fallback to synthetic model if faster-whisper is not available in host
-        return generate_mock_arabic_transcript(audio_path, model_size, device, on_progress)
+        # No silent synthetic fallback: fabricated words would produce fake
+        # alignments presented as real. Callers must pass mock=True explicitly.
+        raise RuntimeError(
+            "ASR_UNAVAILABLE: مكوّن faster-whisper غير مثبت؛ لا يمكن إجراء تفريغ صوتي حقيقي. "
+            "ثبّت faster-whisper أو استخدم الوضع التجريبي (mock) بشكل صريح."
+        )
 
     if on_progress:
         on_progress(0.15, f"جاري تحميل نموذج Whisper ({model_size}) على {device}...")

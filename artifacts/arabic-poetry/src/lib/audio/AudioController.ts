@@ -26,23 +26,40 @@ export interface AudioPlayerState {
 export type StateListener = (state: AudioPlayerState) => void;
 
 /**
+ * Short stability margin for FORWARD transitions during playback:
+ * the highlight only advances once the next verse's start has clearly begun,
+ * preventing flicker/premature switching at boundaries. Manual seeks are immediate.
+ */
+export const FORWARD_SWITCH_MARGIN_MS = 80;
+
+/**
  * Fast binary search for active verse lookup:
  * start_ms <= currentMs && currentMs < end_ms
+ * Gaps between verses keep the PREVIOUS verse highlighted (silence belongs
+ * to the verse that just ended, never to the one that has not started).
  */
 export function findActiveVerseIndexBinary(verses: Verse[], currentMs: number): number {
   if (!verses || verses.length === 0) return -1;
 
+  // Only verses with a REAL alignment participate in timing — verses without
+  // one are non-timed and are never highlighted (no fabricated 8s slots).
+  const timed: number[] = [];
+  for (let i = 0; i < verses.length; i++) {
+    if (verses[i].alignment) timed.push(i);
+  }
+  if (timed.length === 0) return -1;
+
   let low = 0;
-  let high = verses.length - 1;
+  let high = timed.length - 1;
 
   while (low <= high) {
     const mid = (low + high) >> 1;
-    const v = verses[mid];
-    const startMs = v.alignment ? Number(v.alignment.startMs) : mid * 8000;
-    const endMs = v.alignment ? Number(v.alignment.endMs) : (mid + 1) * 8000;
+    const v = verses[timed[mid]];
+    const startMs = Number(v.alignment!.startMs);
+    const endMs = Number(v.alignment!.endMs);
 
     if (currentMs >= startMs && currentMs < endMs) {
-      return mid;
+      return timed[mid];
     } else if (currentMs < startMs) {
       high = mid - 1;
     } else {
@@ -50,24 +67,20 @@ export function findActiveVerseIndexBinary(verses: Verse[], currentMs: number): 
     }
   }
 
-  // Before first verse
-  const firstStart = verses[0]?.alignment ? Number(verses[0].alignment.startMs) : 0;
-  if (currentMs < firstStart) return 0;
+  // Before first timed verse
+  const firstStart = Number(verses[timed[0]].alignment!.startMs);
+  if (currentMs < firstStart) return timed[0];
 
-  // After last verse
-  const lastEnd = verses[verses.length - 1]?.alignment
-    ? Number(verses[verses.length - 1].alignment!.endMs)
-    : verses.length * 8000;
-  if (currentMs >= lastEnd) return verses.length - 1;
+  // After last timed verse
+  const lastEnd = Number(verses[timed[timed.length - 1]].alignment!.endMs);
+  if (currentMs >= lastEnd) return timed[timed.length - 1];
 
-  // Nearest preceding verse boundary
-  for (let i = verses.length - 1; i >= 0; i--) {
-    const v = verses[i];
-    const s = v.alignment ? Number(v.alignment.startMs) : i * 8000;
-    if (currentMs >= s) return i;
+  // Gap between timed verses: keep the nearest preceding timed verse
+  for (let i = timed.length - 1; i >= 0; i--) {
+    if (currentMs >= Number(verses[timed[i]].alignment!.startMs)) return timed[i];
   }
 
-  return 0;
+  return timed[0];
 }
 
 export class AudioController {
@@ -279,8 +292,9 @@ export class AudioController {
   }
 
   public seekToVerse(verse: Verse): void {
-    const startMs = verse.alignment ? Number(verse.alignment.startMs) : (verse.orderIndex - 1) * 8000;
-    this.seekTo(startMs);
+    // Verses without a real alignment are non-timed: never fabricate a target.
+    if (!verse.alignment) return;
+    this.seekTo(Number(verse.alignment.startMs));
   }
 
   public nextVerse(): void {
@@ -326,6 +340,24 @@ export class AudioController {
 
   public findActiveVerseIndex(currentMs: number): number {
     return findActiveVerseIndexBinary(this.verses, currentMs);
+  }
+
+  /**
+   * Active verse lookup with the forward stability margin applied — used by
+   * both real playback (RAF loop) and simulated playback. Only advancing by
+   * exactly one verse is delayed until the next verse's start has clearly
+   * begun; seeks and backward changes stay immediate.
+   */
+  private computeStableActiveIndex(currentMs: number): number {
+    let activeIdx = findActiveVerseIndexBinary(this.verses, currentMs);
+    const prevIdx = this.state.activeVerseIndex;
+    if (activeIdx === prevIdx + 1 && prevIdx >= 0 && activeIdx < this.verses.length) {
+      const nextAlignment = this.verses[activeIdx].alignment;
+      if (nextAlignment && currentMs < Number(nextAlignment.startMs) + FORWARD_SWITCH_MARGIN_MS) {
+        activeIdx = prevIdx;
+      }
+    }
+    return activeIdx;
   }
 
   /**
@@ -375,7 +407,8 @@ export class AudioController {
       }
 
       const currentMs = Math.round(this.audio.currentTime * 1000);
-      const activeIdx = findActiveVerseIndexBinary(this.verses, currentMs);
+      const activeIdx = this.computeStableActiveIndex(currentMs);
+
       const verseChanged = activeIdx !== this.state.activeVerseIndex;
 
       // Active verse highlight changes IMMEDIATELY without delay
@@ -466,7 +499,7 @@ export class AudioController {
           currentTimeMs: this.state.durationMs,
         });
       } else {
-        const activeIdx = findActiveVerseIndexBinary(this.verses, next);
+        const activeIdx = this.computeStableActiveIndex(next);
         const activeVerse = activeIdx >= 0 && activeIdx < this.verses.length ? this.verses[activeIdx] : null;
         this.updateState({
           currentTimeMs: next,

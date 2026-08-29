@@ -1,6 +1,5 @@
 import pytest
 from diwan_worker.alignment.aligner import align_transcript_to_verses
-from diwan_worker.alignment.silence_aligner import score_silence_candidate
 from diwan_worker.audio.vad import AudioRegion
 from diwan_worker.schemas.transcript import TimedWord
 
@@ -72,15 +71,37 @@ def test_1_normal_pause_between_verses(sample_verses, base_mock_words):
     assert v2.start_ms == 8300
     assert v1.diagnostic["method"] == "vad"
 
-def test_2_short_breathing_pause_inside_verse(sample_verses):
-    silence_candidate = AudioRegion(start_ms=3300, end_ms=3420, duration_ms=120, is_speech=False, confidence=0.8)
-    score = score_silence_candidate(silence_candidate, asr_boundary_ms=7500, min_silence_ms=280)
-    assert score == 0.0
+def test_2_short_breathing_pause_inside_verse(sample_verses, base_mock_words):
+    # A 120ms breathing pause inside verse 1 must never become a boundary.
+    silences = [
+        AudioRegion(start_ms=3300, end_ms=3420, duration_ms=120, is_speech=False, confidence=0.8)
+    ]
+    result = align_transcript_to_verses(
+        verses=sample_verses,
+        transcript_words=base_mock_words,
+        audio_duration_ms=17000,
+        silence_regions=silences,
+    )
+    # Boundary stays anchored just before verse 2's first word (8400 - 100)
+    assert result.alignments[0].end_ms == 8300
+    assert result.alignments[1].start_ms == 8300
 
-def test_3_pause_between_hemistichs_does_not_split_verse(sample_verses):
-    silence_candidate = AudioRegion(start_ms=4000, end_ms=4350, duration_ms=350, is_speech=False, confidence=0.9)
-    score = score_silence_candidate(silence_candidate, asr_boundary_ms=7500, search_window_ms=1500)
-    assert score == 0.0
+def test_3_pause_between_hemistichs_does_not_split_verse(sample_verses, base_mock_words):
+    # A real 350ms pause between hemistichs (inside verse 1) is not a boundary:
+    # candidates are restricted to the inter-verse gap.
+    silences = [
+        AudioRegion(start_ms=4000, end_ms=4350, duration_ms=350, is_speech=False, confidence=0.9)
+    ]
+    result = align_transcript_to_verses(
+        verses=sample_verses,
+        transcript_words=base_mock_words,
+        audio_duration_ms=17000,
+        silence_regions=silences,
+    )
+    assert result.alignments[0].end_ms == 8300
+    assert result.alignments[1].start_ms == 8300
+    assert result.alignments[0].diagnostic["method"] in ("anchor", "vad")
+    assert result.alignments[0].diagnostic["detected_silence_start_ms"] != 4000
 
 def test_4_long_silence_before_next_verse(sample_verses):
     # Long pause of 2200ms between verses (from 7500ms to 9700ms)
@@ -185,10 +206,11 @@ def test_6_recitation_with_no_clear_silence(sample_verses):
         silence_regions=[],
     )
 
-    # Midpoint between 7500 and 7600 is 7550
-    assert result.alignments[0].end_ms == 7550
-    assert result.alignments[1].start_ms == 7550
-    assert result.alignments[0].diagnostic["method"] == "asr"
+    # Continuous speech: boundary clamps to the small gap start (7500),
+    # anchored to verse 2's first word onset.
+    assert result.alignments[0].end_ms == 7500
+    assert result.alignments[1].start_ms == 7500
+    assert result.alignments[0].diagnostic["method"] == "anchor"
 
 def test_7_repeated_verse(sample_verses):
     mock_words = [
@@ -252,3 +274,45 @@ def test_8_first_verse_start_preserved(sample_verses):
     )
 
     assert result.alignments[0].start_ms == 2200
+
+def test_boundaries_never_exceed_audio_duration(sample_verses, base_mock_words):
+    # Even when the last word ends near the recording end, no verse boundary
+    # may exceed audio_duration_ms.
+    result = align_transcript_to_verses(
+        verses=sample_verses,
+        transcript_words=base_mock_words,
+        audio_duration_ms=16100,  # last word ends at 16000, +500 pad would overflow
+        silence_regions=[],
+    )
+    prev_end = -1
+    for a in result.alignments:
+        assert a.end_ms <= 16100
+        assert a.end_ms > a.start_ms
+        assert a.start_ms >= prev_end
+        prev_end = a.end_ms
+
+def test_trailing_unanchored_run_respects_duration():
+    from diwan_worker.schemas.transcript import TimedWord as TW
+    verses = [
+        {"id": "v-1", "order_index": 1, "text": "واحر قلباه ممن قلبه شبم",
+         "first_hemistich": "واحر قلباه", "second_hemistich": "ممن قلبه شبم"},
+        {"id": "v-2", "order_index": 2, "text": "ما لي اكتم حبا قد برى",
+         "first_hemistich": "ما لي اكتم", "second_hemistich": "حبا قد برى"},
+        {"id": "v-3", "order_index": 3, "text": "ان كان يجمعنا حب لغرته",
+         "first_hemistich": "ان كان يجمعنا", "second_hemistich": "حب لغرته"},
+    ]
+    # Only verse 1 in ASR; recording barely longer than its words.
+    words = [
+        TW(word="واحر", start_ms=100, end_ms=600, probability=0.95),
+        TW(word="قلباه", start_ms=700, end_ms=1200, probability=0.95),
+        TW(word="ممن", start_ms=1300, end_ms=1700, probability=0.95),
+        TW(word="قلبه", start_ms=1800, end_ms=2200, probability=0.95),
+        TW(word="شبم", start_ms=2300, end_ms=2800, probability=0.95),
+    ]
+    result = align_transcript_to_verses(verses, words, audio_duration_ms=2900)
+    prev_end = -1
+    for a in result.alignments:
+        assert a.end_ms <= 2900, f"verse {a.order_index} end {a.end_ms} > duration"
+        assert a.end_ms > a.start_ms
+        assert a.start_ms >= prev_end
+        prev_end = a.end_ms

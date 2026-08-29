@@ -1,11 +1,33 @@
+"""
+Hybrid monotonic poem-audio alignment ("محاذاة شعرية هجينة رتيبة").
+
+Instead of greedy verse-by-verse matching (where one bad verse shifts the rest
+of the poem), all poem tokens are aligned against all ASR words at once with a
+semi-global dynamic program:
+
+- Leading/trailing transcript words (reciter intro/outro) are free to skip.
+- Extra or missing ASR words cost a small penalty but never break monotonicity.
+- Token match scores blend orthographic and phonetic Arabic similarity and are
+  weighted by ASR word probability.
+- Verse boundaries come from real matched-word anchors; confidence reflects
+  match quality + coverage (no artificial 0.5 floor).
+- Verses that could not be anchored are interpolated and flagged status="review".
+"""
 from __future__ import annotations
 from dataclasses import dataclass, field
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Tuple
 from difflib import SequenceMatcher
-from .normalizer import normalize_arabic, tokenize_normalized
+from .normalizer import normalize_arabic, tokenize_normalized, phonetic_key
 from ..schemas.transcript import TimedWord
 from ..audio.vad import AudioRegion
 from .silence_aligner import refine_boundaries_with_silence, VerseSyncDiagnostic
+
+# Minimum similarity for a DP-matched pair to count as a reliable time anchor
+ANCHOR_MIN_SIMILARITY = 0.55
+# DP penalties (score is maximized)
+GAP_TRANSCRIPT_PENALTY = 0.18   # extra/unmatched ASR word inside the poem body
+GAP_VERSE_PENALTY = 0.28        # poem word missing from the transcript
+MIN_MATCH_SCORE = 0.35          # below this a "match" is worse than two gaps
 
 @dataclass
 class VerseAlignmentResult:
@@ -65,44 +87,164 @@ class PoemAlignmentResult:
             "diagnostics": [d.to_dict() for d in self.diagnostics],
         }
 
+from functools import lru_cache
+
+@lru_cache(maxsize=262144)
 def token_similarity(a: str, b: str) -> float:
+    """Blend of orthographic and phonetic similarity for normalized Arabic tokens.
+
+    Cached: DP over a long poem repeats the same (poem-token, ASR-word) pairs
+    many times, and the traceback re-queries pairs already scored.
+    """
     if not a or not b:
         return 0.0
     if a == b:
         return 1.0
-    return SequenceMatcher(None, a, b).ratio()
+    la, lb = len(a), len(b)
+    # Cheap upper bound: SequenceMatcher ratio <= 2*min(la,lb)/(la+lb).
+    # If even the best case is below the usable threshold, skip the expensive work.
+    ub = 2.0 * min(la, lb) / (la + lb)
+    if ub < MIN_MATCH_SCORE and not (la > 2 and a[0] in "وفبلك") and not (lb > 2 and b[0] in "وفبلك"):
+        return 0.0
+    ortho = SequenceMatcher(None, a, b).ratio()
+    pa, pb = phonetic_key(a), phonetic_key(b)
+    if pa and pa == pb:
+        phon = 1.0
+    else:
+        phon = SequenceMatcher(None, pa, pb).ratio() if pa and pb else 0.0
+    # Clitic tolerance: ASR often drops/adds a leading و/ف/ب/ل
+    stripped = 0.0
+    if len(a) > 2 and a[0] in "وفبلك" and a[1:] == b:
+        stripped = 0.9
+    elif len(b) > 2 and b[0] in "وفبلك" and b[1:] == a:
+        stripped = 0.9
+    return max(0.6 * ortho + 0.4 * phon, stripped)
 
-def find_first_reliable_match(
-    first_verse_tokens: List[str],
-    norm_transcript: List[Dict[str, Any]],
-    min_confidence: float = 0.65,
-) -> int:
+def _semi_global_align(
+    poem_tokens: List[str],
+    transcript: List[Dict[str, Any]],
+) -> List[Tuple[int, int, float]]:
     """
-    Finds the index in norm_transcript where the poem actually begins,
-    ignoring reciter intro commentary or ambient noise.
+    Semi-global DP: every poem token position vs every transcript word.
+    Leading/trailing transcript words are free (intro/outro).
+    Returns monotonic matched pairs (poem_idx, transcript_idx, similarity).
     """
-    if not first_verse_tokens or not norm_transcript:
-        return 0
+    n = len(poem_tokens)
+    m = len(transcript)
+    if n == 0 or m == 0:
+        return []
 
-    n_sample = min(4, len(first_verse_tokens))
-    sample_tokens = first_verse_tokens[:n_sample]
+    NEG = float("-inf")
+    # dp[i][j]: best score aligning first i poem tokens with first j transcript words
+    dp = [[NEG] * (m + 1) for _ in range(n + 1)]
+    back = [[0] * (m + 1) for _ in range(n + 1)]  # 1=match, 2=skip poem, 3=skip transcript
 
-    best_idx = 0
-    best_score = 0.0
+    # Free leading transcript skip; poem tokens missing at the very start still cost
+    for j in range(m + 1):
+        dp[0][j] = 0.0
+    for i in range(1, n + 1):
+        dp[i][0] = dp[i - 1][0] - GAP_VERSE_PENALTY
+        back[i][0] = 2
 
-    search_limit = min(len(norm_transcript), 35)
-    for i in range(search_limit):
-        window = [norm_transcript[j]["norm"] for j in range(i, min(len(norm_transcript), i + n_sample))]
-        score = SequenceMatcher(None, sample_tokens, window).ratio()
-        if score > best_score:
-            best_score = score
-            best_idx = i
-            if score >= 0.85:
-                break
+    for i in range(1, n + 1):
+        tok = poem_tokens[i - 1]
+        row = dp[i]
+        prev_row = dp[i - 1]
+        back_row = back[i]
+        for j in range(1, m + 1):
+            w = transcript[j - 1]
+            sim = token_similarity(tok, w["norm"])
+            # ASR probability weighting: low-confidence words earn less
+            match_score = sim * (0.7 + 0.3 * w["prob"]) if sim >= MIN_MATCH_SCORE else NEG
 
-    if best_score >= min_confidence:
-        return best_idx
-    return 0
+            best = prev_row[j] - GAP_VERSE_PENALTY
+            move = 2
+            skip_t = row[j - 1] - GAP_TRANSCRIPT_PENALTY
+            if skip_t > best:
+                best = skip_t
+                move = 3
+            if match_score > NEG:
+                mv = prev_row[j - 1] + match_score
+                if mv >= best:
+                    best = mv
+                    move = 1
+            row[j] = best
+            back_row[j] = move
+
+    # Free trailing transcript skip: end anywhere in the last row
+    best_j = max(range(m + 1), key=lambda j: dp[n][j])
+
+    pairs: List[Tuple[int, int, float]] = []
+    i, j = n, best_j
+    while i > 0 and j > 0:
+        move = back[i][j]
+        if move == 1:
+            sim = token_similarity(poem_tokens[i - 1], transcript[j - 1]["norm"])
+            pairs.append((i - 1, j - 1, sim))
+            i -= 1
+            j -= 1
+        elif move == 2:
+            i -= 1
+        else:
+            j -= 1
+    pairs.reverse()
+    return pairs
+
+def _interpolated_fallback(
+    verses_info: List[Dict[str, Any]],
+    audio_duration_ms: int,
+    poem_id: str,
+    recording_id: str,
+) -> PoemAlignmentResult:
+    """No usable transcript: word-count-proportional slices, flagged for review.
+
+    Strictly bounded by the real recording duration. If the duration is
+    unknown (<= 0) no timing can be estimated honestly, so no alignments are
+    produced — the recording is saved unaligned rather than with fabricated
+    boundaries.
+    """
+    if audio_duration_ms <= 0:
+        return PoemAlignmentResult(
+            poem_id=poem_id,
+            recording_id=recording_id,
+            overall_confidence=0.0,
+            alignments=[],
+        )
+    total_tokens = sum(max(1, len(v["tokens"])) for v in verses_info) or 1
+    alignments: List[VerseAlignmentResult] = []
+    duration = audio_duration_ms
+    cursor = 0.0
+    for v in verses_info:
+        share = max(1, len(v["tokens"])) / total_tokens * duration
+        start = int(cursor)
+        end = int(cursor + share)
+        cursor += share
+        mid = start + (end - start) // 2
+        alignments.append(
+            VerseAlignmentResult(
+                verse_id=v["id"],
+                order_index=v["order_index"],
+                start_ms=start,
+                end_ms=end,
+                confidence=0.2,
+                status="review",
+                first_hemistich_end_ms=mid,
+                second_hemistich_start_ms=mid,
+                matched_words_count=0,
+                total_words_count=len(v["tokens"]),
+                first_word_start_ms=start,
+                last_word_end_ms=end,
+                diagnostic={"method": "interpolated", "reason": "no_transcript"},
+            )
+        )
+    if alignments:
+        alignments[-1].end_ms = duration
+    return PoemAlignmentResult(
+        poem_id=poem_id,
+        recording_id=recording_id,
+        overall_confidence=0.2,
+        alignments=alignments,
+    )
 
 def align_transcript_to_verses(
     verses: List[Dict[str, Any]],
@@ -115,139 +257,126 @@ def align_transcript_to_verses(
     if not verses:
         return PoemAlignmentResult(poem_id=poem_id, recording_id=recording_id, overall_confidence=0.0)
 
-    # 1. Normalize transcribed words
-    norm_transcript = [
-        {
-            "raw": w,
-            "norm": normalize_arabic(w.word),
+    # 1. Normalize transcript words (keep timing + ASR probability)
+    norm_transcript = []
+    for w in transcript_words:
+        norm = normalize_arabic(w.word)
+        if not norm:
+            continue
+        # Preserve an explicit probability of 0.0 (rejected ASR word);
+        # default to 1.0 only when the field is absent.
+        p = getattr(w, "probability", None)
+        prob = 1.0 if p is None else max(0.0, min(1.0, float(p)))
+        norm_transcript.append({
+            "norm": norm,
             "start_ms": int(w.start_ms),
             "end_ms": int(w.end_ms),
-        }
-        for w in transcript_words
-        if normalize_arabic(w.word)
-    ]
+            "prob": prob,
+        })
 
-    # If no valid transcript words, generate fallback
-    if not norm_transcript:
-        ms_per_verse = audio_duration_ms // len(verses) if audio_duration_ms > 0 else 8000
-        fallback_alignments = []
-        for i, v in enumerate(verses):
-            v_id = str(v.get("id", f"v-{i+1}"))
-            start = i * ms_per_verse
-            end = (i + 1) * ms_per_verse if i < len(verses) - 1 else max((i + 1) * ms_per_verse, audio_duration_ms)
-            fallback_alignments.append(
-                VerseAlignmentResult(
-                    verse_id=v_id,
-                    order_index=i + 1,
-                    start_ms=start,
-                    end_ms=end,
-                    confidence=0.50,
-                    status="auto",
-                    first_hemistich_end_ms=start + (end - start) // 2,
-                    second_hemistich_start_ms=start + (end - start) // 2,
-                    first_word_start_ms=start,
-                    last_word_end_ms=end,
-                )
-            )
-        return PoemAlignmentResult(
-            poem_id=poem_id,
-            recording_id=recording_id,
-            overall_confidence=0.50,
-            alignments=fallback_alignments,
-        )
-
-    # 2. Extract normalized tokens per verse and hemistichs
-    verse_token_data = []
+    # 2. Verse token structures
+    verses_info: List[Dict[str, Any]] = []
     for i, v in enumerate(verses):
         v_id = str(v.get("id", f"v-{i+1}"))
         v_text = str(v.get("text", ""))
-        first_h = str(v.get("first_hemistich", v.get("firstHemistich", "")))
-        second_h = str(v.get("second_hemistich", v.get("secondHemistich", "")))
-
+        first_h = str(v.get("first_hemistich", v.get("firstHemistich", "")) or "")
+        second_h = str(v.get("second_hemistich", v.get("secondHemistich", "")) or "")
         if not v_text and (first_h or second_h):
             v_text = f"{first_h} {second_h}".strip()
-
-        all_tokens = tokenize_normalized(v_text)
-        first_tokens = tokenize_normalized(first_h)
-        second_tokens = tokenize_normalized(second_h)
-
-        verse_token_data.append({
+        verses_info.append({
             "id": v_id,
             "order_index": i + 1,
-            "tokens": all_tokens,
-            "first_tokens": first_tokens,
-            "second_tokens": second_tokens,
+            "tokens": tokenize_normalized(v_text),
+            "first_tokens": tokenize_normalized(first_h),
+            "second_tokens": tokenize_normalized(second_h),
         })
 
-    # 3. Detect intro offset using first reliably matched poem word
-    first_verse_tokens = verse_token_data[0]["tokens"] if verse_token_data else []
-    intro_start_idx = find_first_reliable_match(first_verse_tokens, norm_transcript)
-    intro_offset_ms = norm_transcript[intro_start_idx]["start_ms"] if norm_transcript else 0
+    if not norm_transcript:
+        return _interpolated_fallback(verses_info, audio_duration_ms, poem_id, recording_id)
 
-    curr_t_idx = intro_start_idx
+    # 3. Flatten poem tokens with owning verse index
+    poem_tokens: List[str] = []
+    token_verse: List[int] = []
+    verse_token_start: List[int] = []  # index in poem_tokens where each verse starts
+    for v_idx, v in enumerate(verses_info):
+        verse_token_start.append(len(poem_tokens))
+        for t in v["tokens"]:
+            poem_tokens.append(t)
+            token_verse.append(v_idx)
+
+    pairs = _semi_global_align(poem_tokens, norm_transcript)
+
+    # 4. Collect per-verse anchors (reliable matched words only)
+    n_verses = len(verses_info)
+    verse_anchors: List[List[Tuple[int, int, float]]] = [[] for _ in range(n_verses)]
+    for p_idx, t_idx, sim in pairs:
+        if sim >= ANCHOR_MIN_SIMILARITY:
+            # Weight anchor quality by ASR word probability so rejected
+            # (prob=0) words cannot inflate verse confidence.
+            weighted = sim * (0.7 + 0.3 * norm_transcript[t_idx]["prob"])
+            verse_anchors[token_verse[p_idx]].append((p_idx, t_idx, weighted))
+
+    intro_offset_ms = 0
+    if verse_anchors and verse_anchors[0]:
+        intro_offset_ms = norm_transcript[verse_anchors[0][0][1]]["start_ms"]
+    elif pairs:
+        intro_offset_ms = norm_transcript[pairs[0][1]]["start_ms"]
+
+    # 5. Raw per-verse timing from anchors; interpolate unanchored verses
     raw_alignments: List[Dict[str, Any]] = []
-
-    for v_idx, v_info in enumerate(verse_token_data):
-        tokens = v_info["tokens"]
-        if not tokens:
-            prev_end = raw_alignments[-1]["end_ms"] if raw_alignments else intro_offset_ms
+    for v_idx, v in enumerate(verses_info):
+        anchors = verse_anchors[v_idx]
+        n_tokens = max(1, len(v["tokens"]))
+        if anchors:
+            first_t = norm_transcript[anchors[0][1]]
+            last_t = norm_transcript[anchors[-1][1]]
+            sims = [a[2] for a in anchors]
+            coverage = min(1.0, len(anchors) / n_tokens)
+            quality = sum(sims) / len(sims)
+            # Continuity: anchors should be a compact transcript run, not scattered
+            span = anchors[-1][1] - anchors[0][1] + 1
+            continuity = min(1.0, len(anchors) / span) if span > 0 else 0.0
+            confidence = max(0.0, min(1.0, quality * (0.55 * coverage + 0.30) + 0.15 * continuity))
             raw_alignments.append({
-                "info": v_info,
-                "start_ms": prev_end,
-                "end_ms": prev_end + 8000,
-                "first_word_start_ms": prev_end,
-                "last_word_end_ms": prev_end + 8000,
-                "confidence": 0.5,
-                "matched_count": 0,
+                "info": v,
+                "anchored": True,
+                "start_ms": first_t["start_ms"],
+                "end_ms": last_t["end_ms"],
+                "first_word_start_ms": first_t["start_ms"],
+                "last_word_end_ms": last_t["end_ms"],
+                "confidence": confidence,
+                "matched_count": len(anchors),
+                "anchors": anchors,
             })
-            continue
-
-        n_tokens = len(tokens)
-        best_match_start = curr_t_idx
-        best_match_end = min(len(norm_transcript), curr_t_idx + n_tokens)
-        best_score = 0.0
-        best_matched_count = 0
-
-        max_lookahead = min(len(norm_transcript), curr_t_idx + int(n_tokens * 2.5) + 4)
-
-        for candidate_start in range(curr_t_idx, max(curr_t_idx + 1, max_lookahead - n_tokens + 1)):
-            for candidate_end in range(
-                candidate_start + max(1, n_tokens - 4),
-                min(len(norm_transcript) + 1, candidate_start + n_tokens + 5),
-            ):
-                window_tokens = [norm_transcript[j]["norm"] for j in range(candidate_start, candidate_end)]
-                matcher = SequenceMatcher(None, tokens, window_tokens)
-                score = matcher.ratio()
-
-                if score > best_score:
-                    best_score = score
-                    best_match_start = candidate_start
-                    best_match_end = candidate_end
-                    best_matched_count = int(score * n_tokens)
-
-        if best_match_end > best_match_start:
-            v_start_ms = norm_transcript[best_match_start]["start_ms"]
-            v_end_ms = norm_transcript[best_match_end - 1]["end_ms"]
-            curr_t_idx = best_match_end
         else:
-            prev_end = raw_alignments[-1]["end_ms"] if raw_alignments else intro_offset_ms
-            v_start_ms = prev_end
-            v_end_ms = prev_end + 8000
-            best_score = 0.5
+            raw_alignments.append({
+                "info": v,
+                "anchored": False,
+                "start_ms": None,
+                "end_ms": None,
+                "first_word_start_ms": None,
+                "last_word_end_ms": None,
+                "confidence": 0.0,
+                "matched_count": 0,
+                "anchors": [],
+            })
 
-        confidence = max(0.5, min(1.0, best_score))
+    _fill_unanchored(raw_alignments, intro_offset_ms, audio_duration_ms)
 
-        raw_alignments.append({
-            "info": v_info,
-            "start_ms": v_start_ms,
-            "end_ms": v_end_ms,
-            "first_word_start_ms": v_start_ms,
-            "last_word_end_ms": v_end_ms,
-            "confidence": confidence,
-            "matched_count": best_matched_count,
-        })
+    # 6. Hemistich split from anchors when possible
+    for v_idx, r in enumerate(raw_alignments):
+        h1_len = len(r["info"]["first_tokens"])
+        split_ms = None
+        if r["anchored"] and h1_len > 0:
+            v_start_token = verse_token_start[v_idx]
+            h1_last_global = v_start_token + h1_len - 1
+            before = [a for a in r["anchors"] if a[0] <= h1_last_global]
+            after = [a for a in r["anchors"] if a[0] > h1_last_global]
+            if before and after:
+                split_ms = (norm_transcript[before[-1][1]]["end_ms"] + norm_transcript[after[0][1]]["start_ms"]) // 2
+        r["hemistich_split_ms"] = split_ms
 
-    # 4. Refine boundaries using nearby VAD silence detection
+    # 7. Silence-refined boundaries
     refined_raw, diagnostics = refine_boundaries_with_silence(
         raw_verse_alignments=raw_alignments,
         silence_regions=silence_regions or [],
@@ -256,7 +385,6 @@ def align_transcript_to_verses(
 
     final_alignments: List[VerseAlignmentResult] = []
     total_conf = 0.0
-
     for r in refined_raw:
         conf = r["confidence"]
         total_conf += conf
@@ -267,7 +395,7 @@ def align_transcript_to_verses(
                 start_ms=r["start_ms"],
                 end_ms=r["end_ms"],
                 confidence=conf,
-                status="auto",
+                status=r["status"],
                 first_hemistich_end_ms=r["first_hemistich_end_ms"],
                 second_hemistich_start_ms=r["second_hemistich_start_ms"],
                 matched_words_count=r["matched_words_count"],
@@ -279,7 +407,6 @@ def align_transcript_to_verses(
         )
 
     overall_conf = total_conf / len(final_alignments) if final_alignments else 0.0
-
     return PoemAlignmentResult(
         poem_id=poem_id,
         recording_id=recording_id,
@@ -288,3 +415,38 @@ def align_transcript_to_verses(
         alignments=final_alignments,
         diagnostics=diagnostics,
     )
+
+def _fill_unanchored(
+    raw_alignments: List[Dict[str, Any]],
+    intro_offset_ms: int,
+    audio_duration_ms: int,
+) -> None:
+    """Interpolates timing for verses without anchors between anchored neighbors."""
+    n = len(raw_alignments)
+    i = 0
+    while i < n:
+        if raw_alignments[i]["anchored"]:
+            i += 1
+            continue
+        # find run of unanchored [i, j)
+        j = i
+        while j < n and not raw_alignments[j]["anchored"]:
+            j += 1
+        prev_end = raw_alignments[i - 1]["end_ms"] if i > 0 else intro_offset_ms
+        # Trailing unanchored run with unknown duration: no honest estimate
+        # exists, so collapse to the previous end (normalization guarantees
+        # minimal positive spans) instead of fabricating 8-second slots.
+        next_start = raw_alignments[j]["start_ms"] if j < n else (audio_duration_ms if audio_duration_ms > 0 else prev_end)
+        gap = max(0, next_start - prev_end)
+        total_tokens = sum(max(1, len(raw_alignments[k]["info"]["tokens"])) for k in range(i, j)) or 1
+        cursor = float(prev_end)
+        for k in range(i, j):
+            share = max(1, len(raw_alignments[k]["info"]["tokens"])) / total_tokens * gap
+            r = raw_alignments[k]
+            r["start_ms"] = int(cursor)
+            r["end_ms"] = int(cursor + share)
+            r["first_word_start_ms"] = r["start_ms"]
+            r["last_word_end_ms"] = r["end_ms"]
+            r["confidence"] = 0.2
+            cursor += share
+        i = j

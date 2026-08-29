@@ -25,7 +25,13 @@ export function usePoemPlayback(poem: Poem | null) {
         poem.recordings.find((recording) => recording.id === poem.defaultRecordingId) ||
         poem.recordings[0];
       const audioUrl = defaultRec ? resolveAudioSrc(defaultRec.audioPath) : "";
-      const defaultDuration = defaultRec?.durationMs || (poem.verses.length * 8000);
+      // Real duration only: recording metadata, else the last aligned verse
+      // end. Never a fabricated verse-count × 8s estimate.
+      const lastAlignedEnd = poem.verses.reduce(
+        (max, v) => (v.alignment ? Math.max(max, v.alignment.endMs) : max),
+        0
+      );
+      const defaultDuration = defaultRec?.durationMs || lastAlignedEnd;
       controller.loadAudio(audioUrl, defaultDuration);
     } else {
       controller.setVerses([]);
