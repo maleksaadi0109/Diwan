@@ -1,0 +1,115 @@
+I have a desktop application that displays Arabic poetry text alongside an audio recording of a poet reciting that poem.
+The poetry text comes from Mezan Al-Arab, while the audio comes from a YouTube video.
+The main problem I need you to solve is accurate synchronization between the audio and the individual poetry verses (lines).
+The Problem
+I already have:
+• The complete Arabic poem text.
+• The audio extracted from the YouTube video.
+• The audio may contain silence, introductions, music, or speech before the actual poem starts.
+• The poet may pause, repeat words, change pronunciation, or read at different speeds.
+• The written text may not exactly match the spoken pronunciation.
+• Arabic text may contain diacritics, different forms of Alif/Hamza, punctuation, etc.
+I need the application to automatically determine:
+Verse 1 → start time → end time
+Verse 2 → start time → end time
+Verse 3 → start time → end time
+...
+For example:
+{
+  "verse": 1,
+  "text": "ألا أيها الليل الطويل ألا انجلي",
+  "start": 12.43,
+  "end": 18.21
+}
+The next verse should begin at the actual moment when the poet starts reading it.
+Critical Requirement
+DO NOT solve this by dividing the audio duration by the number of verses.
+DO NOT assign an equal duration to every verse.
+DO NOT use a fixed timer.
+The synchronization must be based on the actual spoken audio.
+What I want you to do
+Analyze the best technical approach for solving this problem.
+Consider approaches such as:
+• Arabic Speech-to-Text with word-level timestamps
+• Whisper or Whisper-like models
+• Forced alignment
+• CTC-based alignment
+• Dynamic Time Warping (DTW)
+• Fuzzy text matching
+• Arabic text normalization
+• VAD (Voice Activity Detection)
+• Hybrid approaches
+Then choose the most reliable approach for Arabic poetry.
+The system should ideally produce word-level timestamps first and then use those timestamps to determine the start/end of each verse.
+For example:
+ألا       12.43 - 12.81
+أيها      12.82 - 13.17
+الليل     13.18 - 13.65
+الطويل    13.66 - 14.20
+ألا       14.21 - 14.50
+انجلي     14.51 - 15.10
+From this information, determine the timestamp of the complete verse.
+Arabic Text Matching
+The written poem and transcription will not necessarily be identical.
+Create a normalization layer that handles:
+• Diacritics
+• Hamza variations
+• Alif variations
+• Alif Maqsura / Ya
+• Punctuation
+• Extra spaces
+• Tatweel
+• Minor spelling differences
+The original text must remain unchanged for display.
+Only the normalized version should be used for matching.
+Robustness
+The alignment algorithm must handle:
+• Extra words in the audio
+• Missing words
+• Incorrect transcription
+• Repeated words
+• Repeated verses
+• Long pauses
+• Different reading speeds
+• Introductory speech
+• Silence before the poem
+• Music before the poem
+• Slight pronunciation differences
+• A poet pausing between the two hemistichs
+• A poet reading two verses continuously
+If the transcription is imperfect, the entire alignment should NOT fail.
+Confidence Score
+Every verse should have a confidence score:
+{
+  "verse": 1,
+  "start": 12.43,
+  "end": 18.21,
+  "confidence": 0.94
+}
+If confidence is low, mark the verse as uncertain instead of generating a potentially incorrect timestamp.
+Playback Synchronization
+During playback, audio.currentTime must be the single source of truth.
+For example:
+if verse.start <= audio.currentTime < verse.end:
+    highlight(verse)
+Do NOT use independent timers such as:
+setTimeout(...)
+setInterval(...)
+to control verse synchronization.
+The UI must remain synchronized even when the user:
+• Seeks through the audio
+• Pauses
+• Resumes
+• Changes playback speed
+• Jumps directly to a verse
+Important
+I don’t want you to blindly implement the first solution that comes to mind.
+First:
+1. Analyze the synchronization problem.
+2. Compare possible approaches.
+3. Explain their advantages and disadvantages for Arabic poetry.
+4. Select the most reliable approach.
+5. Design the alignment pipeline.
+6. Implement it.
+7. Test it against difficult cases.
+8.

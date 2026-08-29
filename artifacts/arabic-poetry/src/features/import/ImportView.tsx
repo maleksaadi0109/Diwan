@@ -188,7 +188,8 @@ export const ImportView: React.FC<ImportViewProps> = ({ onImportPoem }) => {
               secondHemistich: v.secondHemistich,
             })),
             poemId,
-            recId
+            recId,
+            transcriptResult ? { transcript: transcriptResult } : undefined
           );
           alignments = alignRes.alignments;
         } catch (alignErr) {

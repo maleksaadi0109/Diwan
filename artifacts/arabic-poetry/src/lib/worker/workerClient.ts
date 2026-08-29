@@ -70,6 +70,8 @@ export interface TranscribeOptions {
   device?: "cpu" | "cuda" | "auto";
   compute_type?: "int8" | "float32" | "float16" | "default";
   mock?: boolean;
+  /** Reuse one real word-timestamp transcript during forced alignment. */
+  transcript?: TranscriptResult;
 }
 
 export interface VerseAlignmentItem {
@@ -294,40 +296,22 @@ export async function transcribeArabicAudio(
     throw new Error(resp.error_message || "Arabic transcription failed");
   }
 
-  // Fallback for development / mock preview
-  return {
-    transcript: {
-      schema_version: "1.0",
-      language: "ar",
-      raw_text: "واحر قلباه ممن قلبه شبم ومن بجسمي وحالي عنده سقم",
-      duration_ms: 15000,
-      model_used: options.model_size || "small",
-      device_used: options.device || "cpu",
-      segments: [
-        {
-          id: 1,
-          text: "واحر قلباه ممن قلبه شبم ومن بجسمي وحالي عنده سقم",
-          start_ms: 2500,
-          end_ms: 9800,
-          words: [
-            { word: "واحر", start_ms: 2500, end_ms: 3100, probability: 0.97 },
-            { word: "قلباه", start_ms: 3200, end_ms: 4000, probability: 0.95 },
-            { word: "ممن", start_ms: 4100, end_ms: 4500, probability: 0.98 },
-            { word: "قلبه", start_ms: 4600, end_ms: 5200, probability: 0.94 },
-            { word: "شبم", start_ms: 5300, end_ms: 6100, probability: 0.92 },
-          ],
-        },
-      ],
-      words: [
-        { word: "واحر", start_ms: 2500, end_ms: 3100, probability: 0.97 },
-        { word: "قلباه", start_ms: 3200, end_ms: 4000, probability: 0.95 },
-        { word: "ممن", start_ms: 4100, end_ms: 4500, probability: 0.98 },
-        { word: "قلبه", start_ms: 4600, end_ms: 5200, probability: 0.94 },
-        { word: "شبم", start_ms: 5300, end_ms: 6100, probability: 0.92 },
-      ],
-    },
-    outputJsonPath,
-  };
+  const response = await fetch("/api-worker/transcribe", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      audio_path: audioPath,
+      output_json_path: outputJsonPath,
+      model_size: options.model_size || "small",
+      device: options.device || "cpu",
+      compute_type: options.compute_type || "default",
+    }),
+  });
+  const body = await response.json().catch(() => ({}));
+  if (!response.ok || !body.transcript) {
+    throw new Error(body.error_message || "فشل تفريغ الصوت العربي");
+  }
+  return body as { transcript: TranscriptResult; outputJsonPath?: string };
 }
 
 export async function alignPoemAudio(
@@ -358,6 +342,7 @@ export async function alignPoemAudio(
             })),
             poem_id: poemId,
             recording_id: recordingId,
+            transcript: options.transcript,
             mock: options.mock || false,
           },
         },
@@ -370,33 +355,28 @@ export async function alignPoemAudio(
     throw new Error(resp.error_message || "Poem alignment failed");
   }
 
-  // Web fallback simulation: no real ASR ran here, so boundaries are
-  // word-count-proportional estimates flagged for review — never presented
-  // as high-confidence alignments.
-  const wordCounts = verses.map((v) => Math.max(1, v.text.trim().split(/\s+/).length));
-  const totalWords = wordCounts.reduce((a, b) => a + b, 0);
-  const estTotalMs = totalWords * 600;
-  let cursor = 0;
-  return {
-    poem_id: poemId,
-    recording_id: recordingId,
-    overall_confidence: 0.2,
-    alignments: verses.map((v, i) => {
-      const span = Math.round((wordCounts[i] / totalWords) * estTotalMs);
-      const start = cursor;
-      cursor += span;
-      return {
-        verse_id: v.id,
+  const response = await fetch("/api-worker/align", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      audio_path: audioPath,
+      verses: verses.map((v) => ({
+        id: v.id,
         order_index: v.orderIndex,
-        start_ms: start,
-        end_ms: cursor,
-        confidence: 0.2,
-        status: "review" as const,
-        first_hemistich_end_ms: start + Math.round(span / 2),
-        second_hemistich_start_ms: start + Math.round(span / 2),
-      };
+        text: v.text,
+        first_hemistich: v.firstHemistich,
+        second_hemistich: v.secondHemistich,
+      })),
+      poem_id: poemId,
+      recording_id: recordingId,
+      transcript: options.transcript,
     }),
-  };
+  });
+  const body = await response.json().catch(() => ({}));
+  if (!response.ok || !Array.isArray(body.alignments)) {
+    throw new Error(body.error_message || "فشل محاذاة القصيدة مع الصوت");
+  }
+  return body as PoemAlignmentResponse;
 }
 
 // --- YouTube Audio Integration ---
