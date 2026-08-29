@@ -1,43 +1,43 @@
-@import url('https://fonts.googleapis.com/css2?family=Amiri:ital,wght@0,400;0,700;1,400;1,700&family=Aref+Ruqaa:wght@400;700&family=Cairo:wght@300;400;500;600;700;800;900&family=Scheherazade+New:wght@400;600;700&family=Noto+Naskh+Arabic:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Amiri:ital,wght@0,400;0,700;1,400;1,700&family=Cairo:wght@300;400;500;600;700;800;900&family=Scheherazade+New:wght@400;600;700&family=Noto+Naskh+Arabic:wght@400;500;600;700&family=Almarai:wght@300;400;700;800&display=swap');
 @import "tailwindcss";
 
 @theme {
-  --color-charcoal-950: #0b0d10;
-  --color-charcoal-900: #111419;
-  --color-charcoal-850: #161a22;
-  --color-charcoal-800: #1c212b;
-  --color-charcoal-700: #272e3c;
-  --color-charcoal-600: #363f52;
+  --color-charcoal-950: #080a0e;
+  --color-charcoal-900: #0e1015;
+  --color-charcoal-850: #14171e;
+  --color-charcoal-800: #1a1e27;
+  --color-charcoal-700: #252b37;
+  --color-charcoal-600: #353d4e;
 
   --color-parchment-50: #fdfbf7;
-  --color-parchment-100: #f7f3ea;
+  --color-parchment-100: #f8f9fa;
   --color-parchment-200: #eee4d0;
   --color-parchment-300: #dfcfb0;
   --color-parchment-400: #c7b189;
 
-  --color-paper-100: #161a22;
-  --color-paper-200: #111419;
-  --color-paper-300: #1c212b;
-  --color-paper-400: #272e3c;
-  --color-paper-500: #363f52;
+  --color-paper-100: #14171e;
+  --color-paper-200: #0e1015;
+  --color-paper-300: #1a1e27;
+  --color-paper-400: rgba(255, 255, 255, 0.08);
+  --color-paper-500: rgba(255, 255, 255, 0.15);
 
-  --color-ink-900: #f7f3ea;
-  --color-ink-800: #eee4d0;
-  --color-ink-700: #dfcfb0;
-  --color-ink-600: #a0aab7;
-  --color-ink-500: #6c7a8c;
-  --color-ink-400: #495057;
-  --color-ink-300: #343a40;
+  --color-ink-900: #f8f9fa;
+  --color-ink-800: #e9ecef;
+  --color-ink-700: #dee2e6;
+  --color-ink-600: #ced4da;
+  --color-ink-500: #a0aab7;
+  --color-ink-400: #6c7a8c;
+  --color-ink-300: #495057;
 
   --color-accent-700: #d4af37;
   --color-accent-600: #e9be4f;
   --color-accent-500: #f5d77f;
 
-  --color-gold-300: #f5d77f;
-  --color-gold-400: #e9be4f;
+  --color-gold-300: #f7e4a1;
+  --color-gold-400: #edce6b;
   --color-gold-500: #d4af37;
-  --color-gold-600: #b89326;
-  --color-gold-700: #8c6e17;
+  --color-gold-600: #b89225;
+  --color-gold-700: #8c6d14;
 
   --color-crimson-500: #e63946;
   --color-crimson-600: #c92a3a;
@@ -46,9 +46,9 @@
   --color-crimson-900: #4a1017;
 
   --font-poetry: "Amiri", "Scheherazade New", "Noto Naskh Arabic", "Traditional Arabic", serif;
+  --font-heading: "Amiri", "Scheherazade New", "Cairo", serif;
   --font-sans: "Cairo", "Almarai", "Noto Sans Arabic", "Segoe UI", Tahoma, sans-serif;
-  --font-heading: "Aref Ruqaa", "Amiri", serif;
-  --font-ui: "Cairo", "Noto Sans Arabic", sans-serif;
+  --font-ui: "Cairo", "Almarai", "Noto Sans Arabic", sans-serif;
 }
 
 @layer base {
@@ -57,9 +57,9 @@
   }
 
   body {
-    background-color: #0b0d10;
-    color: #f7f3ea;
-    font-family: 'Cairo', 'Noto Sans Arabic', system-ui, -apple-system, sans-serif;
+    background-color: #080a0e;
+    color: #f8f9fa;
+    font-family: 'Cairo', 'Almarai', system-ui, -apple-system, sans-serif;
     direction: rtl;
     user-select: none;
     -webkit-font-smoothing: antialiased;
@@ -72,14 +72,14 @@
     height: 6px;
   }
   ::-webkit-scrollbar-track {
-    background: #111419;
+    background: #0e1015;
   }
   ::-webkit-scrollbar-thumb {
-    background: #272e3c;
+    background: #252b37;
     border-radius: 4px;
   }
   ::-webkit-scrollbar-thumb:hover {
-    background: #363f52;
+    background: #353d4e;
   }
 }
 
@@ -89,7 +89,7 @@
   }
   
   .font-heading {
-    font-family: 'Aref Ruqaa', 'Amiri', serif;
+    font-family: 'Amiri', 'Scheherazade New', 'Cairo', serif;
   }
 
   .font-sans {

@@ -6,9 +6,24 @@ import {
   WorkerYouTubeInfoData,
   WorkerYouTubeDownloadData,
 } from "@/lib/worker/workerClient";
-import { getPoemRecordingDirectory } from "@/lib/audio/fileManager";
+import { getPoemRecordingDirectory, resolveAudioSrc } from "@/lib/audio/fileManager";
 import { formatTime } from "@/lib/utils";
-import { Search, CheckCircle2, AlertCircle, RefreshCw, X, Download, ShieldCheck, Clock, User, Sparkles } from "lucide-react";
+import {
+  Search,
+  CheckCircle2,
+  AlertCircle,
+  RefreshCw,
+  X,
+  Download,
+  Clock,
+  User,
+  Sparkles,
+  FileAudio,
+  Copy,
+  Check,
+  Volume2,
+  FolderCheck,
+} from "lucide-react";
 import { YoutubeIcon } from "@/components/icons/YoutubeIcon";
 
 interface YouTubeImportViewProps {
@@ -48,7 +63,6 @@ export const YouTubeImportView: React.FC<YouTubeImportViewProps> = ({ onAudioDow
   const [infoError, setInfoError] = useState<string | null>(null);
 
   // Download state
-  const [isPermitted, setIsPermitted] = useState(true);
   const [audioQuality, setAudioQuality] = useState<"128k" | "192k">("192k");
   const [isDownloading, setIsDownloading] = useState(false);
   const [downloadProgress, setDownloadProgress] = useState(0);
@@ -56,6 +70,7 @@ export const YouTubeImportView: React.FC<YouTubeImportViewProps> = ({ onAudioDow
   const [downloadError, setDownloadError] = useState<string | null>(null);
   const [currentJobId, setCurrentJobId] = useState<string | null>(null);
   const [downloadResult, setDownloadResult] = useState<WorkerYouTubeDownloadData | null>(null);
+  const [copiedPath, setCopiedPath] = useState(false);
 
   const handleFetchInfo = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -127,6 +142,12 @@ export const YouTubeImportView: React.FC<YouTubeImportViewProps> = ({ onAudioDow
     }
     setIsDownloading(false);
     setDownloadStage("تم إلغاء التنزيل");
+  };
+
+  const handleCopyPath = (path: string) => {
+    navigator.clipboard.writeText(path);
+    setCopiedPath(true);
+    setTimeout(() => setCopiedPath(false), 2500);
   };
 
   return (
@@ -282,11 +303,52 @@ export const YouTubeImportView: React.FC<YouTubeImportViewProps> = ({ onAudioDow
             </div>
           )}
 
-          {/* Download Success */}
+          {/* Download Success Card with Exact File Path & Direct Player */}
           {downloadResult && !isDownloading && (
-            <div className="p-4 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-xs flex items-center gap-3 shadow-inner font-sans font-medium">
-              <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
-              <span>{downloadStage || "تم تنزيل الصوت ومعالجته بنجاح!"}</span>
+            <div className="p-5 rounded-3xl bg-emerald-500/10 border border-emerald-500/30 space-y-4 shadow-xl">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2.5 text-emerald-300 text-sm font-bold">
+                  <CheckCircle2 className="w-5 h-5 text-emerald-400" />
+                  <span>تم تنزيل ومعالجة الصوت بنجاح!</span>
+                </div>
+                <span className="text-xs text-emerald-400/80 font-mono ltr-num">
+                  {formatTime(downloadResult.duration_ms)}
+                </span>
+              </div>
+
+              {/* Exact File Location on Disk */}
+              <div className="bg-[#0B0D12]/80 p-4 rounded-2xl border border-emerald-500/20 space-y-2">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-[#CED4DA] font-semibold flex items-center gap-2">
+                    <FolderCheck className="w-4 h-4 text-[#D4AF37]" />
+                    <span>موقع حفظ الملف الصوتي على جهازك:</span>
+                  </span>
+                  <button
+                    onClick={() => handleCopyPath(downloadResult.playback_audio_path)}
+                    className="flex items-center gap-1.5 text-xs text-[#D4AF37] hover:text-[#F3E19C] bg-white/[0.06] hover:bg-white/[0.12] px-3 py-1 rounded-xl border border-white/10 transition-colors cursor-pointer"
+                    title="نسخ المسار الكامل للملف"
+                  >
+                    {copiedPath ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                    <span>{copiedPath ? "تم النسخ!" : "نسخ المسار"}</span>
+                  </button>
+                </div>
+                <div className="font-mono text-xs text-emerald-200/90 bg-black/60 p-2.5 rounded-xl border border-white/5 break-all select-all ltr-num">
+                  {downloadResult.playback_audio_path}
+                </div>
+              </div>
+
+              {/* Instant Audio Audition Player */}
+              <div className="bg-[#0B0D12]/80 p-4 rounded-2xl border border-emerald-500/20 flex flex-col sm:flex-row items-center justify-between gap-3">
+                <div className="flex items-center gap-2 text-xs text-[#CED4DA]">
+                  <Volume2 className="w-4 h-4 text-[#D4AF37]" />
+                  <span>معاينة الاستماع الفوري:</span>
+                </div>
+                <audio
+                  controls
+                  src={resolveAudioSrc(downloadResult.playback_audio_path)}
+                  className="w-full sm:w-80 h-9 rounded-xl outline-none"
+                />
+              </div>
             </div>
           )}
 
