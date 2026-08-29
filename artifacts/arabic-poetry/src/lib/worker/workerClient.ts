@@ -587,12 +587,23 @@ export async function fetchUrlViaWorker(
     targetUrl = url.replace("https://mizanalarab.com", "/api-mizan");
   }
 
+  // Filter out forbidden browser headers in client-side fetch (e.g., User-Agent)
+  const safeHeaders: Record<string, string> = {};
+  if (headers) {
+    const forbidden = ["user-agent", "host", "origin", "referer", "cookie", "content-length"];
+    for (const [key, val] of Object.entries(headers)) {
+      if (!forbidden.includes(key.toLowerCase())) {
+        safeHeaders[key] = val;
+      }
+    }
+  }
+
   try {
     const response = await fetch(targetUrl, {
       method: "GET",
       headers: {
         "Accept": "application/json",
-        ...headers,
+        ...safeHeaders,
       },
     });
 
@@ -610,7 +621,7 @@ export async function fetchUrlViaWorker(
         method: "GET",
         headers: {
           "Accept": "application/json",
-          ...headers,
+          ...safeHeaders,
         },
       });
       const text = await proxyResp.text();
