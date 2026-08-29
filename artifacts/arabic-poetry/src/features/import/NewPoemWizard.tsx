@@ -246,7 +246,10 @@ export const NewPoemWizard: React.FC<NewPoemWizardProps> = ({ onFinishWizard }) 
 
       // Stage 4: ASR
       updateStage("asr", { status: "running", progress: 0.5 });
-      await transcribeArabicAudio(processingWavPath);
+      const transcription = await transcribeArabicAudio(processingWavPath, undefined, {
+        model_size: "small",
+        device: "cpu",
+      });
       updateStage("asr", { status: "completed", progress: 1.0 });
 
       // Stage 5: Forced Alignment with silence switching
@@ -261,7 +264,8 @@ export const NewPoemWizard: React.FC<NewPoemWizardProps> = ({ onFinishWizard }) 
           secondHemistich: v.secondHemistich,
         })),
         poemId,
-        recId
+        recId,
+        { transcript: transcription.transcript }
       );
       updateStage("align", { status: "completed", progress: 1.0 });
 

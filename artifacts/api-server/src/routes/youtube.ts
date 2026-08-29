@@ -39,6 +39,27 @@ function workerError(envelope: WorkerEnvelope | undefined): Error {
   return new Error(`${code}: ${message}`);
 }
 
+function resolveDownloadedAudioPath(audioPath: unknown): string {
+  if (typeof audioPath !== "string" || !audioPath.trim()) {
+    throw new Error("INVALID_AUDIO_PATH: مسار ملف الصوت مطلوب");
+  }
+
+  // Browser requests can only use files created by this API's YouTube
+  // downloader. Never accept an arbitrary filesystem path from the client.
+  const match = audioPath.match(
+    /^\/api-worker\/youtube\/audio\/([a-zA-Z0-9_-]{1,80})\/(processing\.wav|playback\.mp3)$/,
+  );
+  if (!match) {
+    throw new Error("INVALID_AUDIO_PATH: ملف الصوت يجب أن يكون من تنزيل YouTube");
+  }
+
+  const resolved = path.join(downloadRoot, match[1], "final", match[2]);
+  if (!existsSync(resolved)) {
+    throw new Error("FILE_NOT_FOUND: ملف الصوت المعالج غير موجود");
+  }
+  return resolved;
+}
+
 async function runWorker(
   command: string,
   payload: Record<string, unknown>,
@@ -184,6 +205,74 @@ router.post("/youtube/download", async (req, res): Promise<void> => {
       error_code: errorCode || "DOWNLOAD_FAILED",
       error_message: rest.join(":").trim() || message,
       job_id: jobId,
+    });
+  }
+});
+
+router.post("/transcribe", async (req, res): Promise<void> => {
+  const {
+    audio_path: audioPath,
+    model_size: modelSize = "small",
+    device = "cpu",
+    compute_type: computeType = "default",
+  } = req.body || {};
+
+  try {
+    const localAudioPath = resolveDownloadedAudioPath(audioPath);
+    const data = await runWorker("transcribe", {
+      audio_path: localAudioPath,
+      model_size: modelSize,
+      device,
+      compute_type: computeType,
+      mock: false,
+    });
+    res.json(data);
+  } catch (error) {
+    req.log.warn({ err: error }, "Arabic transcription failed");
+    const message = error instanceof Error ? error.message : "فشل تفريغ الصوت";
+    const [errorCode, ...rest] = message.split(":");
+    res.status(502).json({
+      error_code: errorCode || "TRANSCRIPTION_FAILED",
+      error_message: rest.join(":").trim() || message,
+    });
+  }
+});
+
+router.post("/align", async (req, res): Promise<void> => {
+  const {
+    audio_path: audioPath,
+    verses,
+    poem_id: poemId = "poem",
+    recording_id: recordingId = "rec",
+    transcript,
+  } = req.body || {};
+
+  if (!Array.isArray(verses) || verses.length === 0) {
+    res.status(400).json({
+      error_code: "INVALID_VERSES",
+      error_message: "قائمة أبيات القصيدة مطلوبة للمحاذاة",
+    });
+    return;
+  }
+
+  try {
+    const localAudioPath = resolveDownloadedAudioPath(audioPath);
+    const data = await runWorker("align", {
+      audio_path: localAudioPath,
+      verses,
+      poem_id: poemId,
+      recording_id: recordingId,
+      transcript,
+      mock: false,
+    });
+    res.json(data);
+  } catch (error) {
+    req.log.warn({ err: error }, "Poem alignment failed");
+    const message = error instanceof Error ? error.message : "فشل محاذاة القصيدة";
+    const [errorCode, ...rest] = message.split(":");
+    res.status(502).json({
+      error_code: errorCode || "ALIGNMENT_FAILED",
+      error_message: rest.join(":").trim() || message,
     });
   }
 });
