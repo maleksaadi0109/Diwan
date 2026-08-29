@@ -115,6 +115,8 @@ export interface WorkerYouTubeDownloadData {
   raw_audio_path: string;
   playback_audio_path: string;
   processing_audio_path: string;
+  /** Leading intro/silence removed from both synchronized output files. */
+  leading_silence_removed_ms?: number;
 }
 
 export async function checkWorkerHealth(): Promise<WorkerHealthData> {

@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Dict, Any, Optional, Callable, List
 from urllib.parse import urlparse, parse_qs
 from .inspector import inspect_audio
+from .vad import analyze_audio_vad
 
 # Structured Error Codes & Arabic Messages (Section 7)
 ERROR_MESSAGES_AR: Dict[str, str] = {
@@ -28,6 +29,11 @@ ERROR_MESSAGES_AR: Dict[str, str] = {
 }
 
 ProgressCallback = Callable[[float, str, Optional[Dict[str, Any]]], None]
+
+# Keep a tiny amount of audio before the first detected speech frame so the
+# first consonant is never clipped. The long intro/silence itself is removed.
+LEADING_SPEECH_PADDING_MS = 80
+MIN_LEADING_TRIM_MS = 120
 
 # Cancellation tracking
 _active_cancels: Dict[str, threading.Event] = {}
@@ -114,6 +120,98 @@ def map_ytdlp_exception_to_error(e: Exception) -> tuple[str, str]:
         return "NETWORK_TIMEOUT", ERROR_MESSAGES_AR["NETWORK_TIMEOUT"]
 
     return "DOWNLOAD_FAILED", f"{ERROR_MESSAGES_AR['DOWNLOAD_FAILED']} ({err_str[:150]})"
+
+
+def _trim_file_from_ms(
+    input_path: Path,
+    output_path: Path,
+    trim_ms: int,
+    *,
+    playback: bool,
+    bitrate: str = "192k",
+) -> None:
+    """Re-encode one output after removing the same leading offset.
+
+    Re-encoding instead of stream-copying is intentional: MP3 stream-copy
+    seeks can land on a preceding encoder frame, which would make the
+    playback file and the alignment WAV start at different positions.
+    """
+    command = [
+        "ffmpeg",
+        "-y",
+        "-ss",
+        f"{trim_ms / 1000:.3f}",
+        "-i",
+        str(input_path),
+        "-vn",
+    ]
+    if playback:
+        command += ["-acodec", "libmp3lame", "-b:a", bitrate]
+    else:
+        command += ["-ac", "1", "-ar", "16000", "-c:a", "pcm_s16le"]
+    command.append(str(output_path))
+
+    try:
+        result = subprocess.run(
+            command,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            check=False,
+        )
+    except FileNotFoundError:
+        raise RuntimeError(f"FFMPEG_NOT_FOUND: {ERROR_MESSAGES_AR['FFMPEG_NOT_FOUND']}")
+    if result.returncode != 0:
+        raise RuntimeError(
+            f"CONVERSION_FAILED: تعذر حذف الصمت من بداية التسجيل ({result.stderr[:180]})"
+        )
+
+
+def trim_leading_silence(
+    playback_mp3_path: Path,
+    processing_wav_path: Path,
+    temp_dir: Path,
+    audio_quality: str = "192k",
+) -> int:
+    """Remove the initial non-speech section from both synchronized outputs.
+
+    Returns the number of milliseconds removed. If the recording starts with
+    speech (or VAD finds no speech), returns 0 and leaves both files intact.
+    """
+    vad_result = analyze_audio_vad(
+        str(processing_wav_path),
+        # Do not let a long intro be merged into the first speech region.
+        min_silence_duration_ms=280,
+        speech_padding_ms=0,
+    )
+    if not vad_result.speech_regions:
+        return 0
+
+    first_speech_ms = max(0, int(vad_result.speech_regions[0].start_ms))
+    trim_ms = max(0, first_speech_ms - LEADING_SPEECH_PADDING_MS)
+    if trim_ms < MIN_LEADING_TRIM_MS:
+        return 0
+
+    temp_dir.mkdir(parents=True, exist_ok=True)
+    bitrate = "192k" if "192" in audio_quality else "128k"
+    trimmed_mp3 = temp_dir / "playback.trimmed.mp3"
+    trimmed_wav = temp_dir / "processing.trimmed.wav"
+    _trim_file_from_ms(
+        playback_mp3_path,
+        trimmed_mp3,
+        trim_ms,
+        playback=True,
+        bitrate=bitrate,
+    )
+    _trim_file_from_ms(
+        processing_wav_path,
+        trimmed_wav,
+        trim_ms,
+        playback=False,
+    )
+    os.replace(trimmed_mp3, playback_mp3_path)
+    os.replace(trimmed_wav, processing_wav_path)
+    return trim_ms
 
 
 def fetch_youtube_video_info(
@@ -356,7 +454,26 @@ def download_youtube_audio(
     except FileNotFoundError:
         raise RuntimeError(f"FFMPEG_NOT_FOUND: {ERROR_MESSAGES_AR['FFMPEG_NOT_FOUND']}")
 
-    # 6. Validate both outputs with ffprobe
+    # 6. Remove the leading intro/silence from BOTH outputs. The same offset
+    # is applied to playback.mp3 and processing.wav, so ASR timestamps remain
+    # aligned with what the user hears.
+    leading_silence_removed_ms = trim_leading_silence(
+        playback_mp3_path,
+        processing_wav_path,
+        temp_dir,
+        audio_quality,
+    )
+    if on_progress:
+        if leading_silence_removed_ms:
+            on_progress(
+                0.97,
+                f"تم حذف {leading_silence_removed_ms} مللي ثانية من الصمت قبل بداية الإلقاء...",
+                {"leading_silence_removed_ms": leading_silence_removed_ms},
+            )
+        else:
+            on_progress(0.97, "لم يُكتشف صمت طويل قبل بداية الإلقاء.", None)
+
+    # 7. Validate both final outputs with ffprobe
     playback_meta = inspect_audio(str(playback_mp3_path))
     processing_meta = inspect_audio(str(processing_wav_path))
 
@@ -378,6 +495,7 @@ def download_youtube_audio(
         "duration_seconds": playback_meta.duration_seconds,
         "sample_rate": playback_meta.sample_rate,
         "channels": playback_meta.channels,
+        "leading_silence_removed_ms": leading_silence_removed_ms,
         "downloaded_at": datetime.now(timezone.utc).isoformat(),
     }
 

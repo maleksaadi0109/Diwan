@@ -103,7 +103,12 @@ export const YouTubeImportView: React.FC<YouTubeImportViewProps> = ({ onAudioDow
       );
 
       setDownloadProgress(1.0);
-      setDownloadStage("اكتمل التنزيل والتحويل إلى MP3 و WAV 16kHz بنجاح!");
+      const removedMs = res.leading_silence_removed_ms || 0;
+      setDownloadStage(
+        removedMs > 0
+          ? `اكتمل التجهيز؛ حُذف ${removedMs} مللي ثانية من الصمت قبل بداية الإلقاء.`
+          : "اكتمل التنزيل والتحويل؛ يبدأ التسجيل من أول إلقاء مكتشف."
+      );
       setDownloadResult(res);
 
       if (onAudioDownloaded) {
