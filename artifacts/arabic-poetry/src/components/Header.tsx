@@ -32,12 +32,12 @@ export const Header: React.FC<HeaderProps> = ({
 
   return (
     <header className="h-20 border-b border-white/[0.08] bg-[#0E1015]/80 backdrop-blur-2xl px-8 flex items-center justify-between shrink-0 z-10 relative">
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-4 min-w-0">
         {activeTab === "player" && activePoem && (
           <>
             <button
               onClick={onBackToLibrary}
-              className="flex items-center gap-2 text-[13px] font-medium text-[#A0AAB7] hover:text-[#F8F9FA] px-3 py-2 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.06] transition-all duration-300 shadow-sm"
+              className="flex items-center gap-2 text-[13px] font-medium text-[#A0AAB7] hover:text-[#F8F9FA] px-3 py-2 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.06] transition-all duration-300 shadow-sm shrink-0 whitespace-nowrap"
               title="العودة إلى المكتبة"
             >
               <ChevronRight className="w-4 h-4 text-[#D4AF37]" strokeWidth={2.5} />
@@ -46,8 +46,8 @@ export const Header: React.FC<HeaderProps> = ({
             <div className="w-[1px] h-6 bg-white/[0.1]"></div>
           </>
         )}
-        <div className="flex items-center gap-3">
-          <h2 className="text-xl font-bold text-[#F8F9FA] flex items-baseline gap-3">
+        <div className="flex items-center gap-3 min-w-0">
+          <h2 className="text-xl font-bold text-[#F8F9FA] flex items-baseline gap-3 min-w-0">
             <span className="font-poetry text-2xl md:text-3xl tracking-wide font-bold drop-shadow-sm text-transparent bg-clip-text bg-gradient-to-r from-white via-[#F5F2EA] to-[#D4AF37]">
               {getTitle()}
             </span>
@@ -61,7 +61,8 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
       </div>
 
-      <div className="flex items-center gap-3">
+      {activeTab === "player" && activePoem && (
+      <div className="flex items-center gap-3 shrink-0">
         <div className="px-3.5 py-1.5 rounded-xl bg-white/[0.04] border border-white/[0.08] font-mono text-[11px] ltr-num text-[#CED4DA] flex items-center gap-2.5 shadow-sm backdrop-blur-md">
           <kbd className="font-sans font-bold text-[10px] text-[#F3E19C] bg-[#D4AF37]/15 px-2 py-0.5 rounded-md border border-[#D4AF37]/30 shadow-inner">
             SPACE
@@ -69,6 +70,7 @@ export const Header: React.FC<HeaderProps> = ({
           <span className="font-sans text-xs text-[#A0AAB7]">تشغيل / إيقاف</span>
         </div>
       </div>
+      )}
     </header>
   );
 };
