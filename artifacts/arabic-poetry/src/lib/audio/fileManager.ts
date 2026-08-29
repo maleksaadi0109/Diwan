@@ -103,11 +103,20 @@ export function resolveAudioSrc(audioPath: string): string {
     audioPath.startsWith("http://") ||
     audioPath.startsWith("https://") ||
     audioPath.startsWith("blob:") ||
-    audioPath.startsWith("data:")
+    audioPath.startsWith("data:") ||
+    audioPath.startsWith("asset://")
   ) {
     return audioPath;
   }
 
+  // Relative public asset paths (e.g. "recordings/mutanabbi_waharra.mp3" or "/recordings/...")
+  const isAbsolute = audioPath.startsWith("/") || audioPath.includes(":\\") || audioPath.startsWith("\\\\");
+
+  if (!isAbsolute) {
+    return `/${audioPath.replace(/^\.?\//, '')}`;
+  }
+
+  // Absolute filesystem paths (e.g. local recordings downloaded or saved on disk)
   const isTauri = typeof window !== "undefined" && ("__TAURI_INTERNALS__" in window || "__TAURI__" in window);
   if (isTauri) {
     try {
@@ -121,10 +130,7 @@ export function resolveAudioSrc(audioPath: string): string {
     }
   }
 
-  if (!audioPath.startsWith("/") && !audioPath.startsWith("./")) {
-    return `/${audioPath}`;
-  }
-  return audioPath;
+  return audioPath.startsWith("/") ? audioPath : `/${audioPath}`;
 }
 
 /**
