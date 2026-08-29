@@ -9,7 +9,8 @@
     "serve": "vite preview --config vite.config.ts --host 0.0.0.0",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
-    "tauri": "tauri"
+    "tauri": "tauri",
+    "tauri:dev": "WEBKIT_DISABLE_DMABUF_RENDERER=1 tauri dev"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.2.0",
