@@ -12,7 +12,7 @@ import {
   alignPoemAudio,
   WorkerYouTubeInfoData,
 } from "@/lib/worker/workerClient";
-import { pickAudioFile, copyAudioToAppData, getPoemRecordingDirectory } from "@/lib/audio/fileManager";
+import { pickAudioFile, copyAudioToAppData, getPoemRecordingDirectory, resolveAudioSrc } from "@/lib/audio/fileManager";
 import { DiwanRepository } from "@/lib/db/repository";
 import { normalizeArabic, formatTime, toArabicDigits } from "@/lib/utils";
 import {
@@ -726,27 +726,55 @@ export const NewPoemWizard: React.FC<NewPoemWizardProps> = ({ onFinishWizard }) 
 
       {/* Step 5: Review & Open Player */}
       {currentStep === 5 && generatedPoem && (
-        <div className="bg-paper-100 border border-paper-400 rounded-none p-6 space-y-6 animate-fadeIn select-text text-center">
-          <div className="w-14 h-14 rounded-none bg-green-700/15 border border-green-700/30 text-green-800 flex items-center justify-center mx-auto">
-            <CheckCircle2 className="w-8 h-8" />
+        <div className="bg-[#13161D]/90 border border-white/[0.08] rounded-3xl p-8 space-y-6 animate-in fade-in duration-300 select-text text-center shadow-2xl backdrop-blur-xl">
+          <div className="w-16 h-16 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 flex items-center justify-center mx-auto shadow-[0_0_20px_rgba(16,185,129,0.2)]">
+            <CheckCircle2 className="w-9 h-9" />
           </div>
 
           <div>
-            <h3 className="text-lg font-bold text-ink-900 font-heading">
+            <h3 className="text-2xl font-bold text-[#F8F9FA] font-poetry tracking-wide">
               تم استيراد ومعالجة قصيدة "{generatedPoem.title}" بنجاح!
             </h3>
-            <p className="text-xs text-ink-600 mt-1">
+            <p className="text-sm text-[#A0AAB7] mt-1.5 font-sans">
               تمت محاذاة {toArabicDigits(generatedPoem.versesCount)} بيت مع الصوت بدقة وتحديد فترات التوقف والصمت
             </p>
           </div>
 
-          <div className="flex justify-center gap-3 pt-2">
+          {/* Audio File Info & Audition */}
+          {generatedPoem.recordings.length > 0 && generatedPoem.recordings[0].audioPath && (
+            <div className="max-w-xl mx-auto bg-black/40 p-4 rounded-2xl border border-white/[0.08] text-right space-y-3 shadow-inner">
+              <div className="flex items-center justify-between text-xs text-[#A0AAB7]">
+                <span className="font-semibold text-[#F8F9FA]">ملف التسجيل الصوتي المحفوظ:</span>
+                <button
+                  onClick={() => {
+                    navigator.clipboard.writeText(generatedPoem.recordings[0].audioPath);
+                  }}
+                  className="text-[#D4AF37] hover:text-[#F3E19C] text-xs bg-white/[0.06] px-2.5 py-1 rounded-xl border border-white/10 transition-colors"
+                >
+                  نسخ المسار
+                </button>
+              </div>
+              <div className="font-mono text-xs text-emerald-300 bg-black/60 p-2.5 rounded-xl border border-white/5 break-all select-all ltr-num">
+                {generatedPoem.recordings[0].audioPath}
+              </div>
+              <div className="flex items-center justify-between gap-3 pt-1">
+                <span className="text-xs text-[#A0AAB7]">استماع تجريبي:</span>
+                <audio
+                  controls
+                  src={resolveAudioSrc(generatedPoem.recordings[0].audioPath)}
+                  className="h-8 max-w-xs rounded-xl"
+                />
+              </div>
+            </div>
+          )}
+
+          <div className="flex justify-center gap-3 pt-4 border-t border-white/[0.08]">
             <button
               onClick={() => onFinishWizard(generatedPoem)}
-              className="px-6 py-2.5 rounded-none bg-accent-700 hover:bg-accent-700 text-paper-100 font-bold text-xs flex items-center gap-2 shadow-sm"
+              className="px-8 py-3.5 rounded-2xl bg-gradient-to-r from-[#D4AF37] to-[#B89225] hover:from-[#E6C265] hover:to-[#C9A233] text-[#0A0C10] font-bold text-sm flex items-center gap-2 shadow-[0_0_20px_rgba(212,175,55,0.35)] transition-all cursor-pointer"
             >
               <span>فتح القصيدة في المشغل المتزامن</span>
-              <ArrowLeft className="w-3.5 h-3.5" />
+              <ArrowLeft className="w-4 h-4" />
             </button>
           </div>
         </div>
