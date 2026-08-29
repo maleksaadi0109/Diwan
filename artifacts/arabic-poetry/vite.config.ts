@@ -60,8 +60,12 @@ export default defineConfig({
       '/api-mizan': {
         target: 'https://mizanalarab.com',
         changeOrigin: true,
-        secure: true,
+        secure: false,
         rewrite: (path) => path.replace(/^\/api-mizan/, ''),
+        headers: {
+          'User-Agent': 'DiwanDesktop/1.0 (Arabic Poetic Audio Sync)',
+          'Accept': 'application/json',
+        },
       },
       '/api-worker': {
         target: 'http://127.0.0.1:8080',
