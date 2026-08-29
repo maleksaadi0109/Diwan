@@ -2,6 +2,9 @@ from __future__ import annotations
 import os
 import sys
 import shutil
+import math
+import struct
+import wave
 import pytest
 from pathlib import Path
 from unittest.mock import patch, MagicMock
@@ -12,6 +15,7 @@ from diwan_worker.audio.youtube import (
     cancel_youtube_job,
     map_ytdlp_exception_to_error,
     ERROR_MESSAGES_AR,
+    trim_leading_silence,
 )
 
 
@@ -145,6 +149,47 @@ def test_download_audio_raw_webm(tmp_path: Path):
         assert os.path.exists(res["processing_audio_path"])
         assert res["playback_audio_path"].endswith("playback.mp3")
         assert res["processing_audio_path"].endswith("processing.wav")
+
+
+def test_trim_leading_silence_uses_same_offset_for_playback_and_alignment(tmp_path: Path):
+    """A long intro is removed from both outputs with one shared offset."""
+    from unittest.mock import call
+    import diwan_worker.audio.youtube as youtube
+
+    processing = tmp_path / "processing.wav"
+    playback = tmp_path / "playback.mp3"
+    temp_dir = tmp_path / "temp"
+
+    sample_rate = 16000
+    silence_samples = sample_rate * 2
+    speech_samples = sample_rate
+    samples = [0] * silence_samples
+    samples.extend(
+        int(12000 * math.sin(2 * math.pi * 350 * i / sample_rate))
+        for i in range(speech_samples)
+    )
+    with wave.open(str(processing), "wb") as wf:
+        wf.setnchannels(1)
+        wf.setsampwidth(2)
+        wf.setframerate(sample_rate)
+        wf.writeframes(struct.pack(f"<{len(samples)}h", *samples))
+    playback.write_bytes(b"source-mp3-placeholder")
+
+    calls = []
+
+    def fake_trim(input_path, output_path, trim_ms, **kwargs):
+        calls.append((input_path, output_path, trim_ms, kwargs["playback"]))
+        shutil.copyfile(input_path, output_path)
+
+    with patch.object(youtube, "_trim_file_from_ms", side_effect=fake_trim):
+        removed_ms = trim_leading_silence(playback, processing, temp_dir)
+
+    # VAD frames begin speech at 2000ms; the configured 80ms safety margin is
+    # retained, so both files use the same 1920ms cut.
+    assert removed_ms == 1920
+    assert [c[2] for c in calls] == [1920, 1920]
+    assert [c[3] for c in calls] == [True, False]
+    assert playback.read_bytes() == b"source-mp3-placeholder"
 
 
 def test_download_audio_raw_m4a(tmp_path: Path):
