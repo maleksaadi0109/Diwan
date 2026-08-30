@@ -1,7 +1,7 @@
-import React, { useEffect, useState, memo } from "react";
+import React, { useEffect, useState } from "react";
 import { Verse, VerseExplanationItem } from "@/types";
 import { cn, formatTime, toArabicDigits } from "@/lib/utils";
-import { Info, CheckCircle2, Loader2, RefreshCw, Volume2 } from "lucide-react";
+import { Info, CheckCircle2, Volume2, Sparkles } from "lucide-react";
 
 export type VerseExplanationStatus = "idle" | "loading" | "loaded" | "empty" | "error";
 
@@ -19,7 +19,7 @@ interface VerseItemProps {
   verseRef?: (el: HTMLDivElement | null) => void;
 }
 
-const VerseItemComponent: React.FC<VerseItemProps> = ({
+export const VerseItem: React.FC<VerseItemProps> = ({
   verse,
   isActive,
   isSelected = false,
@@ -52,7 +52,7 @@ const VerseItemComponent: React.FC<VerseItemProps> = ({
             onWordClick(w.replace(/[،؛؟.!]/g, ""));
           }
         }}
-        className="inline-block mx-1 hover:text-accent-700 hover:scale-105 cursor-pointer transition-all duration-200 border-b border-transparent hover:border-accent-700 pb-0.5"
+        className="inline-block mx-1 hover:text-[#F3E19C] hover:scale-105 cursor-pointer transition-all duration-150 border-b border-transparent hover:border-[#D4AF37] pb-0.5"
         title="انقر لعرض المعنى من المعجم"
       >
         {w}
@@ -69,68 +69,64 @@ const VerseItemComponent: React.FC<VerseItemProps> = ({
         setShowExplanation(true);
       }}
       className={cn(
-        "group relative p-6 md:p-8 rounded-none border transition-colors cursor-pointer select-text font-ui",
+        "group relative p-6 md:p-8 rounded-3xl border transition-all duration-300 cursor-pointer select-text font-sans",
         isActive
-          ? "bg-paper-100 border-accent-700 shadow-md ring-1 ring-accent-700 z-10"
+          ? "bg-[#14171E] border-[#D4AF37] shadow-[0_0_30px_rgba(212,175,55,0.15)] ring-1 ring-[#D4AF37]/50 z-10"
           : isSelected
-          ? "bg-paper-100 border-paper-500 shadow-sm"
-          : "bg-transparent hover:bg-paper-100 border-transparent hover:border-paper-400"
+          ? "bg-[#14171E]/80 border-white/20 shadow-lg"
+          : "bg-[#0E1015]/60 hover:bg-[#14171E]/70 border-white/[0.06] hover:border-white/10"
       )}
     >
-      {/* Decorative margin line for active */}
+      {/* Decorative gold indicator for active verse */}
       {isActive && (
-        <div className="absolute inset-y-0 right-0 w-1.5 bg-accent-700" />
+        <div className="absolute inset-y-4 right-0 w-1.5 bg-gradient-to-b from-[#F3E19C] via-[#D4AF37] to-[#B89225] rounded-l-full shadow-[0_0_10px_rgba(212,175,55,0.8)]" />
       )}
 
       {/* Verse Header Info */}
-      <div className="flex items-center justify-between mb-6 select-none text-[14px] tracking-wide">
-        <div className="flex items-center gap-4">
+      <div className="flex items-center justify-between mb-4 select-none text-xs tracking-wide">
+        <div className="flex items-center gap-3">
           <span
             className={cn(
-              "w-8 h-8 rounded-none flex items-center justify-center font-bold text-sm transition-colors duration-300 font-mono border",
+              "w-8 h-8 rounded-xl flex items-center justify-center font-bold text-xs transition-all duration-300 font-mono border",
               isActive
-                ? "bg-accent-700 text-paper-100 border-accent-700 shadow-sm"
-                : "bg-transparent text-ink-600 border-ink-400 group-hover:border-ink-600 group-hover:text-ink-800"
+                ? "bg-[#D4AF37] text-[#0A0C10] border-[#D4AF37] shadow-[0_0_12px_rgba(212,175,55,0.4)]"
+                : "bg-white/[0.04] text-[#A0AAB7] border-white/10 group-hover:border-white/20 group-hover:text-[#F8F9FA]"
             )}
           >
             {toArabicDigits(verse.orderIndex)}
           </span>
 
           {alignment && (
-            <span className={cn(
-              "font-mono ltr-num flex items-center gap-2 px-3 py-1 text-[13px] font-medium border rounded-none transition-colors",
-              isActive
-                ? "bg-paper-300 text-accent-700 border-paper-400 shadow-sm"
-                : "bg-transparent text-ink-500 border-transparent group-hover:border-paper-400 group-hover:bg-paper-200"
-            )}>
-              <span>{formatTime(alignment.startMs)}</span>
-              <span className="opacity-50">—</span>
-              <span>{formatTime(alignment.endMs)}</span>
-            </span>
-          )}
-
-          {isActive && (
-            <span className="flex items-center gap-1.5 text-[13px] text-accent-700 font-bold bg-paper-200 px-3 py-0.5 border border-accent-700/30 animate-pulse rounded-none">
-              <Volume2 className="w-4 h-4" />
-              <span>يُتلى الآن</span>
+            <span
+              className={cn(
+                "px-2.5 py-1 rounded-lg text-[11px] font-mono ltr-num border transition-colors flex items-center gap-1.5",
+                isActive
+                  ? "bg-[#D4AF37]/15 text-[#F3E19C] border-[#D4AF37]/40"
+                  : "bg-white/[0.03] text-[#A0AAB7] border-white/5"
+              )}
+            >
+              <Volume2 className="w-3 h-3 text-[#D4AF37]" />
+              <span>
+                {formatTime(alignment.startMs)} - {formatTime(alignment.endMs)}
+              </span>
             </span>
           )}
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
           {alignment && (
             <span
               className={cn(
-                "px-3 py-1 text-[12px] font-bold flex items-center gap-1.5 border rounded-none shadow-sm",
+                "px-2.5 py-1 text-[11px] font-bold flex items-center gap-1 border rounded-lg",
                 alignment.confidence >= 0.8
-                  ? "bg-green-50 text-green-800 border-green-800"
+                  ? "bg-emerald-500/15 text-emerald-300 border-emerald-500/30"
                   : alignment.confidence >= 0.65
-                  ? "bg-amber-50 text-amber-800 border-amber-800"
-                  : "bg-red-50 text-red-800 border-red-800"
+                  ? "bg-amber-500/15 text-amber-300 border-amber-500/30"
+                  : "bg-rose-500/15 text-rose-300 border-rose-500/30"
               )}
               title={`دقة المحاذاة: ${Math.round(alignment.confidence * 100)}%`}
             >
-              <CheckCircle2 className="w-3 h-3" strokeWidth={2.5} />
+              <CheckCircle2 className="w-3 h-3 strokeWidth={2.5}" />
               <span className="ltr-num">{Math.round(alignment.confidence * 100)}%</span>
             </span>
           )}
@@ -143,14 +139,14 @@ const VerseItemComponent: React.FC<VerseItemProps> = ({
                 setShowExplanation(!showExplanation);
               }}
               className={cn(
-                "px-3 py-1 text-[13px] font-bold flex items-center gap-1.5 border rounded-none transition-colors",
+                "px-2.5 py-1 text-xs font-bold flex items-center gap-1 border rounded-lg transition-all cursor-pointer",
                 showExplanation
-                  ? "bg-paper-300 text-ink-900 border-paper-500"
-                  : "bg-transparent text-ink-600 hover:text-ink-900 border-ink-400 hover:bg-paper-200"
+                  ? "bg-white/10 text-[#F8F9FA] border-white/20"
+                  : "bg-transparent text-[#A0AAB7] hover:text-[#F8F9FA] border-white/10 hover:bg-white/[0.05]"
               )}
               title="عرض الشرح والمعنى"
             >
-              <Info className="w-4 h-4 text-ink-700" strokeWidth={2} />
+              <Info className="w-3.5 h-3.5 text-[#D4AF37]" />
               <span>الشرح</span>
             </button>
           )}
@@ -158,18 +154,18 @@ const VerseItemComponent: React.FC<VerseItemProps> = ({
       </div>
 
       {/* Poetic Verse with Two Hemistichs */}
-      <div className="my-6">
-        <div className="flex flex-col md:flex-row items-center justify-between gap-6 md:gap-12 px-2 py-3 relative">
+      <div className="my-4">
+        <div className="flex flex-col md:flex-row items-center justify-between gap-4 md:gap-8 px-2 py-2 relative">
           {/* الصدر (First Hemistich) */}
           <div className="flex-1 text-center md:text-right">
             <span
               className={cn(
-                "font-poetry text-3xl md:text-[34px] leading-[2.4] tracking-wide transition-colors duration-300",
+                "font-poetry text-2xl md:text-[30px] leading-[2.3] tracking-wide transition-all duration-300",
                 isActive
-                  ? "text-ink-900 font-bold"
+                  ? "text-[#F8F9FA] font-bold text-shadow-gold"
                   : isSelected
-                  ? "text-ink-900 font-bold"
-                  : "text-ink-800 group-hover:text-ink-900 group-hover:font-bold"
+                  ? "text-[#F8F9FA] font-bold"
+                  : "text-[#E9ECEF] group-hover:text-[#F8F9FA]"
               )}
             >
               {renderWords(verse.firstHemistich)}
@@ -177,20 +173,20 @@ const VerseItemComponent: React.FC<VerseItemProps> = ({
           </div>
 
           {/* فاصل الشطرين */}
-          <div className="shrink-0 flex items-center justify-center select-none text-accent-700 transition-colors">
-            <span className="text-xl font-poetry">✦</span>
+          <div className="shrink-0 flex items-center justify-center select-none text-[#D4AF37] transition-colors">
+            <Sparkles className="w-4 h-4 text-[#D4AF37]/70" />
           </div>
 
           {/* العجز (Second Hemistich) */}
           <div className="flex-1 text-center md:text-left">
             <span
               className={cn(
-                "font-poetry text-3xl md:text-[34px] leading-[2.4] tracking-wide transition-colors duration-300",
+                "font-poetry text-2xl md:text-[30px] leading-[2.3] tracking-wide transition-all duration-300",
                 isActive
-                  ? "text-ink-900 font-bold"
+                  ? "text-[#F8F9FA] font-bold text-shadow-gold"
                   : isSelected
-                  ? "text-ink-900 font-bold"
-                  : "text-ink-800 group-hover:text-ink-900 group-hover:font-bold"
+                  ? "text-[#F8F9FA] font-bold"
+                  : "text-[#E9ECEF] group-hover:text-[#F8F9FA]"
               )}
             >
               {renderWords(verse.secondHemistich)}
@@ -199,79 +195,24 @@ const VerseItemComponent: React.FC<VerseItemProps> = ({
         </div>
       </div>
 
-      {/* Expandable Explanation Panel */}
-      {showExplanation && (hasExplanation || isSelected) && (
-        <div
-          onClick={(e) => e.stopPropagation()}
-          className="mt-6 pt-5 border-t border-paper-400 text-[14px] text-ink-800 bg-paper-200 p-6 flex items-start gap-4 animate-in fade-in slide-in-from-top-2 duration-300 shadow-sm relative overflow-hidden rounded-none"
-        >
-          <Info className="w-5 h-5 text-accent-700 shrink-0 mt-1" />
-          <div className="flex-1">
-            <span className="font-bold text-accent-700 block mb-3 font-heading text-xl">الشرح والمعاني</span>
-            {explanationStatus === "loading" ? (
-              <div className="flex items-center gap-3 text-ink-600 p-3">
-                <Loader2 className="w-4 h-4 animate-spin" />
-                <span className="tracking-wide font-medium">جاري استخراج شرح البيت...</span>
-              </div>
-            ) : explanationStatus === "error" ? (
-              <div className="space-y-3 p-4 bg-red-50 rounded-none border border-red-800">
-                <p className="leading-relaxed text-red-800 font-medium">{explanationError || "تعذر تحميل الشرح."}</p>
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onRetryExplanation?.();
-                  }}
-                  className="inline-flex items-center gap-2 border border-red-800 bg-transparent px-4 py-2 text-[13px] font-bold text-red-800 hover:bg-red-800 hover:text-white transition-colors"
-                >
-                  <RefreshCw className="w-4 h-4" /> إعادة المحاولة
-                </button>
-              </div>
-            ) : items.length > 0 ? (
-              <div className="space-y-5">
-                {items.map((item) => (
-                  <div key={item.id} className="border-b border-paper-400 last:border-0 pb-4 last:pb-0">
-                    <div className="flex flex-wrap items-center gap-2 text-[13px] text-ink-600 mb-3 font-medium">
-                      <span className="text-ink-800 bg-paper-300 font-bold px-3 py-1 border border-paper-400 rounded-none">
-                        {item.explanationType === "classical" ? "شرح تراثي" : "معنى البيت"}
-                      </span>
-                      {item.author && <span>— {item.author}</span>}
-                      {item.sourceTitle && <span>({item.sourceTitle})</span>}
-                    </div>
-                    <p className="leading-[2.2] text-[18px] font-poetry text-ink-900">{item.text}</p>
-                  </div>
-                ))}
-              </div>
-            ) : verse.explanation ? (
-              <p className="leading-[2.2] text-[18px] font-poetry text-ink-900">{verse.explanation}</p>
-            ) : (
-              <p className="leading-relaxed text-ink-600">لا يتوفر شرح لهذا البيت في المصدر.</p>
-            )}
-            {items.length > 0 && (
-              <div className="mt-5 pt-3 border-t border-paper-400 text-[12px] font-bold text-ink-500 flex items-center justify-between">
-                <span>المصدر: ميزان العرب</span>
-              </div>
-            )}
-          </div>
+      {/* Verse Explanation / Meanings */}
+      {showExplanation && (verse.explanation || items.length > 0) && (
+        <div className="mt-4 pt-4 border-t border-white/[0.08] text-xs text-[#A0AAB7] leading-relaxed space-y-2 select-text font-sans">
+          {verse.explanation && (
+            <p className="bg-black/30 p-3.5 rounded-2xl border border-white/[0.05]">
+              <span className="text-[#D4AF37] font-bold ml-1.5">الشرح:</span>
+              {verse.explanation}
+            </p>
+          )}
+
+          {items.map((item, idx) => (
+            <div key={idx} className="bg-black/30 p-3.5 rounded-2xl border border-white/[0.05] space-y-1">
+              <span className="text-[#D4AF37] font-bold block">{item.sourceTitle || item.author || "المعجم"}:</span>
+              <p>{item.text}</p>
+            </div>
+          ))}
         </div>
       )}
     </div>
   );
 };
-
-export const VerseItem = memo(VerseItemComponent, (prev, next) => {
-  return (
-    prev.isActive === next.isActive &&
-    prev.isSelected === next.isSelected &&
-    prev.verse.id === next.verse.id &&
-    prev.verse.text === next.verse.text &&
-    prev.verse.alignment?.startMs === next.verse.alignment?.startMs &&
-    prev.verse.alignment?.endMs === next.verse.alignment?.endMs &&
-    prev.explanationStatus === next.explanationStatus &&
-    prev.explanationError === next.explanationError &&
-    (prev.explanationItems?.length || prev.verse.explanations?.length || 0) ===
-      (next.explanationItems?.length || next.verse.explanations?.length || 0) &&
-    (prev.explanationItems?.[0]?.text || prev.verse.explanations?.[0]?.text || "") ===
-      (next.explanationItems?.[0]?.text || next.verse.explanations?.[0]?.text || "")
-  );
-});

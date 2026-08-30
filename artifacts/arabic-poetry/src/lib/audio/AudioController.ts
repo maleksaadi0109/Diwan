@@ -25,24 +25,11 @@ export interface AudioPlayerState {
 
 export type StateListener = (state: AudioPlayerState) => void;
 
-/**
- * Short stability margin for FORWARD transitions during playback:
- * the highlight only advances once the next verse's start has clearly begun,
- * preventing flicker/premature switching at boundaries. Manual seeks are immediate.
- */
 export const FORWARD_SWITCH_MARGIN_MS = 80;
 
-/**
- * Fast binary search for active verse lookup:
- * start_ms <= currentMs && currentMs < end_ms
- * Gaps between verses keep the PREVIOUS verse highlighted (silence belongs
- * to the verse that just ended, never to the one that has not started).
- */
 export function findActiveVerseIndexBinary(verses: Verse[], currentMs: number): number {
   if (!verses || verses.length === 0) return -1;
 
-  // Only verses with a REAL alignment participate in timing — verses without
-  // one are non-timed and are never highlighted (no fabricated 8s slots).
   const timed: number[] = [];
   for (let i = 0; i < verses.length; i++) {
     if (verses[i].alignment) timed.push(i);
@@ -125,7 +112,6 @@ export class AudioController {
     this.audio = new Audio();
     this.audio.preload = "auto";
 
-    // Immediate recomputation on audio lifecycle events
     this.audio.addEventListener("loadedmetadata", () => {
       if (this.audio && isFinite(this.audio.duration)) {
         const durMs = Math.round(this.audio.duration * 1000);
@@ -135,6 +121,12 @@ export class AudioController {
           errorMessage: null,
         });
         this.recomputeSyncImmediately();
+      }
+    });
+
+    this.audio.addEventListener("canplay", () => {
+      if (this.state.status === "loading") {
+        this.updateState({ status: "paused", errorMessage: null });
       }
     });
 
@@ -213,16 +205,18 @@ export class AudioController {
     }
 
     if (this.audio) {
-      this.audio.src = src;
-      this.audio.playbackRate = this.state.playbackRate;
-      this.audio.volume = this.state.isMuted ? 0 : this.state.volume;
-      this.updateState({
-        status: "loading",
-        currentTimeMs: 0,
-        durationMs: fallbackDurationMs || 0,
-        errorMessage: null,
-      });
-      this.audio.load();
+      if (this.audio.src !== src) {
+        this.audio.src = src;
+        this.audio.playbackRate = this.state.playbackRate;
+        this.audio.volume = this.state.isMuted ? 0 : this.state.volume;
+        this.updateState({
+          status: "loading",
+          currentTimeMs: 0,
+          durationMs: fallbackDurationMs || 0,
+          errorMessage: null,
+        });
+        this.audio.load();
+      }
     } else {
       this.updateState({
         status: "paused",
@@ -246,12 +240,13 @@ export class AudioController {
         });
         this.startPrecisionLoop();
       } catch (err: unknown) {
+        console.error("Audio play error:", err);
         const error = err as { name?: string; message?: string };
         if (error.name === "NotAllowedError") {
           this.updateState({
             status: "error",
             isPlaying: false,
-            errorMessage: "التشغيل التلقائي محظور حتى يتفاعل المستخدم مع الصفحة",
+            errorMessage: "يتطلب التشغيل تفاعل المستخدم مع الصفحة أولاً (Autoplay restricted)",
           });
         } else {
           this.startSimulation();
@@ -286,13 +281,16 @@ export class AudioController {
   public seekTo(timeMs: number): void {
     const clampedMs = Math.max(0, Math.min(timeMs, this.state.durationMs || Infinity));
     if (this.audio && isFinite(this.audio.duration)) {
-      this.audio.currentTime = clampedMs / 1000;
+      try {
+        this.audio.currentTime = clampedMs / 1000;
+      } catch (e) {
+        console.warn("Failed to set audio currentTime:", e);
+      }
     }
     this.recomputeSyncImmediately(clampedMs);
   }
 
   public seekToVerse(verse: Verse): void {
-    // Verses without a real alignment are non-timed: never fabricate a target.
     if (!verse.alignment) return;
     this.seekTo(Number(verse.alignment.startMs));
   }
@@ -342,12 +340,6 @@ export class AudioController {
     return findActiveVerseIndexBinary(this.verses, currentMs);
   }
 
-  /**
-   * Active verse lookup with the forward stability margin applied — used by
-   * both real playback (RAF loop) and simulated playback. Only advancing by
-   * exactly one verse is delayed until the next verse's start has clearly
-   * begun; seeks and backward changes stay immediate.
-   */
   private computeStableActiveIndex(currentMs: number): number {
     let activeIdx = findActiveVerseIndexBinary(this.verses, currentMs);
     const prevIdx = this.state.activeVerseIndex;
@@ -360,9 +352,6 @@ export class AudioController {
     return activeIdx;
   }
 
-  /**
-   * Immediately recomputes active verse index on seeking, seeked, ratechange, or loadedmetadata
-   */
   public recomputeSyncImmediately(explicitMs?: number): void {
     let currentMs = explicitMs;
     if (currentMs === undefined) {
@@ -379,12 +368,6 @@ export class AudioController {
     });
   }
 
-  /**
-   * requestAnimationFrame synchronization loop:
-   * - Computes active verse on every frame via binary search
-   * - Triggers active verse transition immediately
-   * - Tracks live FPS
-   */
   private startPrecisionLoop() {
     this.stopPrecisionLoop();
     if (typeof window === "undefined" || typeof requestAnimationFrame === "undefined") return;
@@ -398,7 +381,6 @@ export class AudioController {
         return;
       }
 
-      // FPS tracking
       this.frameCount++;
       if (now - this.fpsTimer >= 500) {
         this.calculatedFps = Math.round((this.frameCount * 1000) / (now - this.fpsTimer));
@@ -411,7 +393,6 @@ export class AudioController {
 
       const verseChanged = activeIdx !== this.state.activeVerseIndex;
 
-      // Active verse highlight changes IMMEDIATELY without delay
       if (verseChanged) {
         const activeVerse = activeIdx >= 0 && activeIdx < this.verses.length ? this.verses[activeIdx] : null;
         this.updateState({
@@ -422,7 +403,6 @@ export class AudioController {
         });
         lastTimelineUpdate = now;
       } else if (now - lastTimelineUpdate >= 40) {
-        // Scrubber progress update at smooth ~25fps
         lastTimelineUpdate = now;
         this.updateState({
           currentTimeMs: currentMs,
@@ -443,7 +423,6 @@ export class AudioController {
     }
   }
 
-  // --- Calibration Engine ---
   public setCalibrationAnchor(verseId: string, actualAudioMs: number): CalibrationResult {
     const verse = this.baselineVerses.find((v) => v.id === verseId);
     const originalStartMs = verse?.alignment?.startMs ?? 0;
