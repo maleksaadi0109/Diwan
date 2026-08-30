@@ -8,6 +8,7 @@ import {
   transcribeArabicAudio,
   alignPoemAudio,
   inspectAudioFile,
+  downloadYoutubeThumbnail,
   TranscriptResult,
   PoemAlignmentResponse,
 } from "@/lib/worker/workerClient";
@@ -61,6 +62,7 @@ export const ImportView: React.FC<ImportViewProps> = ({ onImportPoem }) => {
   const [delimiter, setDelimiter] = useState("...");
   const [audioSourcePath, setAudioSourcePath] = useState<string | null>(null);
   const [audioFileName, setAudioFileName] = useState<string | null>(null);
+  const [coverImageUrl, setCoverImageUrl] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
 
@@ -213,6 +215,7 @@ export const ImportView: React.FC<ImportViewProps> = ({ onImportPoem }) => {
         bahr,
         rhyme: rhyme.trim() || "غير محدد",
         versesCount: parsedVerses.length,
+        coverImageUrl: coverImageUrl || undefined,
         verses: parsedVerses.map((v, i) => {
           const item = alignments.find((a) => a.order_index === v.orderIndex);
           return {
@@ -331,6 +334,16 @@ export const ImportView: React.FC<ImportViewProps> = ({ onImportPoem }) => {
             setAudioFileName(`${info.title}.mp3`);
             setTitle(info.title);
             setSuccessMessage(`تم تنزيل ومعالجة الصوت بنجاح (${info.title}). يمكنك إكمال البيانات وحفظ القصيدة.`);
+            if (info.thumbnail) {
+              setCoverImageUrl(info.thumbnail);
+              downloadYoutubeThumbnail(info.thumbnail)
+                .then((dataUrl) => {
+                  if (dataUrl) setCoverImageUrl(dataUrl);
+                })
+                .catch(() => {
+                  // keep the raw thumbnail URL fallback already set above
+                });
+            }
           }}
         />
       )}
