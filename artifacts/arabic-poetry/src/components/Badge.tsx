@@ -15,12 +15,12 @@ export const Badge: React.FC<BadgeProps> = ({
   size = "sm",
 }) => {
   const variantStyles = {
-    gold: "text-accent-700 border border-accent-700 bg-paper-200 font-bold",
-    charcoal: "text-ink-800 border border-ink-500 bg-paper-100",
+    gold: "text-accent-700 border border-accent-700 bg-parchment-200 font-bold",
+    charcoal: "text-ink-800 border border-ink-500 bg-parchment-100",
     success: "text-green-800 border border-green-800 bg-green-50",
     warning: "text-amber-800 border border-amber-800 bg-amber-50",
     danger: "text-red-800 border border-red-800 bg-red-50",
-    outline: "text-ink-700 border border-paper-500 bg-transparent",
+    outline: "text-ink-700 border border-parchment-300 bg-transparent",
   };
 
   const sizeStyles = {

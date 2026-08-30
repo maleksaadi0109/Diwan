@@ -105,22 +105,22 @@ export const ImportExplanationModal: React.FC<ImportExplanationModalProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-[#080A0E]/75 backdrop-blur-sm p-4 select-none animate-fadeIn"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-charcoal-950/75 backdrop-blur-sm p-4 select-none animate-fadeIn"
       onClick={onClose}
     >
       <div
-        className="bg-[#0E1015] border border-white/10 rounded-3xl w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden shadow-[0_0_40px_rgba(0,0,0,0.5)]"
+        className="bg-charcoal-950 border border-white/10 rounded-3xl w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden shadow-[0_0_40px_rgba(0,0,0,0.5)]"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="px-6 py-4 border-b border-white/10 flex items-center justify-between bg-[#14171E] shrink-0">
-          <div className="flex items-center gap-2.5 text-[#F8F9FA] min-w-0">
-            <ClipboardPaste className="w-5 h-5 text-[#D4AF37] shrink-0" />
+        <div className="px-6 py-4 border-b border-white/10 flex items-center justify-between bg-charcoal-900 shrink-0">
+          <div className="flex items-center gap-2.5 text-parchment-100 min-w-0">
+            <ClipboardPaste className="w-5 h-5 text-accent-700 shrink-0" />
             <h3 className="text-sm font-bold font-sans truncate">استيراد شرح جاهز (نسخ ولصق)</h3>
           </div>
           <button
             onClick={onClose}
-            className="text-[#6C7A8C] hover:text-[#F8F9FA] p-1.5 rounded-xl hover:bg-white/[0.06] transition-colors shrink-0"
+            className="text-ink-600 hover:text-parchment-100 p-1.5 rounded-xl hover:bg-white/5 transition-colors shrink-0"
           >
             <X className="w-5 h-5" strokeWidth={2} />
           </button>
@@ -128,9 +128,9 @@ export const ImportExplanationModal: React.FC<ImportExplanationModalProps> = ({
 
         {/* Body */}
         <div className="p-6 space-y-4 overflow-y-auto select-text">
-          <div className="bg-black/20 border border-white/[0.06] rounded-2xl p-4 space-y-2">
-            <p className="text-xs font-bold text-[#F3E19C] font-sans">الخطوات:</p>
-            <ol className="text-xs text-[#A0AAB7] font-sans leading-relaxed list-decimal pr-4 space-y-1">
+          <div className="bg-black/20 border border-white/5 rounded-2xl p-4 space-y-2">
+            <p className="text-xs font-bold text-accent-500 font-sans">الخطوات:</p>
+            <ol className="text-xs text-ink-500 font-sans leading-relaxed list-decimal pr-4 space-y-1">
               <li>افتح صفحة شرح القصيدة في الموقع المصدر.</li>
               <li>حدد كل نص الصفحة (Ctrl+A) وانسخه (Ctrl+C).</li>
               <li>ارجع هنا واضغط "لصق من الحافظة"، أو الصق يدويًا (Ctrl+V) في الصندوق أدناه.</li>
@@ -141,9 +141,9 @@ export const ImportExplanationModal: React.FC<ImportExplanationModalProps> = ({
             <button
               type="button"
               onClick={handlePasteFromClipboard}
-              className="shrink-0 flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold bg-white/[0.08] hover:bg-white/[0.14] text-[#F8F9FA] transition-colors"
+              className="shrink-0 flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold bg-white/10 hover:bg-white/[0.14] text-parchment-100 transition-colors"
             >
-              <Clipboard className="w-3.5 h-3.5 text-[#D4AF37]" />
+              <Clipboard className="w-3.5 h-3.5 text-accent-700" />
               <span>لصق من الحافظة</span>
             </button>
             {clipboardError && <p className="text-[11px] text-amber-400 font-sans">{clipboardError}</p>}
@@ -160,7 +160,7 @@ export const ImportExplanationModal: React.FC<ImportExplanationModalProps> = ({
             }}
             dir="rtl"
             placeholder="الصق هنا نص الشرح كاملاً..."
-            className="w-full bg-black/30 text-[#F8F9FA] placeholder-[#6C7A8C] border border-white/15 focus:border-[#D4AF37] focus:outline-none rounded-2xl p-4 text-sm font-sans leading-relaxed"
+            className="w-full bg-black/30 text-parchment-100 placeholder-ink-500 border border-white/15 focus:border-accent-700 focus:outline-none rounded-2xl p-4 text-sm font-sans leading-relaxed"
           />
 
           {parseError && (
@@ -178,7 +178,7 @@ export const ImportExplanationModal: React.FC<ImportExplanationModalProps> = ({
                   تم العثور على شرح لـ {preview.matched.length} بيت{preview.unmatchedCount > 0 ? ` (وتعذّرت مطابقة ${preview.unmatchedCount} بيت إضافي)` : ""}.
                 </p>
               </div>
-              <ul className="text-[11px] text-[#A0AAB7] font-sans space-y-1 max-h-32 overflow-y-auto">
+              <ul className="text-[11px] text-ink-500 font-sans space-y-1 max-h-32 overflow-y-auto">
                 {preview.matched.map((b) => (
                   <li key={b.verseId} className="truncate">— {b.verseText}</li>
                 ))}
@@ -198,19 +198,19 @@ export const ImportExplanationModal: React.FC<ImportExplanationModalProps> = ({
                 {preview.suggestions.map((s) => (
                   <label
                     key={s.id}
-                    className="flex items-start gap-2.5 bg-black/20 border border-white/[0.06] rounded-xl p-3 cursor-pointer"
+                    className="flex items-start gap-2.5 bg-black/20 border border-white/5 rounded-xl p-3 cursor-pointer"
                   >
                     <input
                       type="checkbox"
                       checked={acceptedSuggestionIds.has(s.id)}
                       onChange={() => toggleSuggestion(s.id)}
-                      className="mt-0.5 accent-[#D4AF37] shrink-0"
+                      className="mt-0.5 accent-accent-700 shrink-0"
                     />
                     <div className="min-w-0 flex-1 space-y-1.5">
-                      <p className="text-[11px] font-bold text-[#F3E19C] font-sans">
+                      <p className="text-[11px] font-bold text-accent-500 font-sans">
                         {SUGGESTION_LABELS[s.kind]}
                       </p>
-                      <p className="text-[11px] text-[#A0AAB7] font-sans">{s.description}</p>
+                      <p className="text-[11px] text-ink-500 font-sans">{s.description}</p>
                       <div className="grid grid-cols-1 gap-1.5 text-[11px] font-sans">
                         <div className="bg-rose-500/10 rounded-lg p-2 text-rose-300/90">
                           <span className="text-[10px] font-bold block mb-0.5">الحالي:</span>
@@ -247,10 +247,10 @@ export const ImportExplanationModal: React.FC<ImportExplanationModalProps> = ({
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-4 border-t border-white/10 bg-[#14171E] flex justify-end gap-2.5 shrink-0">
+        <div className="px-6 py-4 border-t border-white/10 bg-charcoal-900 flex justify-end gap-2.5 shrink-0">
           <button
             onClick={onClose}
-            className="px-4 py-2 bg-white/[0.06] hover:bg-white/[0.1] text-[#F8F9FA] text-xs font-bold rounded-xl transition-colors"
+            className="px-4 py-2 bg-white/5 hover:bg-white/10 text-parchment-100 text-xs font-bold rounded-xl transition-colors"
           >
             {done ? "إغلاق" : "إلغاء"}
           </button>
@@ -258,7 +258,7 @@ export const ImportExplanationModal: React.FC<ImportExplanationModalProps> = ({
             <button
               onClick={handlePreview}
               disabled={!rawText.trim()}
-              className="px-4 py-2 bg-white/[0.1] hover:bg-white/[0.15] disabled:opacity-50 text-[#F8F9FA] text-xs font-bold rounded-xl transition-colors"
+              className="px-4 py-2 bg-white/10 hover:bg-white/[0.15] disabled:opacity-50 text-parchment-100 text-xs font-bold rounded-xl transition-colors"
             >
               معاينة المطابقة
             </button>
@@ -267,7 +267,7 @@ export const ImportExplanationModal: React.FC<ImportExplanationModalProps> = ({
             <button
               onClick={handleConfirmImport}
               disabled={isSaving}
-              className="px-4 py-2 bg-[#D4AF37] hover:bg-[#E6C265] disabled:opacity-60 text-[#0A0C10] text-xs font-bold rounded-xl transition-all flex items-center gap-1.5"
+              className="px-4 py-2 bg-accent-700 hover:bg-accent-600 disabled:opacity-60 text-charcoal-950 text-xs font-bold rounded-xl transition-all flex items-center gap-1.5"
             >
               {isSaving && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
               <span>حفظ الشرح المستورد</span>

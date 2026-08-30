@@ -81,19 +81,19 @@ export const PlaylistDetailView: React.FC<PlaylistDetailViewProps> = ({
   const RepeatIcon = repeatMode === "one" ? Repeat1 : Repeat;
 
   return (
-    <div className="h-full flex flex-col overflow-y-auto px-8 md:px-14 py-10 max-w-5xl mx-auto w-full scroll-smooth select-none text-[#F8F9FA]">
+    <div className="h-full flex flex-col overflow-y-auto px-4 md:px-14 py-8 md:py-10 max-w-5xl mx-auto w-full scroll-smooth select-none text-parchment-100 animate-fade-in pb-24 md:pb-12">
       <button
         onClick={onBack}
-        className="flex items-center gap-2 text-xs font-bold text-[#A0AAB7] hover:text-[#F8F9FA] mb-6 self-start px-3.5 py-2 bg-white/[0.05] hover:bg-white/[0.1] border border-white/10 rounded-xl transition-all cursor-pointer w-fit"
+        className="flex items-center gap-2 text-xs font-bold text-ink-500 hover:text-parchment-100 mb-6 self-start px-3.5 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl transition-all cursor-pointer w-fit focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-700"
       >
-        <ChevronRight className="w-4 h-4 text-[#D4AF37]" strokeWidth={2.5} />
+        <ChevronRight className="w-4 h-4 text-accent-700" strokeWidth={2.5} />
         <span>كل قوائم التشغيل</span>
       </button>
 
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center gap-6 mb-8 bg-[#14171E]/90 border border-white/[0.08] rounded-3xl p-6 shadow-xl">
-        <div className="w-20 h-20 rounded-2xl bg-[#D4AF37]/10 border border-[#D4AF37]/25 flex items-center justify-center shrink-0">
-          <ListMusic className="w-9 h-9 text-[#D4AF37]" />
+      <div className="flex flex-col sm:flex-row sm:items-center gap-6 mb-8 bg-charcoal-850/90 border border-white/5 rounded-3xl p-6 shadow-md backdrop-blur-sm">
+        <div className="w-20 h-20 rounded-2xl bg-accent-700/10 border border-accent-700/20 flex items-center justify-center shrink-0">
+          <ListMusic className="w-9 h-9 text-accent-700" />
         </div>
 
         <div className="flex-1 min-w-0">
@@ -110,9 +110,9 @@ export const PlaylistDetailView: React.FC<PlaylistDetailViewProps> = ({
                     setRenameValue(playlist.name);
                   }
                 }}
-                className="flex-1 bg-black/40 border border-white/10 rounded-xl px-3.5 py-2 text-xl font-poetry font-bold text-[#F8F9FA] focus:outline-none focus:border-[#D4AF37]/50"
+                className="flex-1 bg-charcoal-950/50 border border-white/10 rounded-xl px-3.5 py-2 text-xl font-poetry font-bold text-parchment-100 focus:outline-none focus:border-accent-700"
               />
-              <button onClick={commitRename} className="p-2 text-emerald-400 hover:bg-emerald-500/10 rounded-lg cursor-pointer">
+              <button onClick={commitRename} className="p-2 text-emerald-400 hover:bg-emerald-500/10 rounded-lg cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500">
                 <Check className="w-4 h-4" />
               </button>
               <button
@@ -120,24 +120,24 @@ export const PlaylistDetailView: React.FC<PlaylistDetailViewProps> = ({
                   setIsRenaming(false);
                   setRenameValue(playlist.name);
                 }}
-                className="p-2 text-[#6C7A8C] hover:bg-white/5 rounded-lg cursor-pointer"
+                className="p-2 text-ink-500 hover:bg-white/5 rounded-lg cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-700"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
           ) : (
-            <h2 className="text-3xl font-poetry font-bold text-[#F8F9FA] flex items-center gap-2.5 truncate group">
+            <h2 className="text-3xl font-poetry font-bold text-parchment-100 flex items-center gap-2.5 group">
               <span className="truncate">{playlist.name}</span>
               <button
                 onClick={() => setIsRenaming(true)}
-                className="opacity-0 group-hover:opacity-100 text-[#6C7A8C] hover:text-[#D4AF37] p-1 rounded-lg transition-all cursor-pointer"
+                className="opacity-100 md:opacity-0 md:group-hover:opacity-100 text-ink-500 hover:text-accent-500 p-1 rounded-lg transition-all cursor-pointer focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-700"
                 title="إعادة تسمية القائمة"
               >
                 <Pencil className="w-4 h-4" />
               </button>
             </h2>
           )}
-          <p className="text-xs text-[#A0AAB7] mt-1.5 font-sans">
+          <p className="text-xs text-ink-500 mt-1.5 font-sans">
             {toArabicDigits(poems.length)} قصائد
           </p>
         </div>
@@ -146,10 +146,10 @@ export const PlaylistDetailView: React.FC<PlaylistDetailViewProps> = ({
           <button
             onClick={onToggleShuffle}
             title="تشغيل عشوائي"
-            className={`p-2.5 rounded-xl border transition-all cursor-pointer ${
+            className={`p-2.5 rounded-xl border transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-700 ${
               shuffle
-                ? "bg-[#D4AF37]/15 text-[#F3E19C] border-[#D4AF37]/40"
-                : "text-[#A0AAB7] border-white/10 hover:text-[#F8F9FA] hover:bg-white/[0.05]"
+                ? "bg-accent-700/15 text-accent-500 border-accent-700/40"
+                : "text-ink-500 border-white/10 hover:text-parchment-100 hover:bg-white/5"
             }`}
           >
             <Shuffle className="w-4.5 h-4.5" />
@@ -157,10 +157,10 @@ export const PlaylistDetailView: React.FC<PlaylistDetailViewProps> = ({
           <button
             onClick={onCycleRepeatMode}
             title={repeatMode === "off" ? "تكرار: متوقف" : repeatMode === "all" ? "تكرار: القائمة كاملة" : "تكرار: القصيدة الحالية"}
-            className={`p-2.5 rounded-xl border transition-all cursor-pointer ${
+            className={`p-2.5 rounded-xl border transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-700 ${
               repeatMode !== "off"
-                ? "bg-[#D4AF37]/15 text-[#F3E19C] border-[#D4AF37]/40"
-                : "text-[#A0AAB7] border-white/10 hover:text-[#F8F9FA] hover:bg-white/[0.05]"
+                ? "bg-accent-700/15 text-accent-500 border-accent-700/40"
+                : "text-ink-500 border-white/10 hover:text-parchment-100 hover:bg-white/5"
             }`}
           >
             <RepeatIcon className="w-4.5 h-4.5" />
@@ -168,13 +168,13 @@ export const PlaylistDetailView: React.FC<PlaylistDetailViewProps> = ({
           {poems.length > 0 && (
             <button
               onClick={() => (isPlayingThisPlaylist ? onTogglePlay() : onPlayFromIndex(0))}
-              className="w-13 h-13 rounded-2xl bg-gradient-to-tr from-[#B89225] via-[#D4AF37] to-[#F3E19C] hover:from-[#C9A233] hover:to-[#FFF0B3] text-[#0A0C10] shadow-[0_0_25px_rgba(212,175,55,0.4)] transition-all duration-300 active:scale-95 flex items-center justify-center cursor-pointer border border-[#FFF0B3]/40"
+              className="w-12 h-12 md:w-13 md:h-13 rounded-2xl bg-accent-700 hover:bg-accent-600 text-charcoal-950 shadow-lg shadow-accent-700/20 transition-all duration-300 active:scale-95 flex items-center justify-center cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-charcoal-900 focus-visible:ring-accent-700"
               title={isPlayingThisPlaylist && isPlaying ? "إيقاف مؤقت" : "تشغيل القائمة"}
             >
               {isPlayingThisPlaylist && isPlaying ? (
-                <Pause className="w-6 h-6 fill-current text-[#0A0C10]" />
+                <Pause className="w-5 h-5 md:w-6 md:h-6 fill-current" />
               ) : (
-                <Play className="w-6 h-6 fill-current text-[#0A0C10] ml-0.5" />
+                <Play className="w-5 h-5 md:w-6 md:h-6 fill-current ml-0.5" />
               )}
             </button>
           )}
@@ -183,7 +183,7 @@ export const PlaylistDetailView: React.FC<PlaylistDetailViewProps> = ({
 
       {/* Poems list */}
       {poems.length > 0 ? (
-        <div className="flex flex-col gap-2 pb-20">
+        <div className="flex flex-col gap-2 relative">
           {poems.map((poem, index) => {
             const isCurrent = currentPoemId === poem.id;
             return (
@@ -203,14 +203,14 @@ export const PlaylistDetailView: React.FC<PlaylistDetailViewProps> = ({
                   e.preventDefault();
                   handleDrop(index);
                 }}
-                className={`group flex items-center gap-3 px-4 py-3 rounded-2xl border transition-all ${
+                className={`group flex items-center gap-3 px-3 py-2.5 md:px-4 md:py-3 rounded-2xl border transition-all ${
                   isCurrent
-                    ? "bg-[#D4AF37]/10 border-[#D4AF37]/40"
-                    : "bg-[#14171E]/80 border-white/[0.06] hover:border-white/15"
-                } ${dragOverIndex === index && dragIndex !== null && dragIndex !== index ? "border-dashed border-[#D4AF37]/60" : ""}`}
+                    ? "bg-accent-700/10 border-accent-700/40 shadow-sm"
+                    : "bg-charcoal-850/80 border-white/5 hover:border-white/10 hover:bg-charcoal-800"
+                } ${dragOverIndex === index && dragIndex !== null && dragIndex !== index ? "border-dashed border-accent-700/60 bg-accent-700/5" : ""}`}
               >
                 <span
-                  className="cursor-grab active:cursor-grabbing text-[#6C7A8C] hover:text-[#A0AAB7] p-1 shrink-0"
+                  className="cursor-grab active:cursor-grabbing text-ink-600 hover:text-ink-400 p-1 shrink-0 opacity-50 group-hover:opacity-100 transition-opacity hidden md:block"
                   title="اسحب لإعادة الترتيب"
                 >
                   <GripVertical className="w-4 h-4" />
@@ -218,13 +218,15 @@ export const PlaylistDetailView: React.FC<PlaylistDetailViewProps> = ({
 
                 <button
                   onClick={() => onPlayFromIndex(index)}
-                  className="w-9 h-9 rounded-xl bg-white/[0.06] hover:bg-[#D4AF37]/15 flex items-center justify-center shrink-0 text-[#A0AAB7] hover:text-[#D4AF37] transition-all cursor-pointer"
+                  className={`w-8 h-8 md:w-9 md:h-9 rounded-xl flex items-center justify-center shrink-0 transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-700 ${
+                    isCurrent ? "bg-accent-700/20 text-accent-500" : "bg-white/5 hover:bg-accent-700/15 text-ink-500 hover:text-accent-500"
+                  }`}
                   title="تشغيل من هذه القصيدة"
                 >
                   {isCurrent && isPlaying ? (
-                    <Pause className="w-4 h-4 fill-current" />
+                    <Pause className="w-3.5 h-3.5 fill-current" />
                   ) : (
-                    <Play className="w-4 h-4 fill-current ml-0.5" />
+                    <Play className="w-3.5 h-3.5 fill-current ml-0.5" />
                   )}
                 </button>
 
@@ -232,39 +234,39 @@ export const PlaylistDetailView: React.FC<PlaylistDetailViewProps> = ({
                   <img
                     src={poem.coverImageUrl}
                     alt=""
-                    className="w-9 h-9 rounded-lg object-cover border border-white/10 shrink-0"
+                    className="w-8 h-8 md:w-9 md:h-9 rounded-lg object-cover border border-white/10 shrink-0 shadow-sm"
                   />
                 ) : (
-                  <span className="w-6 text-center text-xs font-mono text-[#6C7A8C] shrink-0">
+                  <span className="w-6 text-center text-xs font-mono text-ink-600 shrink-0">
                     {toArabicDigits(index + 1)}
                   </span>
                 )}
 
                 <div className="flex-1 min-w-0 text-right">
-                  <p className={`text-sm font-bold truncate font-poetry ${isCurrent ? "text-[#F3E19C]" : "text-[#F8F9FA]"}`}>
+                  <p className={`text-sm md:text-base font-bold truncate font-poetry ${isCurrent ? "text-accent-500" : "text-parchment-100"}`}>
                     {poem.title}
                   </p>
-                  <p className="text-[11px] text-[#A0AAB7] truncate">{poem.poet.name}</p>
+                  <p className="text-[10px] md:text-[11px] text-ink-500 truncate">{poem.poet.name}</p>
                 </div>
 
                 <button
                   onClick={() => onRemovePoem(poem.id)}
-                  className="opacity-0 group-hover:opacity-100 p-2 rounded-lg text-[#6C7A8C] hover:text-rose-400 hover:bg-rose-500/15 transition-all cursor-pointer shrink-0"
+                  className="opacity-100 md:opacity-0 md:group-hover:opacity-100 p-2 rounded-lg text-ink-600 hover:text-crimson-400 hover:bg-crimson-500/10 transition-all cursor-pointer shrink-0 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-crimson-500"
                   title="إزالة من القائمة"
                 >
-                  <Trash2 className="w-4 h-4" />
+                  <Trash2 className="w-4 h-4 md:w-4.5 md:h-4.5" />
                 </button>
               </div>
             );
           })}
         </div>
       ) : (
-        <div className="flex-1 flex flex-col items-center justify-center text-center p-16 bg-[#14171E]/60 border border-white/[0.08] rounded-3xl shadow-xl">
-          <div className="w-16 h-16 bg-white/[0.04] border border-white/10 flex items-center justify-center mb-5 text-[#D4AF37] rounded-2xl shadow-inner">
+        <div className="flex-1 flex flex-col items-center justify-center text-center p-12 bg-charcoal-850/50 border border-white/5 rounded-3xl shadow-sm mt-4">
+          <div className="w-16 h-16 bg-charcoal-800 border border-white/5 flex items-center justify-center mb-5 text-accent-700 rounded-2xl shadow-inner">
             <ListMusic className="w-8 h-8" strokeWidth={1.5} />
           </div>
-          <h3 className="text-2xl font-poetry font-bold text-[#F8F9FA] mb-2">القائمة فارغة</h3>
-          <p className="text-xs text-[#A0AAB7] max-w-md leading-relaxed font-sans">
+          <h3 className="text-xl md:text-2xl font-poetry font-bold text-parchment-100 mb-2">القائمة فارغة</h3>
+          <p className="text-xs md:text-sm text-ink-500 max-w-md leading-relaxed font-sans">
             اذهب إلى المكتبة واضغط على أيقونة "إضافة إلى قائمة تشغيل" في أي قصيدة لإضافتها هنا.
           </p>
         </div>

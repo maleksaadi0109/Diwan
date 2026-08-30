@@ -94,7 +94,7 @@ export const VerseItem: React.FC<VerseItemProps> = ({
             onWordClick(w.replace(/[،؛؟.!]/g, ""));
           }
         }}
-        className="inline-block mx-1 hover:text-[#F3E19C] hover:scale-105 cursor-pointer transition-all duration-150 border-b border-transparent hover:border-[#D4AF37] pb-0.5"
+        className="inline-block mx-1 hover:text-accent-500 hover:scale-105 cursor-pointer transition-all duration-150 border-b border-transparent hover:border-accent-700 pb-0.5"
         title="انقر لعرض المعنى من المعجم"
       >
         {w}
@@ -105,7 +105,19 @@ export const VerseItem: React.FC<VerseItemProps> = ({
   return (
     <div
       ref={verseRef}
+      role="button"
+      tabIndex={0}
       onClick={() => {
+        if (onSelectVerse) onSelectVerse(verse);
+        else onSeekToVerse(verse);
+      }}
+      onKeyDown={(e) => {
+        if (e.key !== "Enter" && e.key !== " ") return;
+        // Ignore activation bubbled up from a nested interactive control
+        // (explanation toggle, edit, delete, etc.) -- those handle their own
+        // activation and must not also seek/select this verse.
+        if (e.target !== e.currentTarget) return;
+        e.preventDefault();
         if (onSelectVerse) onSelectVerse(verse);
         else onSeekToVerse(verse);
       }}
@@ -114,17 +126,17 @@ export const VerseItem: React.FC<VerseItemProps> = ({
       }}
       title={onOpenExplanation ? "انقر نقرًا مزدوجًا لعرض شرح البيت في نافذة مستقلة" : undefined}
       className={cn(
-        "group relative p-6 md:p-8 rounded-3xl border transition-all duration-300 cursor-pointer select-text font-sans",
+        "group relative p-6 md:p-8 rounded-3xl border transition-all duration-300 cursor-pointer select-text font-sans outline-none focus-visible:ring-2 focus-visible:ring-accent-700 focus-visible:ring-offset-2 focus-visible:ring-offset-charcoal-900",
         isActive
-          ? "bg-[#14171E] border-[#D4AF37] shadow-[0_0_30px_rgba(212,175,55,0.15)] ring-1 ring-[#D4AF37]/50 z-10"
+          ? "bg-charcoal-850 border-accent-700 shadow-xl shadow-accent-700/5 ring-1 ring-accent-700/50 z-10"
           : isSelected
-          ? "bg-[#14171E]/80 border-white/20 shadow-lg"
-          : "bg-[#0E1015]/60 hover:bg-[#14171E]/70 border-white/[0.06] hover:border-white/10"
+          ? "bg-charcoal-850/80 border-white/20 shadow-lg"
+          : "bg-charcoal-900/60 hover:bg-charcoal-850/70 border-white/5 hover:border-white/10"
       )}
     >
       {/* Decorative gold indicator for active verse */}
       {isActive && (
-        <div className="absolute inset-y-4 right-0 w-1.5 bg-gradient-to-b from-[#F3E19C] via-[#D4AF37] to-[#B89225] rounded-l-full shadow-[0_0_10px_rgba(212,175,55,0.8)]" />
+        <div className="absolute inset-y-4 right-0 w-1.5 bg-gradient-to-b from-accent-400 via-accent-700 to-accent-600 rounded-l-full shadow-md shadow-accent-700/50" />
       )}
 
       {/* Verse Header Info */}
@@ -134,8 +146,8 @@ export const VerseItem: React.FC<VerseItemProps> = ({
             className={cn(
               "w-8 h-8 rounded-xl flex items-center justify-center font-bold text-xs transition-all duration-300 font-mono border",
               isActive
-                ? "bg-[#D4AF37] text-[#0A0C10] border-[#D4AF37] shadow-[0_0_12px_rgba(212,175,55,0.4)]"
-                : "bg-white/[0.04] text-[#A0AAB7] border-white/10 group-hover:border-white/20 group-hover:text-[#F8F9FA]"
+                ? "bg-accent-700 text-charcoal-950 border-accent-700 shadow-md shadow-accent-700/30"
+                : "bg-white/5 text-ink-500 border-white/10 group-hover:border-white/20 group-hover:text-parchment-100"
             )}
           >
             {toArabicDigits(verse.orderIndex)}
@@ -146,11 +158,11 @@ export const VerseItem: React.FC<VerseItemProps> = ({
               className={cn(
                 "px-2.5 py-1 rounded-lg text-[11px] font-mono ltr-num border transition-colors flex items-center gap-1.5",
                 isActive
-                  ? "bg-[#D4AF37]/15 text-[#F3E19C] border-[#D4AF37]/40"
-                  : "bg-white/[0.03] text-[#A0AAB7] border-white/5"
+                  ? "bg-accent-700/15 text-accent-500 border-accent-700/40"
+                  : "bg-white/5 text-ink-500 border-white/5"
               )}
             >
-              <Volume2 className="w-3 h-3 text-[#D4AF37]" />
+              <Volume2 className={cn("w-3 h-3", isActive ? "text-accent-700" : "text-ink-600")} />
               <span>
                 {formatTime(alignment.startMs)} - {formatTime(alignment.endMs)}
               </span>
@@ -164,10 +176,10 @@ export const VerseItem: React.FC<VerseItemProps> = ({
               className={cn(
                 "px-2.5 py-1 text-[11px] font-bold flex items-center gap-1 border rounded-lg",
                 alignment.confidence >= 0.8
-                  ? "bg-emerald-500/15 text-emerald-300 border-emerald-500/30"
+                  ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
                   : alignment.confidence >= 0.65
-                  ? "bg-amber-500/15 text-amber-300 border-amber-500/30"
-                  : "bg-rose-500/15 text-rose-300 border-rose-500/30"
+                  ? "bg-amber-500/10 text-amber-400 border-amber-500/20"
+                  : "bg-crimson-500/10 text-crimson-400 border-crimson-500/20"
               )}
               title={`دقة المحاذاة: ${Math.round(alignment.confidence * 100)}%`}
             >
@@ -184,14 +196,14 @@ export const VerseItem: React.FC<VerseItemProps> = ({
                 setShowExplanation(!showExplanation);
               }}
               className={cn(
-                "px-2.5 py-1 text-xs font-bold flex items-center gap-1 border rounded-lg transition-all cursor-pointer",
+                "px-2.5 py-1 text-xs font-bold flex items-center gap-1 border rounded-lg transition-all cursor-pointer focus-visible:ring-2 focus-visible:ring-accent-700",
                 showExplanation
-                  ? "bg-white/10 text-[#F8F9FA] border-white/20"
-                  : "bg-transparent text-[#A0AAB7] hover:text-[#F8F9FA] border-white/10 hover:bg-white/[0.05]"
+                  ? "bg-white/10 text-parchment-100 border-white/20"
+                  : "bg-transparent text-ink-500 hover:text-parchment-100 border-white/10 hover:bg-white/5"
               )}
               title="عرض الشرح والمعنى"
             >
-              <Info className="w-3.5 h-3.5 text-[#D4AF37]" />
+              <Info className={cn("w-3.5 h-3.5", showExplanation ? "text-parchment-100" : "text-accent-700")} />
               <span>الشرح</span>
             </button>
           )}
@@ -203,7 +215,7 @@ export const VerseItem: React.FC<VerseItemProps> = ({
                 e.stopPropagation();
                 startEditing();
               }}
-              className="p-1.5 rounded-lg text-[#6C7A8C] hover:text-[#F3E19C] hover:bg-white/[0.06] border border-transparent hover:border-white/10 opacity-0 group-hover:opacity-100 transition-all cursor-pointer"
+              className="p-1.5 rounded-lg text-ink-600 hover:text-accent-500 hover:bg-white/5 border border-transparent hover:border-white/10 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-all cursor-pointer focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-accent-700"
               title="تعديل نص البيت"
             >
               <Pencil className="w-3.5 h-3.5" />
@@ -217,7 +229,7 @@ export const VerseItem: React.FC<VerseItemProps> = ({
                 e.stopPropagation();
                 onOpenExplanation(verse);
               }}
-              className="p-1.5 rounded-lg text-[#6C7A8C] hover:text-[#F3E19C] hover:bg-white/[0.06] border border-transparent hover:border-white/10 transition-all cursor-pointer"
+              className="p-1.5 rounded-lg text-ink-600 hover:text-accent-500 hover:bg-white/5 border border-transparent hover:border-white/10 transition-all cursor-pointer focus-visible:ring-2 focus-visible:ring-accent-700"
               title="فتح شرح البيت في نافذة مستقلة"
             >
               <BookOpenText className="w-3.5 h-3.5" />
@@ -231,7 +243,7 @@ export const VerseItem: React.FC<VerseItemProps> = ({
                 e.stopPropagation();
                 setShowConfirmDelete(true);
               }}
-              className="p-1.5 rounded-lg text-[#6C7A8C] hover:text-rose-400 hover:bg-rose-500/15 border border-transparent hover:border-rose-500/30 opacity-0 group-hover:opacity-100 transition-all cursor-pointer"
+              className="p-1.5 rounded-lg text-ink-600 hover:text-crimson-400 hover:bg-crimson-500/10 border border-transparent hover:border-crimson-500/30 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-all cursor-pointer focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-crimson-500"
               title="حذف هذا البيت من القصيدة"
             >
               <Trash2 className="w-3.5 h-3.5" />
@@ -255,7 +267,7 @@ export const VerseItem: React.FC<VerseItemProps> = ({
                 onChange={(e) => setEditFirst(e.target.value)}
                 placeholder="الصدر"
                 dir="rtl"
-                className="flex-1 min-w-0 w-full bg-black/30 text-[#F8F9FA] placeholder-[#6C7A8C] border border-white/15 focus:border-[#D4AF37] focus:outline-none rounded-2xl px-4 py-3 text-lg md:text-xl font-poetry text-center"
+                className="flex-1 min-w-0 w-full bg-charcoal-950/50 text-parchment-100 placeholder-ink-600 border border-white/10 focus:border-accent-700 focus:outline-none rounded-2xl px-4 py-3 text-lg md:text-xl font-poetry text-center transition-colors"
               />
               <input
                 type="text"
@@ -263,16 +275,16 @@ export const VerseItem: React.FC<VerseItemProps> = ({
                 onChange={(e) => setEditSecond(e.target.value)}
                 placeholder="العجز"
                 dir="rtl"
-                className="flex-1 min-w-0 w-full bg-black/30 text-[#F8F9FA] placeholder-[#6C7A8C] border border-white/15 focus:border-[#D4AF37] focus:outline-none rounded-2xl px-4 py-3 text-lg md:text-xl font-poetry text-center"
+                className="flex-1 min-w-0 w-full bg-charcoal-950/50 text-parchment-100 placeholder-ink-600 border border-white/10 focus:border-accent-700 focus:outline-none rounded-2xl px-4 py-3 text-lg md:text-xl font-poetry text-center transition-colors"
               />
             </div>
-            {editError && <p className="text-xs text-rose-400 font-sans text-center">{editError}</p>}
+            {editError && <p className="text-xs text-crimson-400 font-sans text-center">{editError}</p>}
             <div className="flex items-center justify-center gap-2.5">
               <button
                 type="button"
                 onClick={cancelEditing}
                 disabled={isSavingEdit}
-                className="px-4 py-1.5 rounded-xl bg-white/[0.06] hover:bg-white/[0.1] text-xs font-semibold text-[#CED4DA] transition-colors disabled:opacity-50"
+                className="px-4 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-xs font-semibold text-ink-600 transition-colors disabled:opacity-50"
               >
                 إلغاء
               </button>
@@ -280,7 +292,7 @@ export const VerseItem: React.FC<VerseItemProps> = ({
                 type="button"
                 onClick={saveEditing}
                 disabled={isSavingEdit}
-                className="px-4 py-1.5 rounded-xl bg-[#D4AF37] hover:bg-[#E6C265] text-[#0A0C10] text-xs font-bold transition-all flex items-center gap-1.5 disabled:opacity-60"
+                className="px-4 py-1.5 rounded-xl bg-accent-700 hover:bg-accent-600 text-charcoal-950 text-xs font-bold transition-all flex items-center gap-1.5 disabled:opacity-60"
               >
                 {isSavingEdit ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
                 <span>حفظ التعديل</span>
@@ -295,10 +307,10 @@ export const VerseItem: React.FC<VerseItemProps> = ({
                 className={cn(
                   "font-poetry text-2xl md:text-[30px] leading-[2.3] tracking-wide transition-all duration-300",
                   isActive
-                    ? "text-[#F8F9FA] font-bold text-shadow-gold"
+                    ? "text-parchment-100 font-bold text-shadow-gold"
                     : isSelected
-                    ? "text-[#F8F9FA] font-bold"
-                    : "text-[#E9ECEF] group-hover:text-[#F8F9FA]"
+                    ? "text-parchment-100 font-bold"
+                    : "text-ink-600 group-hover:text-parchment-100"
                 )}
               >
                 {renderWords(verse.firstHemistich)}
@@ -306,8 +318,8 @@ export const VerseItem: React.FC<VerseItemProps> = ({
             </div>
 
             {/* فاصل الشطرين */}
-            <div className="shrink-0 flex items-center justify-center select-none text-[#D4AF37] transition-colors">
-              <Sparkles className="w-4 h-4 text-[#D4AF37]/70" />
+            <div className="shrink-0 flex items-center justify-center select-none transition-colors">
+              <Sparkles className="w-4 h-4 text-accent-700/50" />
             </div>
 
             {/* العجز (Second Hemistich) */}
@@ -316,10 +328,10 @@ export const VerseItem: React.FC<VerseItemProps> = ({
                 className={cn(
                   "font-poetry text-2xl md:text-[30px] leading-[2.3] tracking-wide transition-all duration-300",
                   isActive
-                    ? "text-[#F8F9FA] font-bold text-shadow-gold"
+                    ? "text-parchment-100 font-bold text-shadow-gold"
                     : isSelected
-                    ? "text-[#F8F9FA] font-bold"
-                    : "text-[#E9ECEF] group-hover:text-[#F8F9FA]"
+                    ? "text-parchment-100 font-bold"
+                    : "text-ink-600 group-hover:text-parchment-100"
                 )}
               >
                 {renderWords(verse.secondHemistich)}
@@ -331,18 +343,18 @@ export const VerseItem: React.FC<VerseItemProps> = ({
 
       {/* Verse Explanation / Meanings */}
       {showExplanation && (verse.explanation || items.length > 0) && (
-        <div className="mt-6 pt-5 border-t border-white/[0.08] text-sm md:text-base text-[#C7CDD6] leading-loose space-y-3 select-text font-sans">
+        <div className="mt-6 pt-5 border-t border-white/5 text-sm md:text-base text-ink-600 leading-loose space-y-3 select-text font-sans animate-fade-in">
           {verse.explanation && (
-            <p className="bg-black/30 p-4 md:p-5 rounded-2xl border border-white/[0.05]">
-              <span className="text-[#D4AF37] font-bold ml-2 text-sm md:text-[15px] tracking-wide">الشرح:</span>
-              {verse.explanation}
+            <p className="bg-charcoal-950/40 p-4 md:p-5 rounded-2xl border border-white/5">
+              <span className="text-accent-700 font-bold ml-2 text-sm md:text-[15px] tracking-wide">الشرح:</span>
+              <span className="text-parchment-100">{verse.explanation}</span>
             </p>
           )}
 
           {items.map((item, idx) => (
-            <div key={idx} className="bg-black/30 p-4 md:p-5 rounded-2xl border border-white/[0.05] space-y-1.5">
-              <span className="text-[#D4AF37] font-bold block text-sm md:text-[15px] tracking-wide">{item.sourceTitle || item.author || "المعجم"}:</span>
-              <p>{item.text}</p>
+            <div key={idx} className="bg-charcoal-950/40 p-4 md:p-5 rounded-2xl border border-white/5 space-y-1.5">
+              <span className="text-accent-700 font-bold block text-sm md:text-[15px] tracking-wide">{item.sourceTitle || item.author || "المعجم"}:</span>
+              <p className="text-parchment-100">{item.text}</p>
             </div>
           ))}
         </div>
@@ -353,30 +365,30 @@ export const VerseItem: React.FC<VerseItemProps> = ({
         <div
           onClick={(e) => e.stopPropagation()}
           onDoubleClick={(e) => e.stopPropagation()}
-          className="absolute inset-0 z-30 bg-[#0E1015]/95 backdrop-blur-md rounded-3xl p-6 flex flex-col justify-between animate-in fade-in duration-200 border border-rose-500/40 shadow-2xl"
+          className="absolute inset-0 z-30 bg-charcoal-900/95 backdrop-blur-md rounded-3xl p-6 flex flex-col justify-between animate-fade-in border border-crimson-500/30 shadow-2xl cursor-default"
         >
           <div className="flex items-start justify-between">
-            <div className="flex items-center gap-2.5 text-rose-400">
+            <div className="flex items-center gap-2.5 text-crimson-500">
               <AlertTriangle className="w-5 h-5" />
               <span className="font-bold text-sm">تأكيد حذف البيت</span>
             </div>
             <button
               onClick={() => setShowConfirmDelete(false)}
-              className="text-[#6C7A8C] hover:text-[#F8F9FA] p-1"
+              className="text-ink-500 hover:text-parchment-100 p-1 rounded-lg hover:bg-white/10 transition-colors"
             >
               <X className="w-4 h-4" />
             </button>
           </div>
 
-          <p className="text-xs text-[#CED4DA] leading-relaxed my-3 font-sans">
-            هل أنت متأكد من رغبتك في حذف البيت رقم <strong className="text-[#F8F9FA]">{toArabicDigits(verse.orderIndex)}</strong> نهائيًا؟ سيتم حذف محاذاته الصوتية وشرحه أيضًا، وستُعاد ترقيم الأبيات التالية.
+          <p className="text-xs text-ink-600 leading-relaxed my-3 font-sans">
+            هل أنت متأكد من رغبتك في حذف البيت رقم <strong className="text-parchment-100">{toArabicDigits(verse.orderIndex)}</strong> نهائيًا؟ سيتم حذف محاذاته الصوتية وشرحه أيضًا، وستُعاد ترقيم الأبيات التالية.
           </p>
 
           <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-white/10">
             <button
               type="button"
               onClick={() => setShowConfirmDelete(false)}
-              className="px-3.5 py-1.5 rounded-xl bg-white/[0.06] hover:bg-white/[0.1] text-xs font-semibold text-[#CED4DA] transition-colors"
+              className="px-3.5 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-xs font-semibold text-ink-600 transition-colors"
             >
               إلغاء
             </button>
@@ -386,7 +398,7 @@ export const VerseItem: React.FC<VerseItemProps> = ({
                 setShowConfirmDelete(false);
                 onDeleteVerse?.(verse);
               }}
-              className="px-4 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-[#F8F9FA] text-xs font-bold transition-all shadow-[0_0_12px_rgba(225,29,72,0.4)] flex items-center gap-1.5"
+              className="px-4 py-1.5 rounded-xl bg-crimson-600 hover:bg-crimson-500 text-white text-xs font-bold transition-all shadow-lg shadow-crimson-500/20 flex items-center gap-1.5"
             >
               <Trash2 className="w-3.5 h-3.5" />
               <span>حذف نهائي</span>
