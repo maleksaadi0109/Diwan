@@ -4,7 +4,7 @@ import { SearchBar } from "./SearchBar";
 import { FilterPills } from "./FilterPills";
 import { PoemCard } from "./PoemCard";
 import { normalizeArabic, toArabicDigits } from "@/lib/utils";
-import { BookOpen, Plus, Feather, Sparkles } from "lucide-react";
+import { BookOpen, Plus, Feather, Sparkles, ListChecks, ListPlus, X } from "lucide-react";
 
 interface LibraryViewProps {
   poems: Poem[];
@@ -12,6 +12,7 @@ interface LibraryViewProps {
   onNavigateToImport: () => void;
   onDeletePoem?: (poemId: string) => void;
   onAddToPlaylist?: (poem: Poem) => void;
+  onBulkAddToPlaylist?: (poems: Poem[]) => void;
 }
 
 export const LibraryView: React.FC<LibraryViewProps> = ({
@@ -20,9 +21,28 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
   onNavigateToImport,
   onDeletePoem,
   onAddToPlaylist,
+  onBulkAddToPlaylist,
 }) => {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedEra, setSelectedEra] = useState<Era | "الكل">("الكل");
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
+  const toggleSelectionMode = () => {
+    setSelectionMode((prev) => {
+      if (prev) setSelectedIds(new Set());
+      return !prev;
+    });
+  };
+
+  const toggleSelect = (poemId: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(poemId)) next.delete(poemId);
+      else next.add(poemId);
+      return next;
+    });
+  };
 
   const filteredPoems = useMemo(() => {
     const normalizedQuery = normalizeArabic(searchQuery);
@@ -67,13 +87,28 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
             </p>
           </div>
 
-          <button
-            onClick={onNavigateToImport}
-            className="px-6 py-3 bg-gradient-to-r from-[#D4AF37] to-[#B89225] hover:from-[#E6C265] hover:to-[#C9A233] text-[#0A0C10] font-bold font-sans text-xs transition-all shadow-[0_0_20px_rgba(212,175,55,0.35)] rounded-2xl flex items-center justify-center gap-2 group shrink-0 cursor-pointer"
-          >
-            <Plus className="w-4 h-4 stroke-[3]" />
-            <span>استيراد قصيدة جديدة</span>
-          </button>
+          <div className="flex items-center gap-2.5 shrink-0">
+            {onBulkAddToPlaylist && (
+              <button
+                onClick={toggleSelectionMode}
+                className={`px-5 py-3 font-bold font-sans text-xs transition-all rounded-2xl flex items-center justify-center gap-2 cursor-pointer border ${
+                  selectionMode
+                    ? "bg-[#D4AF37]/15 text-[#F3E19C] border-[#D4AF37]/40"
+                    : "bg-white/[0.05] text-[#A0AAB7] border-white/10 hover:text-[#F8F9FA] hover:bg-white/[0.1]"
+                }`}
+              >
+                <ListChecks className="w-4 h-4" />
+                <span>{selectionMode ? "إلغاء التحديد" : "تحديد متعدد"}</span>
+              </button>
+            )}
+            <button
+              onClick={onNavigateToImport}
+              className="px-6 py-3 bg-gradient-to-r from-[#D4AF37] to-[#B89225] hover:from-[#E6C265] hover:to-[#C9A233] text-[#0A0C10] font-bold font-sans text-xs transition-all shadow-[0_0_20px_rgba(212,175,55,0.35)] rounded-2xl flex items-center justify-center gap-2 group shrink-0 cursor-pointer"
+            >
+              <Plus className="w-4 h-4 stroke-[3]" />
+              <span>استيراد قصيدة جديدة</span>
+            </button>
+          </div>
         </div>
 
         {/* Search & Filter Bar */}
@@ -95,7 +130,7 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
 
       {/* Grid of Poem Cards */}
       {filteredPoems.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pb-20">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pb-28">
           {filteredPoems.map((poem) => (
             <PoemCard
               key={poem.id}
@@ -103,6 +138,9 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
               onOpenPoem={onOpenPoem}
               onDeletePoem={onDeletePoem}
               onAddToPlaylist={onAddToPlaylist}
+              selectionMode={selectionMode}
+              isSelected={selectedIds.has(poem.id)}
+              onToggleSelect={toggleSelect}
             />
           ))}
         </div>
@@ -125,6 +163,33 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
             className="px-6 py-2.5 bg-white/[0.06] hover:bg-white/[0.12] border border-white/15 text-[#F8F9FA] font-bold font-sans text-xs transition-colors rounded-xl cursor-pointer"
           >
             إعادة ضبط البحث
+          </button>
+        </div>
+      )}
+
+      {/* Floating bulk-action bar */}
+      {selectionMode && selectedIds.size > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 flex items-center gap-4 bg-[#14171E]/95 border border-[#D4AF37]/30 rounded-2xl px-5 py-3 shadow-2xl backdrop-blur-xl animate-in fade-in slide-in-from-bottom-4 duration-200">
+          <span className="text-xs font-bold text-[#F3E19C] font-sans whitespace-nowrap">
+            {toArabicDigits(selectedIds.size)} محدد
+          </span>
+          <div className="w-px h-6 bg-white/10" />
+          <button
+            onClick={() => {
+              const selectedPoems = poems.filter((p) => selectedIds.has(p.id));
+              onBulkAddToPlaylist?.(selectedPoems);
+            }}
+            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-[#D4AF37] to-[#B89225] hover:from-[#E6C265] hover:to-[#C9A233] text-[#0A0C10] font-bold font-sans text-xs rounded-xl transition-all cursor-pointer whitespace-nowrap"
+          >
+            <ListPlus className="w-4 h-4" />
+            <span>إضافة إلى قائمة تشغيل</span>
+          </button>
+          <button
+            onClick={() => setSelectedIds(new Set())}
+            className="p-2 rounded-xl text-[#A0AAB7] hover:text-[#F8F9FA] hover:bg-white/[0.08] transition-colors cursor-pointer"
+            title="إلغاء التحديد"
+          >
+            <X className="w-4 h-4" />
           </button>
         </div>
       )}

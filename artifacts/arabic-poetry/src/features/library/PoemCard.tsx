@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Poem } from "@/types";
 import { Badge } from "@/components/Badge";
-import { Mic, BookOpen, ChevronLeft, Feather, Trash2, AlertTriangle, X, ListPlus } from "lucide-react";
+import { Mic, BookOpen, ChevronLeft, Feather, Trash2, AlertTriangle, X, ListPlus, Check } from "lucide-react";
 import { toArabicDigits } from "@/lib/utils";
 
 interface PoemCardProps {
@@ -9,9 +9,20 @@ interface PoemCardProps {
   onOpenPoem: (poem: Poem) => void;
   onDeletePoem?: (poemId: string) => void;
   onAddToPlaylist?: (poem: Poem) => void;
+  selectionMode?: boolean;
+  isSelected?: boolean;
+  onToggleSelect?: (poemId: string) => void;
 }
 
-export const PoemCard: React.FC<PoemCardProps> = ({ poem, onOpenPoem, onDeletePoem, onAddToPlaylist }) => {
+export const PoemCard: React.FC<PoemCardProps> = ({
+  poem,
+  onOpenPoem,
+  onDeletePoem,
+  onAddToPlaylist,
+  selectionMode = false,
+  isSelected = false,
+  onToggleSelect,
+}) => {
   const [showConfirmDelete, setShowConfirmDelete] = useState(false);
   const hasAudio = poem.recordings.length > 0;
   const firstVerse = poem.verses[0];
@@ -24,11 +35,33 @@ export const PoemCard: React.FC<PoemCardProps> = ({ poem, onOpenPoem, onDeletePo
     setShowConfirmDelete(false);
   };
 
+  const handleCardClick = () => {
+    if (selectionMode) {
+      onToggleSelect?.(poem.id);
+    } else {
+      onOpenPoem(poem);
+    }
+  };
+
   return (
     <div
-      onClick={() => onOpenPoem(poem)}
-      className="group bg-[#14171E]/90 hover:bg-[#181C25] border border-white/[0.08] hover:border-[#D4AF37]/50 rounded-3xl p-6 cursor-pointer transition-all duration-300 shadow-xl hover:shadow-[0_0_30px_rgba(212,175,55,0.15)] flex flex-col justify-between relative backdrop-blur-xl select-none"
+      onClick={handleCardClick}
+      className={`group bg-[#14171E]/90 hover:bg-[#181C25] border rounded-3xl p-6 cursor-pointer transition-all duration-300 shadow-xl hover:shadow-[0_0_30px_rgba(212,175,55,0.15)] flex flex-col justify-between relative backdrop-blur-xl select-none ${
+        isSelected ? "border-[#D4AF37] ring-2 ring-[#D4AF37]/40" : "border-white/[0.08] hover:border-[#D4AF37]/50"
+      }`}
     >
+      {selectionMode && (
+        <div
+          className={`absolute -top-2.5 -right-2.5 z-10 w-7 h-7 rounded-full border-2 flex items-center justify-center transition-all shadow-lg ${
+            isSelected
+              ? "bg-[#D4AF37] border-[#D4AF37] text-[#0A0C10]"
+              : "bg-[#0E1015] border-white/25 text-transparent"
+          }`}
+        >
+          <Check className="w-4 h-4" strokeWidth={3} />
+        </div>
+      )}
+
       <div>
         {/* Cover image, when available (e.g. imported from YouTube) */}
         {poem.coverImageUrl && (
@@ -63,7 +96,7 @@ export const PoemCard: React.FC<PoemCardProps> = ({ poem, onOpenPoem, onDeletePo
               </span>
             )}
 
-            {onAddToPlaylist && (
+            {!selectionMode && onAddToPlaylist && (
               <button
                 type="button"
                 onClick={(e) => {
@@ -77,7 +110,7 @@ export const PoemCard: React.FC<PoemCardProps> = ({ poem, onOpenPoem, onDeletePo
               </button>
             )}
 
-            {onDeletePoem && (
+            {!selectionMode && onDeletePoem && (
               <button
                 type="button"
                 onClick={(e) => {
