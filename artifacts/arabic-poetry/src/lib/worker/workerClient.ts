@@ -555,6 +555,25 @@ export async function cancelYoutubeDownload(jobId: string, jobDir?: string): Pro
   return response.ok && body.cancelled === true;
 }
 
+export async function downloadYoutubeThumbnail(thumbnailUrl: string): Promise<string | null> {
+  if (!thumbnailUrl) return null;
+  try {
+    const response = await fetch("/api-worker/youtube/thumbnail", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ url: thumbnailUrl }),
+    });
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok || typeof body.data_url !== "string") {
+      return null;
+    }
+    return body.data_url as string;
+  } catch (err) {
+    console.warn("Failed to download YouTube thumbnail, falling back to direct link:", err);
+    return null;
+  }
+}
+
 // --- Universal HTTP Fetcher (Bypasses Browser CORS via Python Worker / Proxy) ---
 
 export interface WorkerFetchUrlData {

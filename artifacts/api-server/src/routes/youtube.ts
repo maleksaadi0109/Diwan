@@ -160,6 +160,57 @@ router.post("/youtube/info", async (req, res): Promise<void> => {
   }
 });
 
+const ALLOWED_THUMBNAIL_HOSTS = [
+  "ytimg.com",
+  "ggpht.com",
+  "googleusercontent.com",
+  "youtube.com",
+];
+
+router.post("/youtube/thumbnail", async (req, res): Promise<void> => {
+  const { url } = req.body || {};
+  if (typeof url !== "string" || !url.trim()) {
+    res.status(400).json({ error_code: "INVALID_URL", error_message: "رابط الصورة مطلوب" });
+    return;
+  }
+
+  let parsed: URL;
+  try {
+    parsed = new URL(url.trim());
+  } catch {
+    res.status(400).json({ error_code: "INVALID_URL", error_message: "رابط الصورة غير صالح" });
+    return;
+  }
+
+  const isAllowedHost =
+    parsed.protocol === "https:" &&
+    ALLOWED_THUMBNAIL_HOSTS.some((host) => parsed.hostname === host || parsed.hostname.endsWith(`.${host}`));
+  if (!isAllowedHost) {
+    res.status(400).json({ error_code: "INVALID_HOST", error_message: "مصدر الصورة غير مسموح" });
+    return;
+  }
+
+  try {
+    const response = await fetch(parsed.toString());
+    if (!response.ok) {
+      throw new Error(`HTTP_${response.status}`);
+    }
+    const contentType = response.headers.get("content-type") || "image/jpeg";
+    if (!contentType.startsWith("image/")) {
+      throw new Error("NOT_AN_IMAGE");
+    }
+    const buffer = Buffer.from(await response.arrayBuffer());
+    const dataUrl = `data:${contentType};base64,${buffer.toString("base64")}`;
+    res.json({ data_url: dataUrl, content_type: contentType });
+  } catch (error) {
+    req.log.warn({ err: error }, "YouTube thumbnail download failed");
+    res.status(502).json({
+      error_code: "THUMBNAIL_DOWNLOAD_FAILED",
+      error_message: "تعذر تحميل صورة الغلاف",
+    });
+  }
+});
+
 router.post("/youtube/download", async (req, res): Promise<void> => {
   const {
     url,
