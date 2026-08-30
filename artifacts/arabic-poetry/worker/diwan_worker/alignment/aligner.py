@@ -316,11 +316,16 @@ def align_transcript_to_verses(
             weighted = sim * (0.7 + 0.3 * norm_transcript[t_idx]["prob"])
             verse_anchors[token_verse[p_idx]].append((p_idx, t_idx, weighted))
 
+    # intro_offset_ms is only reliable when verse 1 itself has a reliable
+    # anchor. Previously this fell back to the very first globally matched
+    # pair, which may belong to a LATER verse (e.g. verse 2) when verse 1
+    # has no reliable anchors -- that corrupted both this metadata and (via
+    # `_fill_unanchored` below) the leading verse's interpolated boundary,
+    # collapsing verse 1 to a near-zero-length slot right before verse 2's
+    # anchor instead of spanning from the true start of the recording.
     intro_offset_ms = 0
     if verse_anchors and verse_anchors[0]:
         intro_offset_ms = norm_transcript[verse_anchors[0][0][1]]["start_ms"]
-    elif pairs:
-        intro_offset_ms = norm_transcript[pairs[0][1]]["start_ms"]
 
     # 5. Raw per-verse timing from anchors; interpolate unanchored verses
     raw_alignments: List[Dict[str, Any]] = []
