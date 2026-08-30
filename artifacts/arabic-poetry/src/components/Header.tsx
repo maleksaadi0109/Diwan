@@ -23,8 +23,6 @@ export const Header: React.FC<HeaderProps> = ({
         return "استيراد قصيدة وتسجيل";
       case "settings":
         return "إعدادات التطبيق";
-      case "editor":
-        return "مراجعة محاذاة الأبيات";
       default:
         return "ديوان الشعر العربي";
     }

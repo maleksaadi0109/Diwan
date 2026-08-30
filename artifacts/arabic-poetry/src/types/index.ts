@@ -146,4 +146,4 @@ export interface ImportJob {
   updatedAt: string;
 }
 
-export type ActiveTab = 'library' | 'player' | 'editor' | 'import' | 'settings';
+export type ActiveTab = 'library' | 'player' | 'import' | 'settings';
