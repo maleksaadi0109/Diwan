@@ -197,17 +197,17 @@ export const VerseItem: React.FC<VerseItemProps> = ({
 
       {/* Verse Explanation / Meanings */}
       {showExplanation && (verse.explanation || items.length > 0) && (
-        <div className="mt-4 pt-4 border-t border-white/[0.08] text-xs text-[#A0AAB7] leading-relaxed space-y-2 select-text font-sans">
+        <div className="mt-6 pt-5 border-t border-white/[0.08] text-sm md:text-base text-[#C7CDD6] leading-loose space-y-3 select-text font-sans">
           {verse.explanation && (
-            <p className="bg-black/30 p-3.5 rounded-2xl border border-white/[0.05]">
-              <span className="text-[#D4AF37] font-bold ml-1.5">الشرح:</span>
+            <p className="bg-black/30 p-4 md:p-5 rounded-2xl border border-white/[0.05]">
+              <span className="text-[#D4AF37] font-bold ml-2 text-sm md:text-[15px] tracking-wide">الشرح:</span>
               {verse.explanation}
             </p>
           )}
 
           {items.map((item, idx) => (
-            <div key={idx} className="bg-black/30 p-3.5 rounded-2xl border border-white/[0.05] space-y-1">
-              <span className="text-[#D4AF37] font-bold block">{item.sourceTitle || item.author || "المعجم"}:</span>
+            <div key={idx} className="bg-black/30 p-4 md:p-5 rounded-2xl border border-white/[0.05] space-y-1.5">
+              <span className="text-[#D4AF37] font-bold block text-sm md:text-[15px] tracking-wide">{item.sourceTitle || item.author || "المعجم"}:</span>
               <p>{item.text}</p>
             </div>
           ))}

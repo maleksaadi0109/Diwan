@@ -260,12 +260,23 @@ export class AudioController {
     let playPromise: Promise<void> = Promise.resolve();
     if (this.audio && this.audio.src) {
       try {
-        playPromise = this.audio.play().catch((err) => {
-          console.warn("Audio element play warning:", err);
-        });
+        playPromise = this.audio.play().then(
+          () => {},
+          (err) => {
+            console.warn("[AudioController] Audio element play REJECTED:", err?.name, err?.message, err);
+            this.stopPrecisionLoop();
+            this.updateState({
+              isPlaying: false,
+              status: "error",
+              errorMessage: `تعذر بدء التشغيل: ${err?.name || "خطأ غير معروف"} — ${err?.message || ""}`,
+            });
+          }
+        );
       } catch (err) {
-        console.warn("Audio element play sync error:", err);
+        console.warn("[AudioController] Audio element play sync error:", err);
       }
+    } else {
+      console.warn("[AudioController] play() called but audio element or src missing", { hasAudio: !!this.audio, src: this.audio?.src });
     }
 
     this.updateState({

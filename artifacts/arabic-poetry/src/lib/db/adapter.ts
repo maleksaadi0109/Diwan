@@ -20,7 +20,156 @@ export class WebMemoryAdapter implements DatabaseAdapter {
   private importJobs = new Map<string, ImportJobRow>();
 
   constructor() {
-    if (!this.restore()) this.seedDefaultData();
+    const restored = this.restore();
+    if (!restored) {
+      this.seedDefaultData();
+    } else {
+      // A previously-saved browser database may predate newer built-in demo
+      // content (e.g. recordings/alignments added later for poem-2/poem-3).
+      // Repair any missing built-in pieces without touching user-added data
+      // or user-edited alignments on poems that already have them.
+      const repaired = this.repairBuiltInDemoContent();
+      if (repaired) this.persist();
+    }
+  }
+
+  /**
+   * Ensures every built-in demo poem (MOCK_POEMS) has its poet, verses, and
+   * at least one recording with alignments present in the local browser
+   * database. This heals installs whose localStorage was seeded from an
+   * older version of mockData.ts (e.g. missing audio for some poems), while
+   * leaving any already-present data (including user corrections) untouched.
+   * Returns true if anything was added.
+   */
+  private repairBuiltInDemoContent(): boolean {
+    let changed = false;
+
+    for (const p of Object.values(MOCK_POETS)) {
+      if (!this.poets.has(p.id)) {
+        this.poets.set(p.id, {
+          id: p.id,
+          name: p.name,
+          era: p.era,
+          bio: p.bio || null,
+          birth_year: p.birthYear || null,
+          death_year: p.deathYear || null,
+          created_at: new Date().toISOString(),
+        });
+        changed = true;
+      }
+    }
+
+    for (const p of MOCK_POEMS) {
+      if (!this.poems.has(p.id)) {
+        this.poems.set(p.id, {
+          id: p.id,
+          title: p.title,
+          poet_id: p.poet.id,
+          era: p.era,
+          bahr: p.bahr,
+          rhyme: p.rhyme,
+          description: p.description || null,
+          verses_count: p.versesCount,
+          tags: JSON.stringify(p.tags || []),
+          default_recording_id: p.defaultRecordingId || p.recordings[0]?.id || null,
+          external_provider: p.externalProvider || null,
+          external_id: p.externalId || null,
+          source_url: p.sourceUrl || null,
+          theme: p.theme || null,
+          verified: p.verified ? 1 : 0,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        });
+        changed = true;
+      }
+
+      const hasAnyRecordingForPoem = Array.from(this.recordings.values()).some(
+        (rec) => rec.poem_id === p.id
+      );
+      if (!hasAnyRecordingForPoem) {
+        for (const rec of p.recordings) {
+          this.recordings.set(rec.id, {
+            id: rec.id,
+            poem_id: rec.poemId,
+            title: rec.title,
+            reciter: rec.reciter,
+            audio_path: rec.audioPath,
+            duration_ms: rec.durationMs,
+            sample_rate: rec.sampleRate || null,
+            channels: rec.channels || null,
+            format: rec.format || null,
+            created_at: rec.createdAt || new Date().toISOString(),
+          });
+          changed = true;
+        }
+        if (!this.poems.get(p.id)?.default_recording_id && p.recordings[0]) {
+          const poemRow = this.poems.get(p.id);
+          if (poemRow) {
+            poemRow.default_recording_id = p.defaultRecordingId || p.recordings[0].id;
+            changed = true;
+          }
+        }
+      }
+
+      const hasAnyVerseForPoem = Array.from(this.verses.values()).some((v) => v.poem_id === p.id);
+      if (!hasAnyVerseForPoem) {
+        for (const v of p.verses) {
+          this.verses.set(v.id, {
+            id: v.id,
+            poem_id: v.poemId,
+            order_index: v.orderIndex,
+            text: v.text,
+            normalized_text: v.normalizedText,
+            first_hemistich: v.firstHemistich,
+            second_hemistich: v.secondHemistich,
+            explanation: v.explanation || null,
+            external_id: v.externalId || null,
+            created_at: new Date().toISOString(),
+          });
+          changed = true;
+
+          if (v.alignment) {
+            this.alignments.set(v.alignment.id, {
+              id: v.alignment.id,
+              verse_id: v.alignment.verseId,
+              recording_id: v.alignment.recordingId,
+              start_ms: v.alignment.startMs,
+              end_ms: v.alignment.endMs,
+              confidence: v.alignment.confidence,
+              status: v.alignment.status,
+              start_token_index: v.alignment.transcriptRange?.startTokenIndex || null,
+              end_token_index: v.alignment.transcriptRange?.endTokenIndex || null,
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+            });
+          }
+        }
+      } else {
+        // Verses exist, but this specific recording's alignments may not
+        // (e.g. a recording was healed above for a poem that already had
+        // verses without alignments). Backfill only missing alignments.
+        for (const v of p.verses) {
+          if (v.alignment && !this.alignments.has(v.alignment.id)) {
+            this.alignments.set(v.alignment.id, {
+              id: v.alignment.id,
+              verse_id: v.alignment.verseId,
+              recording_id: v.alignment.recordingId,
+              start_ms: v.alignment.startMs,
+              end_ms: v.alignment.endMs,
+              confidence: v.alignment.confidence,
+              status: v.alignment.status,
+              start_token_index: v.alignment.transcriptRange?.startTokenIndex || null,
+              end_token_index: v.alignment.transcriptRange?.endTokenIndex || null,
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+            });
+            changed = true;
+          }
+        }
+      }
+    }
+
+    return changed;
   }
 
   private restore(): boolean {

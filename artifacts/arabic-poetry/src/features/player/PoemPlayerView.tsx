@@ -7,8 +7,9 @@ import { PoemMetadataDrawer } from "./PoemMetadataDrawer";
 import { DictionaryWordModal } from "./DictionaryWordModal";
 import { ExportModal } from "../export/ExportModal";
 import { WaveformDebugView } from "./WaveformDebugView";
+import { FocusModeView } from "./FocusModeView";
 import { usePoemPlayback } from "@/hooks/usePoemPlayback";
-import { Info, BookOpen, AlertCircle, Download, Activity, AudioWaveform } from "lucide-react";
+import { Info, BookOpen, AlertCircle, Download, Activity, AudioWaveform, Maximize2 } from "lucide-react";
 import { analyzeVerseMeter } from "@/lib/arud/meterDetector";
 import { DiwanRepository } from "@/lib/db/repository";
 import { MizanAlArabProvider } from "@/lib/providers/MizanAlArabProvider";
@@ -43,6 +44,7 @@ export const PoemPlayerView: React.FC<PoemPlayerViewProps> = ({
   onSaveExplanations,
   onApplyOffset,
 }) => {
+  const [isFocusMode, setIsFocusMode] = useState(false);
   const [showMetadata, setShowMetadata] = useState(false);
   const [showExport, setShowExport] = useState(false);
   const [showDebugOverlay, setShowDebugOverlay] = useState(false);
@@ -215,6 +217,16 @@ export const PoemPlayerView: React.FC<PoemPlayerViewProps> = ({
         </div>
 
         <div className="flex flex-wrap items-center justify-end gap-2 shrink-0 max-w-full font-sans">
+          {/* Focus Mode Toggle */}
+          <button
+            onClick={() => setIsFocusMode(true)}
+            className="shrink-0 flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold border transition-all whitespace-nowrap cursor-pointer bg-white/[0.04] text-[#A0AAB7] border-white/10 hover:bg-white/[0.08] hover:text-[#F8F9FA]"
+            title="وضع التركيز: عرض الأبيات فقط بشاشة كاملة بدون شرح أو أدوات"
+          >
+            <Maximize2 className="w-3.5 h-3.5" />
+            <span>وضع التركيز</span>
+          </button>
+
           {/* Waveform VAD Debug Toggle */}
           <button
             onClick={() => setShowWaveformDebug(!showWaveformDebug)}
@@ -424,6 +436,18 @@ export const PoemPlayerView: React.FC<PoemPlayerViewProps> = ({
         isOpen={showExport}
         onClose={() => setShowExport(false)}
       />
+
+      {/* Focus Mode: fullscreen, distraction-free verses only */}
+      {isFocusMode && (
+        <FocusModeView
+          poem={poem}
+          activeVerseIndex={activeVerseIndex}
+          isPlaying={isPlaying}
+          onTogglePlay={togglePlay}
+          onSeekToVerse={(v: Verse) => seekToVerse(v)}
+          onExit={() => setIsFocusMode(false)}
+        />
+      )}
     </div>
   );
 };
