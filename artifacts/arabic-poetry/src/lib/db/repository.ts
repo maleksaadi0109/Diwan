@@ -242,6 +242,16 @@ export class DiwanRepository {
   }
 
   async deletePoem(id: string): Promise<void> {
+    await this.adapter.execute(
+      `DELETE FROM verse_alignments WHERE verse_id IN (SELECT id FROM verses WHERE poem_id = ?);`,
+      [id]
+    );
+    await this.adapter.execute(
+      `DELETE FROM verse_explanations WHERE verse_id IN (SELECT id FROM verses WHERE poem_id = ?);`,
+      [id]
+    );
+    await this.adapter.execute(`DELETE FROM verses WHERE poem_id = ?;`, [id]);
+    await this.adapter.execute(`DELETE FROM recordings WHERE poem_id = ?;`, [id]);
     await this.adapter.execute(`DELETE FROM poems WHERE id = ?;`, [id]);
   }
 

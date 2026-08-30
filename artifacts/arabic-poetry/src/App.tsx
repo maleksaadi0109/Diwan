@@ -215,8 +215,29 @@ export function App() {
     [repo, activePoem]
   );
 
+  const handleDeletePoem = useCallback(
+    async (poemId: string) => {
+      if (repo) {
+        await repo.deletePoem(poemId);
+        const updatedPoems = await repo.getAllPoems();
+        setPoems(updatedPoems);
+        if (activePoem?.id === poemId) {
+          setActivePoem(updatedPoems[0] || null);
+          setActiveTab("library");
+        }
+      } else {
+        setPoems((prev) => prev.filter((p) => p.id !== poemId));
+        if (activePoem?.id === poemId) {
+          setActivePoem(null);
+          setActiveTab("library");
+        }
+      }
+    },
+    [repo, activePoem]
+  );
+
   return (
-    <div className="h-screen w-screen flex bg-paper-200 text-ink-900 overflow-hidden select-none min-w-[900px] min-h-[600px]">
+    <div className="h-screen w-screen flex bg-[#080A0E] text-[#F8F9FA] overflow-hidden select-none min-w-[900px] min-h-[600px] font-sans">
       {/* Right-side RTL Navigation */}
       <Navigation
         activeTab={activeTab}
@@ -244,6 +265,7 @@ export function App() {
                   poems={poems}
                   onOpenPoem={handleOpenPoem}
                   onNavigateToImport={() => setActiveTab("import")}
+                  onDeletePoem={handleDeletePoem}
                 />
               )}
 
