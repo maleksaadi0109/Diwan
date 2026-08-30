@@ -256,6 +256,39 @@ export class DiwanRepository {
   }
 
   // --- Verse Methods ---
+  async deleteVerse(poemId: string, verseId: string): Promise<void> {
+    const rows = await this.adapter.select<VerseRow>(
+      `SELECT * FROM verses WHERE poem_id = ? ORDER BY order_index ASC;`,
+      [poemId]
+    );
+    const target = rows.find((r) => r.id === verseId);
+    if (!target) {
+      throw new Error("تعذر العثور على البيت المطلوب حذفه.");
+    }
+
+    await this.adapter.execute(`DELETE FROM verse_alignments WHERE verse_id = ?;`, [verseId]);
+    await this.adapter.execute(`DELETE FROM verse_explanations WHERE verse_id = ?;`, [verseId]);
+    await this.adapter.execute(`DELETE FROM verses WHERE id = ?;`, [verseId]);
+
+    // Close the order_index gap left behind, processing from the smallest
+    // affected order first so the UNIQUE(poem_id, order_index) constraint is
+    // never briefly violated by two rows sharing the same value.
+    const toShift = rows
+      .filter((r) => r.order_index > target.order_index)
+      .sort((a, b) => a.order_index - b.order_index);
+    for (const row of toShift) {
+      await this.adapter.execute(
+        `UPDATE verses SET order_index = order_index - 1 WHERE id = ?;`,
+        [row.id]
+      );
+    }
+
+    await this.adapter.execute(
+      `UPDATE poems SET verses_count = (SELECT COUNT(*) FROM verses WHERE poem_id = ?), updated_at = CURRENT_TIMESTAMP WHERE id = ?;`,
+      [poemId, poemId]
+    );
+  }
+
   async saveVerse(verse: Verse): Promise<void> {
     const sql = `
       INSERT OR REPLACE INTO verses (
