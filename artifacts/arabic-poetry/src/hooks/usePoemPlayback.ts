@@ -40,16 +40,23 @@ export function usePoemPlayback(poem: Poem | null) {
         lastLoadedAudioPathRef.current !== audioPath;
 
       if (isNewPoemOrTrack) {
-        lastLoadedPoemIdRef.current = poem.id;
-        lastLoadedAudioPathRef.current = audioPath;
-
+        // Only mark this poem/track as "loaded" once the load actually
+        // completes. Updating the refs synchronously here would, under
+        // React 18 StrictMode's mount->cleanup->mount dev cycle, make the
+        // second effect invocation think loading already happened while
+        // the first invocation's async load gets silently cancelled below
+        // -- leaving the audio element with an empty src forever.
         if (audioPath) {
           resolveAudioSrcAsync(audioPath).then((audioUrl) => {
             if (!isCancelled) {
+              lastLoadedPoemIdRef.current = poem.id;
+              lastLoadedAudioPathRef.current = audioPath;
               controller.loadAudio(audioUrl, defaultDuration);
             }
           });
         } else {
+          lastLoadedPoemIdRef.current = poem.id;
+          lastLoadedAudioPathRef.current = audioPath;
           controller.loadAudio("", defaultDuration);
         }
       }
