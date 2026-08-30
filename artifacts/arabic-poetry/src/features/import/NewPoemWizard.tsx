@@ -24,7 +24,6 @@ import {
   CheckCircle2,
   AlertCircle,
   RefreshCw,
-  Globe,
   Upload,
   ArrowLeft,
   ArrowRight,
@@ -79,13 +78,7 @@ export const NewPoemWizard: React.FC<NewPoemWizardProps> = ({ onFinishWizard }) 
   const [currentStep, setCurrentStep] = useState<WizardStep>(1);
 
   // Step 1: Poem Data
-  const [poemSourceMode, setPoemSourceMode] = useState<"mizan" | "adab_world" | "manual" | "json">("mizan");
-  const [mizanUrl, setMizanUrl] = useState("");
-  const [mizanLoading, setMizanLoading] = useState(false);
-  const [mizanError, setMizanError] = useState<string | null>(null);
-  const [mizanPayload, setMizanPayload] = useState<ParsedPoemPayload | null>(null);
-  const [mizanSourceText, setMizanSourceText] = useState("");
-  const [mizanPoemId, setMizanPoemId] = useState<string | null>(null);
+  const [poemSourceMode, setPoemSourceMode] = useState<"adab_world" | "manual" | "json">("adab_world");
 
   const [adabWorldUrl, setAdabWorldUrl] = useState("");
   const [adabWorldLoading, setAdabWorldLoading] = useState(false);
@@ -123,9 +116,6 @@ export const NewPoemWizard: React.FC<NewPoemWizardProps> = ({ onFinishWizard }) 
 
   // Parse raw verses
   const getParsedVerses = (): ParsedVersePayload[] => {
-    if (poemSourceMode === "mizan" && mizanPayload && versesRaw === mizanSourceText) {
-      return mizanPayload.verses;
-    }
     if (poemSourceMode === "adab_world" && adabWorldPayload && versesRaw === adabWorldSourceText) {
       return adabWorldPayload.verses;
     }
@@ -141,36 +131,6 @@ export const NewPoemWizard: React.FC<NewPoemWizardProps> = ({ onFinishWizard }) 
         secondHemistich: second,
       };
     });
-  };
-
-  // Mizan Fetch Action
-  const handleFetchMizan = async () => {
-    if (!mizanUrl.trim()) return;
-    setMizanLoading(true);
-    setMizanError(null);
-    try {
-      const provider = new MizanAlArabProvider();
-      const poemId = provider.extractPoemIdFromUrl(mizanUrl.trim());
-      const data = await provider.fetchPoemById(poemId);
-      const parsed = provider.mapApiResponseToPayload(data);
-      const sourceText = parsed.verses
-        .map((v) => `${v.firstHemistich} — ${v.secondHemistich}`)
-        .join("\n");
-
-      setTitle(parsed.title);
-      setPoetName(parsed.poetName);
-      setEra(parsed.era);
-      setBahr(parsed.bahr);
-      setRhyme(parsed.rhyme);
-      setVersesRaw(sourceText);
-      setMizanPayload(parsed);
-      setMizanSourceText(sourceText);
-      setMizanPoemId(String(data.id));
-    } catch (err: unknown) {
-      setMizanError((err as Error).message || "تعذر جلب القصيدة من ميزان العرب");
-    } finally {
-      setMizanLoading(false);
-    }
   };
 
   // Adab World Fetch Action
@@ -233,10 +193,6 @@ export const NewPoemWizard: React.FC<NewPoemWizardProps> = ({ onFinishWizard }) 
     };
 
     const parsedVerses = getParsedVerses();
-    const importedFromMizan = poemSourceMode === "mizan"
-      && mizanPayload !== null
-      && mizanPoemId !== null
-      && versesRaw === mizanSourceText;
     const importedFromAdabWorld = poemSourceMode === "adab_world"
       && adabWorldPayload !== null
       && versesRaw === adabWorldSourceText;
@@ -324,9 +280,9 @@ export const NewPoemWizard: React.FC<NewPoemWizardProps> = ({ onFinishWizard }) 
         rhyme: rhyme || "الميم",
         versesCount: parsedVerses.length,
         tags: ["مستورد عبر المعالج", `بحر ${bahr}`],
-        externalProvider: importedFromMizan ? "mizan_al_arab" : importedFromAdabWorld ? "adab_world" : undefined,
-        externalId: importedFromMizan ? mizanPoemId : undefined,
-        sourceUrl: importedFromMizan ? mizanUrl.trim() : importedFromAdabWorld ? adabWorldUrl.trim() : undefined,
+        externalProvider: importedFromAdabWorld ? "adab_world" : undefined,
+        externalId: undefined,
+        sourceUrl: importedFromAdabWorld ? adabWorldUrl.trim() : undefined,
         verses: parsedVerses.map((v) => {
           const alignmentItem = alignRes.alignments.find((a) => a.order_index === v.orderIndex);
           return {
@@ -337,7 +293,7 @@ export const NewPoemWizard: React.FC<NewPoemWizardProps> = ({ onFinishWizard }) 
             normalizedText: normalizeArabic(v.text),
             firstHemistich: v.firstHemistich,
             secondHemistich: v.secondHemistich,
-            externalId: importedFromMizan ? v.externalId : undefined,
+            externalId: undefined,
             alignment: alignmentItem
               ? {
                   id: `align-${poemId}-${v.orderIndex}`,
@@ -425,22 +381,13 @@ export const NewPoemWizard: React.FC<NewPoemWizardProps> = ({ onFinishWizard }) 
                 الخطوة الأولى: مصدر نص القصيدة وبياناتها
               </h3>
               <p className="text-xs text-ink-600">
-                اختر استيراد القصيدة من ميزان العرب أو كتابتها ولصقها يدوياً
+                اختر استيراد القصيدة من عالَم الأدب أو كتابتها ولصقها يدوياً
               </p>
             </div>
           </div>
 
           {/* Mode Selector */}
           <div className="flex gap-2 p-1 bg-paper-200 rounded-none border border-paper-400">
-            <button
-              onClick={() => setPoemSourceMode("mizan")}
-              className={`flex-1 py-2 rounded-none text-xs font-bold transition-colors flex items-center justify-center gap-2 ${
-                poemSourceMode === "mizan" ? "bg-accent-700 text-paper-100" : "text-ink-600 hover:text-ink-800"
-              }`}
-            >
-              <Globe className="w-3.5 h-3.5" />
-              <span>ميزان العرب (Mizan Al-Arab)</span>
-            </button>
             <button
               onClick={() => setPoemSourceMode("adab_world")}
               className={`flex-1 py-2 rounded-none text-xs font-bold transition-colors flex items-center justify-center gap-2 ${
@@ -460,33 +407,6 @@ export const NewPoemWizard: React.FC<NewPoemWizardProps> = ({ onFinishWizard }) 
               <span>إدخال ولصق يدوي</span>
             </button>
           </div>
-
-          {/* Mizan URL Input */}
-          {poemSourceMode === "mizan" && (
-            <div className="space-y-3">
-              <label className="block text-xs font-semibold text-ink-700">
-                رابط القصيدة في موقع ميزان العرب:
-              </label>
-              <div className="flex gap-2">
-                <input
-                  type="url"
-                  value={mizanUrl}
-                  onChange={(e) => setMizanUrl(e.target.value)}
-                  placeholder="https://mizanalarab.com/poem/12345"
-                  className="flex-1 bg-paper-200 text-ink-900 placeholder-ink-500 border border-paper-500 rounded-none px-4 py-2.5 text-xs focus:outline-none focus:border-accent-700 ltr-num"
-                />
-                <button
-                  type="button"
-                  onClick={handleFetchMizan}
-                  disabled={!mizanUrl.trim() || mizanLoading}
-                  className="px-4 py-2.5 rounded-none bg-accent-700 hover:bg-accent-700 disabled:opacity-50 text-paper-100 font-bold text-xs"
-                >
-                  {mizanLoading ? "جاري الجلب..." : "جلب النص"}
-                </button>
-              </div>
-              {mizanError && <p className="text-xs text-red-700">{mizanError}</p>}
-            </div>
-          )}
 
           {/* Adab World URL Input */}
           {poemSourceMode === "adab_world" && (
