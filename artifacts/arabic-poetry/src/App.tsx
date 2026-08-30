@@ -337,6 +337,7 @@ function AppShell() {
         activeTab={activeTab}
         onSelectTab={setActiveTab}
         hasActivePoem={activePoem !== null}
+        poemsCount={poems.length}
       />
 
       {/* Main Content Area */}
