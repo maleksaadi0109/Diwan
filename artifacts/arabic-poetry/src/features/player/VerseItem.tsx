@@ -249,14 +249,14 @@ export const VerseItem: React.FC<VerseItemProps> = ({
             onDoubleClick={(e) => e.stopPropagation()}
             className="space-y-3"
           >
-            <div className="flex flex-col md:flex-row items-stretch gap-3">
+            <div className="flex flex-col md:flex-row items-stretch gap-3 w-full min-w-0">
               <input
                 type="text"
                 value={editFirst}
                 onChange={(e) => setEditFirst(e.target.value)}
                 placeholder="الصدر"
                 dir="rtl"
-                className="flex-1 bg-black/30 text-[#F8F9FA] placeholder-[#6C7A8C] border border-white/15 focus:border-[#D4AF37] focus:outline-none rounded-2xl px-4 py-3 text-lg md:text-xl font-poetry text-center"
+                className="flex-1 min-w-0 w-full bg-black/30 text-[#F8F9FA] placeholder-[#6C7A8C] border border-white/15 focus:border-[#D4AF37] focus:outline-none rounded-2xl px-4 py-3 text-lg md:text-xl font-poetry text-center"
               />
               <input
                 type="text"
@@ -264,7 +264,7 @@ export const VerseItem: React.FC<VerseItemProps> = ({
                 onChange={(e) => setEditSecond(e.target.value)}
                 placeholder="العجز"
                 dir="rtl"
-                className="flex-1 bg-black/30 text-[#F8F9FA] placeholder-[#6C7A8C] border border-white/15 focus:border-[#D4AF37] focus:outline-none rounded-2xl px-4 py-3 text-lg md:text-xl font-poetry text-center"
+                className="flex-1 min-w-0 w-full bg-black/30 text-[#F8F9FA] placeholder-[#6C7A8C] border border-white/15 focus:border-[#D4AF37] focus:outline-none rounded-2xl px-4 py-3 text-lg md:text-xl font-poetry text-center"
               />
             </div>
             {editError && <p className="text-xs text-rose-400 font-sans text-center">{editError}</p>}
