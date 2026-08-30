@@ -31,6 +31,7 @@ interface PoemPlayerViewProps {
     includeFollowing: boolean
   ) => Promise<void>;
   onDeleteVerse?: (verseId: string) => Promise<void> | void;
+  onEditVerse?: (verseId: string, firstHemistich: string, secondHemistich: string) => Promise<void> | void;
 }
 
 interface ExplanationViewState {
@@ -46,6 +47,7 @@ export const PoemPlayerView: React.FC<PoemPlayerViewProps> = ({
   onSaveExplanations,
   onApplyOffset,
   onDeleteVerse,
+  onEditVerse,
 }) => {
   const [isFocusMode, setIsFocusMode] = useState(false);
   const [explanationModalVerseId, setExplanationModalVerseId] = useState<string | null>(null);
@@ -384,6 +386,7 @@ export const PoemPlayerView: React.FC<PoemPlayerViewProps> = ({
               onSelectVerse={handleVerseSelect}
               onOpenExplanation={handleOpenExplanation}
               onDeleteVerse={onDeleteVerse ? handleDeleteVerse : undefined}
+              onEditVerse={onEditVerse}
               explanationItems={explanationStates[verse.id]?.items}
               explanationStatus={explanationStates[verse.id]?.status}
               explanationError={explanationStates[verse.id]?.error}
