@@ -5,6 +5,7 @@ import type { ParsedPoemPayload, ParsedVersePayload } from "@/lib/providers/type
 import {
   fetchYoutubeVideoInfo,
   downloadYoutubeAudio,
+  downloadYoutubeThumbnail,
   convertAudioFile,
   inspectAudioFile,
   detectSpeechIntervals,
@@ -99,6 +100,7 @@ export const NewPoemWizard: React.FC<NewPoemWizardProps> = ({ onFinishWizard }) 
   const [youtubeInfo, setYoutubeInfo] = useState<WorkerYouTubeInfoData | null>(null);
   const [youtubeLoading, setYoutubeLoading] = useState(false);
   const [youtubeError, setYoutubeError] = useState<string | null>(null);
+  const [youtubeCoverImage, setYoutubeCoverImage] = useState<string | null>(null);
 
   const [localAudioPath, setLocalAudioPath] = useState<string | null>(null);
   const [localAudioName, setLocalAudioName] = useState<string | null>(null);
@@ -171,6 +173,15 @@ export const NewPoemWizard: React.FC<NewPoemWizardProps> = ({ onFinishWizard }) 
     try {
       const info = await fetchYoutubeVideoInfo(youtubeUrl.trim());
       setYoutubeInfo(info);
+      setYoutubeCoverImage(null);
+      if (info.thumbnail) {
+        // Download the thumbnail server-side and store it as a data URL so
+        // the cover image persists locally and works offline, instead of
+        // relying on a live link to YouTube's CDN.
+        downloadYoutubeThumbnail(info.thumbnail).then((dataUrl) => {
+          setYoutubeCoverImage(dataUrl || info.thumbnail || null);
+        });
+      }
     } catch (err: unknown) {
       setYoutubeError(formatErrorMessage(err));
     } finally {
@@ -286,7 +297,7 @@ export const NewPoemWizard: React.FC<NewPoemWizardProps> = ({ onFinishWizard }) 
         externalProvider: importedFromMizan ? "mizan_al_arab" : undefined,
         externalId: importedFromMizan ? mizanPoemId : undefined,
         sourceUrl: importedFromMizan ? mizanUrl.trim() : undefined,
-        coverImageUrl: youtubeInfo?.thumbnail || undefined,
+        coverImageUrl: youtubeCoverImage || youtubeInfo?.thumbnail || undefined,
         verses: parsedVerses.map((v) => {
           const alignmentItem = alignRes.alignments.find((a) => a.order_index === v.orderIndex);
           return {
