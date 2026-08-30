@@ -67,34 +67,34 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
   }, [poems, searchQuery, selectedEra]);
 
   return (
-    <div className="h-full flex flex-col overflow-y-auto px-8 md:px-14 py-10 max-w-7xl mx-auto w-full scroll-smooth select-none text-[#F8F9FA]">
+    <div className="h-full flex flex-col overflow-y-auto px-4 md:px-14 py-8 md:py-10 max-w-7xl mx-auto w-full scroll-smooth select-none pb-24 md:pb-28">
       {/* Hero / Header Section */}
       <div className="mb-10 flex flex-col gap-6">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-6">
           <div>
-            <div className="flex items-center gap-2 mb-2">
-              <span className="text-xs font-bold text-[#D4AF37] flex items-center gap-1.5 font-sans bg-[#D4AF37]/10 px-3 py-1 rounded-xl border border-[#D4AF37]/30 shadow-[0_0_12px_rgba(212,175,55,0.15)]">
+            <div className="flex items-center gap-2 mb-3">
+              <span className="text-[11px] font-bold text-accent-700 flex items-center gap-1.5 font-sans bg-accent-700/10 px-3 py-1 rounded-full border border-accent-700/20">
                 <Feather className="w-3.5 h-3.5" />
                 <span>الديوان الجامع للشعر العربي والمحاذاة الصوتية</span>
               </span>
             </div>
-            <h2 className="text-4xl md:text-5xl font-poetry font-bold text-[#F8F9FA] tracking-wide mt-2 flex items-center gap-3">
+            <h2 className="text-4xl md:text-5xl font-poetry font-bold text-parchment-100 tracking-wide mt-2 flex items-center gap-3">
               <span>المكتبة</span>
-              <Sparkles className="w-6 h-6 text-[#D4AF37]" />
+              <Sparkles className="w-6 h-6 text-accent-700" />
             </h2>
-            <p className="text-xs md:text-sm text-[#A0AAB7] mt-2 font-sans">
+            <p className="text-sm text-ink-500 mt-2 font-sans max-w-lg">
               تصفح عيون الشعر العربي، واستمع إلى الإلقاء الصوتي المتزامن بدقة عالية
             </p>
           </div>
 
-          <div className="flex items-center gap-2.5 shrink-0">
+          <div className="flex items-center gap-3 shrink-0">
             {onBulkAddToPlaylist && (
               <button
                 onClick={toggleSelectionMode}
-                className={`px-5 py-3 font-bold font-sans text-xs transition-all rounded-2xl flex items-center justify-center gap-2 cursor-pointer border ${
+                className={`px-5 py-2.5 font-bold font-sans text-xs transition-all rounded-xl flex items-center justify-center gap-2 cursor-pointer border focus-visible:ring-2 focus-visible:ring-accent-700 ${
                   selectionMode
-                    ? "bg-[#D4AF37]/15 text-[#F3E19C] border-[#D4AF37]/40"
-                    : "bg-white/[0.05] text-[#A0AAB7] border-white/10 hover:text-[#F8F9FA] hover:bg-white/[0.1]"
+                    ? "bg-accent-700/10 text-accent-600 border-accent-700/30"
+                    : "bg-white/5 text-ink-500 border-white/5 hover:text-ink-900 hover:bg-white/10 hover:border-white/10"
                 }`}
               >
                 <ListChecks className="w-4 h-4" />
@@ -103,16 +103,16 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
             )}
             <button
               onClick={onNavigateToImport}
-              className="px-6 py-3 bg-gradient-to-r from-[#D4AF37] to-[#B89225] hover:from-[#E6C265] hover:to-[#C9A233] text-[#0A0C10] font-bold font-sans text-xs transition-all shadow-[0_0_20px_rgba(212,175,55,0.35)] rounded-2xl flex items-center justify-center gap-2 group shrink-0 cursor-pointer"
+              className="px-5 py-2.5 bg-accent-700 hover:bg-accent-600 text-charcoal-950 font-bold font-sans text-xs transition-all rounded-xl flex items-center justify-center gap-2 cursor-pointer focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-charcoal-900 focus-visible:ring-accent-700 shadow-lg shadow-accent-700/20"
             >
               <Plus className="w-4 h-4 stroke-[3]" />
-              <span>استيراد قصيدة جديدة</span>
+              <span className="hidden sm:inline">استيراد قصيدة</span>
             </button>
           </div>
         </div>
 
         {/* Search & Filter Bar */}
-        <div className="flex flex-col md:flex-row items-stretch md:items-center gap-4 bg-[#14171E]/90 p-3 rounded-2xl border border-white/[0.08] shadow-xl backdrop-blur-xl">
+        <div className="flex flex-col md:flex-row items-stretch md:items-center gap-4 bg-charcoal-850 p-2 md:p-3 rounded-2xl border border-white/5 shadow-md">
           <div className="flex-1">
             <SearchBar value={searchQuery} onChange={setSearchQuery} />
           </div>
@@ -122,15 +122,15 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
       </div>
 
       {/* Counter summary */}
-      <div className="flex items-center justify-between text-xs text-[#A0AAB7] mb-6 pb-3 border-b border-white/[0.08] font-sans">
+      <div className="flex items-center justify-between text-xs text-ink-500 mb-6 pb-3 border-b border-white/5 font-sans">
         <span>
-          عرض <strong className="text-[#F8F9FA] px-1 font-mono">{toArabicDigits(filteredPoems.length)}</strong> من إجمالي <strong className="text-[#F8F9FA] px-1 font-mono">{toArabicDigits(poems.length)}</strong> قصائد
+          عرض <strong className="text-parchment-100 px-1 font-mono">{toArabicDigits(filteredPoems.length)}</strong> من إجمالي <strong className="text-parchment-100 px-1 font-mono">{toArabicDigits(poems.length)}</strong> قصائد
         </span>
       </div>
 
       {/* Grid of Poem Cards */}
       {filteredPoems.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pb-28">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 md:gap-6 animate-fade-in">
           {filteredPoems.map((poem) => (
             <PoemCard
               key={poem.id}
@@ -145,14 +145,14 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
           ))}
         </div>
       ) : (
-        <div className="flex-1 flex flex-col items-center justify-center text-center p-16 bg-[#14171E]/60 border border-white/[0.08] rounded-3xl shadow-xl">
-          <div className="w-16 h-16 bg-white/[0.04] border border-white/10 flex items-center justify-center mb-5 text-[#D4AF37] rounded-2xl shadow-inner">
+        <div className="flex-1 flex flex-col items-center justify-center text-center p-12 md:p-16 bg-charcoal-850/50 border border-white/5 rounded-3xl animate-fade-in">
+          <div className="w-16 h-16 bg-charcoal-800 border border-white/5 flex items-center justify-center mb-5 text-accent-700 rounded-2xl shadow-inner">
             <BookOpen className="w-8 h-8" strokeWidth={1.5} />
           </div>
-          <h3 className="text-2xl font-poetry font-bold text-[#F8F9FA] mb-2">
+          <h3 className="text-2xl font-poetry font-bold text-parchment-100 mb-2">
             لا توجد قصائد مطابقة لبحثك
           </h3>
-          <p className="text-xs text-[#A0AAB7] max-w-md mb-6 leading-relaxed font-sans">
+          <p className="text-sm text-ink-500 max-w-md mb-6 leading-relaxed font-sans">
             جرب تعديل كلمات البحث أو تصفية العصور، أو أضف قصيدة جديدة إلى ديوانك.
           </p>
           <button
@@ -160,7 +160,7 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
               setSearchQuery("");
               setSelectedEra("الكل");
             }}
-            className="px-6 py-2.5 bg-white/[0.06] hover:bg-white/[0.12] border border-white/15 text-[#F8F9FA] font-bold font-sans text-xs transition-colors rounded-xl cursor-pointer"
+            className="px-6 py-2.5 bg-white/5 hover:bg-white/10 border border-white/10 text-ink-900 font-bold font-sans text-xs transition-colors rounded-xl cursor-pointer"
           >
             إعادة ضبط البحث
           </button>
@@ -169,8 +169,8 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
 
       {/* Floating bulk-action bar */}
       {selectionMode && selectedIds.size > 0 && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 flex items-center gap-4 bg-[#14171E]/95 border border-[#D4AF37]/30 rounded-2xl px-5 py-3 shadow-2xl backdrop-blur-xl animate-in fade-in slide-in-from-bottom-4 duration-200">
-          <span className="text-xs font-bold text-[#F3E19C] font-sans whitespace-nowrap">
+        <div className="fixed bottom-20 md:bottom-8 left-1/2 -translate-x-1/2 z-40 flex items-center gap-4 bg-charcoal-800 border border-accent-700/30 rounded-2xl px-5 py-3 shadow-2xl animate-slide-up">
+          <span className="text-xs font-bold text-accent-500 font-sans whitespace-nowrap">
             {toArabicDigits(selectedIds.size)} محدد
           </span>
           <div className="w-px h-6 bg-white/10" />
@@ -179,14 +179,14 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
               const selectedPoems = poems.filter((p) => selectedIds.has(p.id));
               onBulkAddToPlaylist?.(selectedPoems);
             }}
-            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-[#D4AF37] to-[#B89225] hover:from-[#E6C265] hover:to-[#C9A233] text-[#0A0C10] font-bold font-sans text-xs rounded-xl transition-all cursor-pointer whitespace-nowrap"
+            className="flex items-center gap-2 px-4 py-2 bg-accent-700 hover:bg-accent-600 text-charcoal-950 font-bold font-sans text-xs rounded-xl transition-all cursor-pointer whitespace-nowrap"
           >
             <ListPlus className="w-4 h-4" />
             <span>إضافة إلى قائمة تشغيل</span>
           </button>
           <button
             onClick={() => setSelectedIds(new Set())}
-            className="p-2 rounded-xl text-[#A0AAB7] hover:text-[#F8F9FA] hover:bg-white/[0.08] transition-colors cursor-pointer"
+            className="p-2 rounded-xl text-ink-500 hover:text-ink-900 hover:bg-white/5 transition-colors cursor-pointer"
             title="إلغاء التحديد"
           >
             <X className="w-4 h-4" />

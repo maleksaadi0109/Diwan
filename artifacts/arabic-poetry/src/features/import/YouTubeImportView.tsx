@@ -159,18 +159,18 @@ export const YouTubeImportView: React.FC<YouTubeImportViewProps> = ({ onAudioDow
   };
 
   return (
-    <div className="p-8 bg-[#13161D]/90 border border-white/[0.08] rounded-3xl space-y-6 select-none shadow-2xl backdrop-blur-xl text-[#F8F9FA]">
+    <div className="p-8 bg-charcoal-850 border border-white/5 rounded-3xl space-y-6 select-none shadow-2xl backdrop-blur-xl text-parchment-100">
       {/* Header */}
-      <div className="flex items-center gap-4 border-b border-white/[0.08] pb-6">
-        <div className="w-12 h-12 rounded-2xl bg-red-500/15 border border-red-500/30 flex items-center justify-center text-red-400 shadow-[0_0_15px_rgba(239,68,68,0.2)]">
+      <div className="flex items-center gap-4 border-b border-white/5 pb-6">
+        <div className="w-12 h-12 rounded-2xl bg-crimson-500/15 border border-red-500/30 flex items-center justify-center text-red-400 shadow-[0_0_15px_rgba(239,68,68,0.2)]">
           <YoutubeIcon className="w-7 h-7" />
         </div>
         <div>
-          <h3 className="text-xl font-bold text-[#F8F9FA] font-poetry tracking-wide flex items-center gap-2">
+          <h3 className="text-xl font-bold text-parchment-100 font-poetry tracking-wide flex items-center gap-2">
             <span>استيراد تسجيل صوتي من YouTube</span>
-            <Sparkles className="w-4 h-4 text-[#D4AF37]" />
+            <Sparkles className="w-4 h-4 text-accent-700" />
           </h3>
-          <p className="text-xs text-[#A0AAB7] mt-1 font-sans">
+          <p className="text-xs text-ink-500 mt-1 font-sans">
             تنزيل التسجيلات الشعرية وتحويلها إلى MP3 للتشغيل و WAV 16kHz للمحاذاة التلقائية
           </p>
         </div>
@@ -184,13 +184,13 @@ export const YouTubeImportView: React.FC<YouTubeImportViewProps> = ({ onAudioDow
             value={url}
             onChange={(e) => setUrl(e.target.value)}
             placeholder="https://www.youtube.com/watch?v=... أو https://youtu.be/..."
-            className="w-full bg-[#14171E] text-[#F8F9FA] placeholder-[#6C7A8C] border border-white/10 rounded-2xl px-5 py-3.5 text-sm focus:outline-none focus:border-[#D4AF37]/60 transition-all ltr-num shadow-inner"
+            className="w-full bg-charcoal-900 text-parchment-100 placeholder-ink-500 border border-white/10 rounded-2xl px-5 py-3.5 text-sm focus:outline-none focus:border-accent-700/60 transition-all ltr-num shadow-inner"
           />
         </div>
         <button
           type="submit"
           disabled={!url.trim() || isLoadingInfo || isDownloading}
-          className="px-6 py-3.5 rounded-2xl bg-gradient-to-r from-[#D4AF37] to-[#B89225] hover:from-[#E6C265] hover:to-[#C9A233] disabled:opacity-40 text-[#0A0C10] font-bold text-sm transition-all flex items-center justify-center gap-2 shrink-0 shadow-[0_0_20px_rgba(212,175,55,0.3)] cursor-pointer"
+          className="px-6 py-3.5 rounded-2xl bg-accent-700 from-accent-700 to-accent-600 hover:bg-accent-600  disabled:opacity-40 text-charcoal-950 font-bold text-sm transition-all flex items-center justify-center gap-2 shrink-0 shadow-lg shadow-accent-700/20 cursor-pointer"
         >
           {isLoadingInfo ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
           <span>قراءة بيانات المقطع</span>
@@ -207,7 +207,7 @@ export const YouTubeImportView: React.FC<YouTubeImportViewProps> = ({ onAudioDow
 
       {/* Video Preview Card */}
       {videoInfo && (
-        <div className="p-6 bg-black/40 rounded-3xl border border-white/[0.08] space-y-5 animate-in fade-in slide-in-from-bottom-3 duration-300 select-text">
+        <div className="p-6 bg-charcoal-950/40 rounded-3xl border border-white/5 space-y-5 animate-in fade-in slide-in-from-bottom-3 duration-300 select-text">
           <div className="flex flex-col sm:flex-row gap-5">
             {videoInfo.thumbnail && (
               <img
@@ -217,21 +217,21 @@ export const YouTubeImportView: React.FC<YouTubeImportViewProps> = ({ onAudioDow
               />
             )}
             <div className="flex-1 space-y-2">
-              <h4 className="font-poetry text-lg md:text-xl font-bold text-[#F8F9FA] leading-snug">
+              <h4 className="font-poetry text-lg md:text-xl font-bold text-parchment-100 leading-snug">
                 {videoInfo.title}
               </h4>
-              <div className="flex flex-wrap items-center gap-3 text-xs text-[#A0AAB7]">
-                <span className="flex items-center gap-1.5 bg-white/[0.04] px-3 py-1 rounded-xl border border-white/5">
-                  <User className="w-3.5 h-3.5 text-[#D4AF37]" />
+              <div className="flex flex-wrap items-center gap-3 text-xs text-ink-500">
+                <span className="flex items-center gap-1.5 bg-white/5 px-3 py-1 rounded-xl border border-white/5">
+                  <User className="w-3.5 h-3.5 text-accent-700" />
                   <span>{videoInfo.channel}</span>
                 </span>
-                <span className="flex items-center gap-1.5 bg-white/[0.04] px-3 py-1 rounded-xl border border-white/5">
-                  <Clock className="w-3.5 h-3.5 text-[#D4AF37]" />
+                <span className="flex items-center gap-1.5 bg-white/5 px-3 py-1 rounded-xl border border-white/5">
+                  <Clock className="w-3.5 h-3.5 text-accent-700" />
                   <span className="font-mono ltr-num">{formatTime(videoInfo.duration_ms)}</span>
                 </span>
               </div>
               {videoInfo.description && (
-                <p className="text-xs text-[#A0AAB7] line-clamp-2 leading-relaxed pt-1">
+                <p className="text-xs text-ink-500 line-clamp-2 leading-relaxed pt-1">
                   {videoInfo.description}
                 </p>
               )}
@@ -239,18 +239,18 @@ export const YouTubeImportView: React.FC<YouTubeImportViewProps> = ({ onAudioDow
           </div>
 
           {/* Download Options */}
-          <div className="pt-4 border-t border-white/[0.08] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div className="pt-4 border-t border-white/5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             {/* Audio Quality Selector */}
             <div className="flex items-center gap-3 text-xs">
-              <span className="text-[#A0AAB7] font-medium">جودة الصوت:</span>
-              <div className="flex gap-1 bg-[#14171E] p-1 rounded-xl border border-white/10">
+              <span className="text-ink-500 font-medium">جودة الصوت:</span>
+              <div className="flex gap-1 bg-charcoal-900 p-1 rounded-xl border border-white/10">
                 <button
                   type="button"
                   onClick={() => setAudioQuality("192k")}
                   className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
                     audioQuality === "192k"
-                      ? "bg-[#D4AF37] text-[#0A0C10] shadow-[0_0_10px_rgba(212,175,55,0.3)]"
-                      : "text-[#A0AAB7] hover:text-[#F8F9FA]"
+                      ? "bg-accent-700 text-charcoal-950 shadow-md shadow-accent-700/20"
+                      : "text-ink-500 hover:text-parchment-100"
                   }`}
                 >
                   عالية (192 kbps)
@@ -260,8 +260,8 @@ export const YouTubeImportView: React.FC<YouTubeImportViewProps> = ({ onAudioDow
                   onClick={() => setAudioQuality("128k")}
                   className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
                     audioQuality === "128k"
-                      ? "bg-[#D4AF37] text-[#0A0C10] shadow-[0_0_10px_rgba(212,175,55,0.3)]"
-                      : "text-[#A0AAB7] hover:text-[#F8F9FA]"
+                      ? "bg-accent-700 text-charcoal-950 shadow-md shadow-accent-700/20"
+                      : "text-ink-500 hover:text-parchment-100"
                   }`}
                 >
                   قياسية (128 kbps)
@@ -275,7 +275,7 @@ export const YouTubeImportView: React.FC<YouTubeImportViewProps> = ({ onAudioDow
                 <button
                   type="button"
                   onClick={handleStartDownload}
-                  className="w-full sm:w-auto px-6 py-3 rounded-2xl bg-gradient-to-r from-[#D4AF37] to-[#B89225] hover:from-[#E6C265] hover:to-[#C9A233] text-[#0A0C10] font-bold text-xs shadow-[0_0_20px_rgba(212,175,55,0.35)] transition-all flex items-center justify-center gap-2 cursor-pointer"
+                  className="w-full sm:w-auto px-6 py-3 rounded-2xl bg-accent-700 from-accent-700 to-accent-600 hover:bg-accent-600  text-charcoal-950 font-bold text-xs shadow-[0_0_20px_rgba(212,175,55,0.35)] transition-all flex items-center justify-center gap-2 cursor-pointer"
                 >
                   <Download className="w-4 h-4" />
                   <span>تنزيل التسجيل الصوتي</span>
@@ -295,16 +295,16 @@ export const YouTubeImportView: React.FC<YouTubeImportViewProps> = ({ onAudioDow
 
           {/* Download Progress Bar */}
           {isDownloading && (
-            <div className="p-5 rounded-2xl bg-[#14171E] border border-white/10 space-y-3">
+            <div className="p-5 rounded-2xl bg-charcoal-900 border border-white/10 space-y-3">
               <div className="flex items-center justify-between text-xs">
-                <span className="font-bold text-[#F3E19C]">{downloadStage}</span>
-                <span className="font-mono text-[#D4AF37] ltr-num font-bold">
+                <span className="font-bold text-accent-500">{downloadStage}</span>
+                <span className="font-mono text-accent-700 ltr-num font-bold">
                   {Math.round(downloadProgress * 100)}%
                 </span>
               </div>
-              <div className="w-full bg-black/40 rounded-full h-2 overflow-hidden p-0.5 border border-white/10 shadow-inner">
+              <div className="w-full bg-charcoal-950/40 rounded-full h-2 overflow-hidden p-0.5 border border-white/10 shadow-inner">
                 <div
-                  className="bg-gradient-to-r from-[#B89225] via-[#D4AF37] to-[#F3E19C] h-full transition-all duration-300 rounded-full shadow-[0_0_10px_rgba(212,175,55,0.5)]"
+                  className="bg-accent-700 from-accent-600 via-accent-700 to-accent-500 h-full transition-all duration-300 rounded-full shadow-[0_0_10px_rgba(212,175,55,0.5)]"
                   style={{ width: `${Math.max(5, Math.min(100, downloadProgress * 100))}%` }}
                 />
               </div>
@@ -325,15 +325,15 @@ export const YouTubeImportView: React.FC<YouTubeImportViewProps> = ({ onAudioDow
               </div>
 
               {/* Exact File Location on Disk */}
-              <div className="bg-[#0B0D12]/80 p-4 rounded-2xl border border-emerald-500/20 space-y-2">
+              <div className="bg-charcoal-950/80 p-4 rounded-2xl border border-emerald-500/20 space-y-2">
                 <div className="flex items-center justify-between text-xs">
-                  <span className="text-[#CED4DA] font-semibold flex items-center gap-2">
-                    <FolderCheck className="w-4 h-4 text-[#D4AF37]" />
+                  <span className="text-ink-500 font-semibold flex items-center gap-2">
+                    <FolderCheck className="w-4 h-4 text-accent-700" />
                     <span>موقع حفظ الملف الصوتي على جهازك:</span>
                   </span>
                   <button
                     onClick={() => handleCopyPath(downloadResult.playback_audio_path)}
-                    className="flex items-center gap-1.5 text-xs text-[#D4AF37] hover:text-[#F3E19C] bg-white/[0.06] hover:bg-white/[0.12] px-3 py-1 rounded-xl border border-white/10 transition-colors cursor-pointer"
+                    className="flex items-center gap-1.5 text-xs text-accent-700 hover:text-accent-500 bg-white/5 hover:bg-white/10 px-3 py-1 rounded-xl border border-white/10 transition-colors cursor-pointer"
                     title="نسخ المسار الكامل للملف"
                   >
                     {copiedPath ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
@@ -346,9 +346,9 @@ export const YouTubeImportView: React.FC<YouTubeImportViewProps> = ({ onAudioDow
               </div>
 
               {/* Instant Audio Audition Player */}
-              <div className="bg-[#0B0D12]/80 p-4 rounded-2xl border border-emerald-500/20 flex flex-col sm:flex-row items-center justify-between gap-3">
-                <div className="flex items-center gap-2 text-xs text-[#CED4DA]">
-                  <Volume2 className="w-4 h-4 text-[#D4AF37]" />
+              <div className="bg-charcoal-950/80 p-4 rounded-2xl border border-emerald-500/20 flex flex-col sm:flex-row items-center justify-between gap-3">
+                <div className="flex items-center gap-2 text-xs text-ink-500">
+                  <Volume2 className="w-4 h-4 text-accent-700" />
                   <span>معاينة الاستماع الفوري:</span>
                 </div>
                 <audio

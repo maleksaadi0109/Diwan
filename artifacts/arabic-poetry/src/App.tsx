@@ -441,8 +441,8 @@ function AppShell() {
   );
 
   return (
-    <div className="h-screen w-screen flex bg-[#080A0E] text-[#F8F9FA] overflow-hidden select-none min-w-[900px] min-h-[600px] font-sans">
-      {/* Right-side RTL Navigation */}
+    <div className="h-[100dvh] w-full flex flex-col md:flex-row bg-charcoal-950 text-parchment-100 overflow-hidden font-sans selection:bg-accent-700/30 selection:text-accent-500">
+      {/* Right-side RTL Navigation (Sidebar on Desktop, Bottom bar on Mobile) */}
       <Navigation
         activeTab={activeTab}
         onSelectTab={setActiveTab}
@@ -451,14 +451,14 @@ function AppShell() {
       />
 
       {/* Main Content Area */}
-      <div className="flex-1 flex flex-col h-full overflow-hidden bg-paper-200 relative">
+      <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden bg-charcoal-900 relative">
         <Header
           activeTab={activeTab}
           activePoem={activePoem}
           onBackToLibrary={() => setActiveTab("library")}
         />
 
-        <main className="flex-1 overflow-hidden relative">
+        <main className="flex-1 overflow-hidden relative pb-[calc(var(--mobile-nav-h)+env(safe-area-inset-bottom))] md:pb-0">
           {isLoading ? (
             <div className="h-full flex items-center justify-center text-ink-600 font-poetry text-xl animate-pulse">
               جاري تحميل ديوان الشعر...

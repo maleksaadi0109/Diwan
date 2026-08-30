@@ -197,63 +197,65 @@ export const PoemPlayerView: React.FC<PoemPlayerViewProps> = ({
   );
 
   return (
-    <div className="h-full flex flex-col justify-between overflow-hidden bg-[#080A0E] text-[#F8F9FA] relative">
+    <div className="h-full flex flex-col justify-between overflow-hidden relative pb-[env(safe-area-inset-bottom)]">
       {/* Header bar within Player */}
-      <div className="px-8 py-4 border-b border-white/[0.08] bg-[#0E1015]/90 backdrop-blur-xl flex items-center justify-between shrink-0 z-10">
+      <div className="px-4 md:px-8 py-4 border-b border-white/5 bg-charcoal-900/90 backdrop-blur-xl flex flex-col md:flex-row md:items-center justify-between gap-4 shrink-0 z-10 shadow-sm">
         <div className="min-w-0 flex-1">
-          <h2 className="font-poetry text-2xl md:text-3xl font-bold text-[#F8F9FA] truncate">
+          <h2 className="font-poetry text-2xl md:text-3xl font-bold text-parchment-100 truncate">
             {poem.title}
           </h2>
-          <p className="text-xs text-[#A0AAB7] font-medium mt-1 flex items-center gap-2 font-sans">
-            <span className="text-[#F8F9FA] font-bold">{poem.poet.name}</span>
+          <div className="flex flex-wrap items-center gap-2 mt-1.5 text-xs font-sans text-ink-500">
+            <span className="text-parchment-100 font-bold">{poem.poet.name}</span>
             <span className="text-white/20">•</span>
-            <span>بحر {poem.bahr} <strong className="text-[#D4AF37]">({meterInfo.pattern})</strong></span>
+            <span>بحر {poem.bahr} <strong className="text-accent-700">({meterInfo.pattern})</strong></span>
             <span className="text-white/20">•</span>
-            <span>الرويّ: <strong className="text-[#F8F9FA]">{meterInfo.rawiyy}</strong></span>
-          </p>
+            <span>الرويّ: <strong className="text-parchment-100">{meterInfo.rawiyy}</strong></span>
+          </div>
         </div>
 
-        <div className="flex flex-wrap items-center justify-end gap-2 shrink-0 max-w-full font-sans">
+        <div className="flex flex-wrap items-center gap-2 shrink-0 font-sans">
           {/* Focus Mode Toggle */}
           <button
             onClick={() => setIsFocusMode(true)}
-            className="shrink-0 flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold border transition-all whitespace-nowrap cursor-pointer bg-white/[0.04] text-[#A0AAB7] border-white/10 hover:bg-white/[0.08] hover:text-[#F8F9FA]"
-            title="وضع التركيز: عرض الأبيات فقط بشاشة كاملة بدون شرح أو أدوات"
+            className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 md:px-3.5 md:py-2 rounded-xl text-xs font-bold border transition-all whitespace-nowrap cursor-pointer bg-white/5 text-ink-500 border-white/5 hover:bg-white/10 hover:text-parchment-100 focus-visible:ring-2 focus-visible:ring-accent-700"
+            title="وضع التركيز"
+            aria-label="وضع التركيز ملء الشاشة"
           >
             <Maximize2 className="w-3.5 h-3.5" />
-            <span>وضع التركيز</span>
+            <span className="hidden sm:inline">وضع التركيز</span>
           </button>
 
           {onImportExplanations && (
             <button
               onClick={() => setShowImportExplanation(true)}
-              className="shrink-0 flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold border bg-white/[0.04] text-[#A0AAB7] border-white/10 hover:bg-white/[0.08] transition-all whitespace-nowrap cursor-pointer"
-              title="استيراد شرح جاهز عبر النسخ واللصق من موقع خارجي"
+              className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 md:px-3.5 md:py-2 rounded-xl text-xs font-bold border bg-white/5 text-ink-500 border-white/5 hover:bg-white/10 hover:text-parchment-100 transition-all whitespace-nowrap cursor-pointer focus-visible:ring-2 focus-visible:ring-accent-700"
+              title="استيراد شرح جاهز"
             >
-              <ClipboardPaste className="w-3.5 h-3.5 text-[#D4AF37]" />
-              <span>استيراد شرح (لصق)</span>
+              <ClipboardPaste className="w-3.5 h-3.5 text-accent-700" />
+              <span className="hidden sm:inline">استيراد شرح</span>
             </button>
           )}
 
           <button
             onClick={() => setShowMetadata(!showMetadata)}
-            className={`shrink-0 flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold border transition-all whitespace-nowrap cursor-pointer ${
+            className={`shrink-0 flex items-center gap-1.5 px-3 py-1.5 md:px-3.5 md:py-2 rounded-xl text-xs font-bold border transition-all whitespace-nowrap cursor-pointer focus-visible:ring-2 focus-visible:ring-accent-700 ${
               showMetadata
-                ? "bg-white/15 text-[#F8F9FA] border-white/30"
-                : "bg-white/[0.04] text-[#A0AAB7] border-white/10 hover:bg-white/[0.08]"
+                ? "bg-accent-700/10 text-accent-500 border-accent-700/20"
+                : "bg-white/5 text-ink-500 border-white/5 hover:bg-white/10 hover:text-parchment-100"
             }`}
             title="معلومات القصيدة والشاعر"
+            aria-pressed={showMetadata}
           >
             <Info className="w-3.5 h-3.5" />
-            <span>بيانات القصيدة</span>
+            <span className="hidden sm:inline">بيانات القصيدة</span>
           </button>
         </div>
       </div>
 
       {/* Error banner */}
       {errorMessage && (
-        <div className="mx-8 mt-4 p-4 bg-rose-500/15 border border-rose-500/30 text-rose-300 text-xs font-sans font-bold flex items-center gap-3 select-text rounded-2xl shadow-inner">
-          <AlertCircle className="w-5 h-5 shrink-0 text-rose-400" />
+        <div className="mx-4 md:mx-8 mt-4 p-4 bg-crimson-500/10 border border-crimson-500/20 text-crimson-500 text-xs font-sans font-bold flex items-center gap-3 select-text rounded-2xl shadow-sm">
+          <AlertCircle className="w-5 h-5 shrink-0" />
           <span>{errorMessage}</span>
         </div>
       )}
@@ -264,7 +266,7 @@ export const PoemPlayerView: React.FC<PoemPlayerViewProps> = ({
         <div
           ref={containerRef}
           onScroll={handleUserScroll}
-          className="flex-1 overflow-y-auto px-6 md:px-12 py-8 space-y-5 max-w-4xl mx-auto w-full scroll-smooth"
+          className="flex-1 overflow-y-auto px-4 md:px-8 py-8 md:py-12 space-y-6 max-w-4xl mx-auto w-full scroll-smooth"
         >
           {poem.verses.map((verse, index) => (
             <VerseItem
@@ -292,9 +294,9 @@ export const PoemPlayerView: React.FC<PoemPlayerViewProps> = ({
             />
           ))}
 
-          <div className="text-center py-10 text-xs text-[#A0AAB7] flex items-center justify-center gap-2 font-sans">
-            <BookOpen className="w-4 h-4 text-[#D4AF37]" />
-            <span>نهاية القصيدة</span>
+          <div className="text-center py-12 text-xs text-ink-600 flex items-center justify-center gap-2 font-sans opacity-70">
+            <BookOpen className="w-4 h-4 text-accent-700" />
+            <span>تمت القصيدة</span>
           </div>
         </div>
 
