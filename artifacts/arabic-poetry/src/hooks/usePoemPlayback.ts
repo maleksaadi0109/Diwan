@@ -1,89 +1,23 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Poem, Verse } from "@/types";
-import { AudioController, AudioPlayerState } from "@/lib/audio/AudioController";
-import { resolveAudioSrcAsync } from "@/lib/audio/fileManager";
+import { useAudioPlayerContext } from "@/contexts/AudioPlayerContext";
 
 export function usePoemPlayback(poem: Poem | null) {
-  const controllerRef = useRef<AudioController | null>(null);
+  const { controller, playerState, loadPoem } = useAudioPlayerContext();
 
-  // Initialize controller once
-  if (!controllerRef.current) {
-    controllerRef.current = new AudioController();
-  }
-
-  const controller = controllerRef.current;
-
-  const [playerState, setPlayerState] = useState<AudioPlayerState>(controller.getState());
   const [isUserScrolling, setIsUserScrolling] = useState(false);
   const userScrollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const lastLoadedPoemIdRef = useRef<string | null>(null);
-  const lastLoadedAudioPathRef = useRef<string | null>(null);
 
-  // Sync verses with controller whenever poem or its verses change
+  // Sync verses/audio with the shared controller whenever this poem is
+  // opened. `loadPoem` is a no-op on the audio element if the same
+  // poem/track is already loaded (e.g. resuming from the mini player), so
+  // playback is never interrupted.
   useEffect(() => {
-    let isCancelled = false;
-
     if (poem) {
-      controller.setVerses(poem.verses);
-      const defaultRec =
-        poem.recordings.find((recording) => recording.id === poem.defaultRecordingId) ||
-        poem.recordings[0];
-
-      const lastAlignedEnd = poem.verses.reduce(
-        (max, v) => (v.alignment ? Math.max(max, v.alignment.endMs) : max),
-        0
-      );
-      const defaultDuration = defaultRec?.durationMs || lastAlignedEnd;
-      const audioPath = defaultRec?.audioPath || "";
-      const isNewPoemOrTrack =
-        lastLoadedPoemIdRef.current !== poem.id ||
-        lastLoadedAudioPathRef.current !== audioPath;
-
-      if (isNewPoemOrTrack) {
-        // Only mark this poem/track as "loaded" once the load actually
-        // completes. Updating the refs synchronously here would, under
-        // React 18 StrictMode's mount->cleanup->mount dev cycle, make the
-        // second effect invocation think loading already happened while
-        // the first invocation's async load gets silently cancelled below
-        // -- leaving the audio element with an empty src forever.
-        if (audioPath) {
-          resolveAudioSrcAsync(audioPath).then((audioUrl) => {
-            if (!isCancelled) {
-              lastLoadedPoemIdRef.current = poem.id;
-              lastLoadedAudioPathRef.current = audioPath;
-              controller.loadAudio(audioUrl, defaultDuration);
-            }
-          });
-        } else {
-          lastLoadedPoemIdRef.current = poem.id;
-          lastLoadedAudioPathRef.current = audioPath;
-          controller.loadAudio("", defaultDuration);
-        }
-      }
-    } else {
-      lastLoadedPoemIdRef.current = null;
-      lastLoadedAudioPathRef.current = null;
-      controller.setVerses([]);
-      controller.loadAudio("");
+      loadPoem(poem);
     }
+  }, [poem, loadPoem]);
 
-    return () => {
-      isCancelled = true;
-    };
-  }, [poem, controller]);
-
-  // Subscribe to controller state changes (guaranteed single subscriber per hook instance)
-  useEffect(() => {
-    const unsubscribe = controller.subscribe((state) => {
-      setPlayerState(state);
-    });
-
-    return () => {
-      unsubscribe();
-    };
-  }, [controller]);
-
-  // Clean up controller when component unmounts
   useEffect(() => {
     return () => {
       if (userScrollTimeoutRef.current) {
