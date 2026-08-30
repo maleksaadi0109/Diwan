@@ -25,6 +25,7 @@ CREATE TABLE IF NOT EXISTS poems (
     source_url TEXT,
     theme TEXT,
     verified INTEGER DEFAULT 0,
+    cover_image_url TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
@@ -153,6 +154,7 @@ export interface PoemRow {
   source_url: string | null;
   theme: string | null;
   verified: number;
+  cover_image_url: string | null;
   created_at?: string;
   updated_at?: string;
 }

@@ -48,6 +48,12 @@ export class DiwanRepository {
       // Existing databases already have this migration, or the adapter handles
       // schema creation without SQL column migrations.
     }
+    try {
+      await this.adapter.execute("ALTER TABLE poems ADD COLUMN cover_image_url TEXT;");
+    } catch {
+      // Existing databases already have this migration, or the adapter handles
+      // schema creation without SQL column migrations.
+    }
   }
 
   // --- Seeding ---
@@ -125,9 +131,10 @@ export class DiwanRepository {
     const sql = `
       INSERT OR REPLACE INTO poems (
         id, title, poet_id, era, bahr, rhyme, description, verses_count, tags,
-        default_recording_id, external_provider, external_id, source_url, theme, verified, updated_at
+        default_recording_id, external_provider, external_id, source_url, theme, verified,
+        cover_image_url, updated_at
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP);
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP);
     `;
     await this.adapter.execute(sql, [
       poem.id,
@@ -145,6 +152,7 @@ export class DiwanRepository {
       poem.sourceUrl || null,
       poem.theme || null,
       poem.verified ? 1 : 0,
+      poem.coverImageUrl || null,
     ]);
 
     // Save recordings
@@ -221,10 +229,18 @@ export class DiwanRepository {
       sourceUrl: r.source_url || undefined,
       theme: r.theme || undefined,
       verified: r.verified === 1,
+      coverImageUrl: r.cover_image_url || undefined,
       verses,
       recordings,
       defaultRecordingId,
     };
+  }
+
+  async updatePoemCoverImage(poemId: string, coverImageUrl: string | null): Promise<void> {
+    await this.adapter.execute(
+      `UPDATE poems SET cover_image_url = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?;`,
+      [coverImageUrl, poemId]
+    );
   }
 
   async getAllPoems(): Promise<Poem[]> {

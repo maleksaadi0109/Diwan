@@ -17,6 +17,7 @@ import { MizanAlArabProvider } from "@/lib/providers/MizanAlArabProvider";
 interface PoemPlayerViewProps {
   poem: Poem;
   onSaveExplanations?: (verseId: string, items: VerseExplanationItem[]) => Promise<void>;
+  onChangeCoverImage?: (coverImageUrl: string | null) => Promise<void> | void;
   onDeleteVerse?: (verseId: string) => Promise<void> | void;
   onEditVerse?: (verseId: string, firstHemistich: string, secondHemistich: string) => Promise<void> | void;
   onImportExplanations?: (blocks: ParsedExplanationBlock[]) => Promise<void> | void;
@@ -31,6 +32,7 @@ interface ExplanationViewState {
 export const PoemPlayerView: React.FC<PoemPlayerViewProps> = ({
   poem,
   onSaveExplanations,
+  onChangeCoverImage,
   onDeleteVerse,
   onEditVerse,
   onImportExplanations,
@@ -299,6 +301,7 @@ export const PoemPlayerView: React.FC<PoemPlayerViewProps> = ({
           poem={poem}
           isOpen={showMetadata}
           onToggle={() => setShowMetadata(!showMetadata)}
+          onChangeCoverImage={onChangeCoverImage}
         />
       </div>
 

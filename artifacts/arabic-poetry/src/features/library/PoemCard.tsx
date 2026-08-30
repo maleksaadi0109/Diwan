@@ -29,6 +29,20 @@ export const PoemCard: React.FC<PoemCardProps> = ({ poem, onOpenPoem, onDeletePo
       className="group bg-[#14171E]/90 hover:bg-[#181C25] border border-white/[0.08] hover:border-[#D4AF37]/50 rounded-3xl p-6 cursor-pointer transition-all duration-300 shadow-xl hover:shadow-[0_0_30px_rgba(212,175,55,0.15)] flex flex-col justify-between relative backdrop-blur-xl select-none"
     >
       <div>
+        {/* Cover image, when available (e.g. imported from YouTube) */}
+        {poem.coverImageUrl && (
+          <div className="w-full h-32 mb-4 rounded-2xl overflow-hidden border border-white/[0.08] bg-black/40">
+            <img
+              src={poem.coverImageUrl}
+              alt=""
+              className="w-full h-full object-cover"
+              onError={(e) => {
+                (e.currentTarget as HTMLImageElement).style.display = "none";
+              }}
+            />
+          </div>
+        )}
+
         {/* Header Badges & Actions */}
         <div className="flex items-center justify-between gap-2 mb-4">
           <div className="flex items-center gap-2 flex-wrap">
