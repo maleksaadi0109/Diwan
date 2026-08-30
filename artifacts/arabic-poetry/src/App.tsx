@@ -2,19 +2,30 @@ import { useState, useEffect, useCallback } from "react";
 import { ActiveTab, Poem, AlignmentStatus, VerseExplanationItem } from "./types";
 import { Navigation } from "./components/Navigation";
 import { Header } from "./components/Header";
+import { MiniPlayer } from "./components/MiniPlayer";
 import { LibraryView } from "./features/library/LibraryView";
 import { PoemPlayerView } from "./features/player/PoemPlayerView";
 import { BoundaryReviewEditor } from "./features/editor/BoundaryReviewEditor";
 import { ImportView } from "./features/import/ImportView";
 import { SettingsView } from "./features/settings/SettingsView";
 import { DiwanRepository } from "./lib/db/repository";
+import { AudioPlayerProvider, useAudioPlayerContext } from "./contexts/AudioPlayerContext";
 
 export function App() {
+  return (
+    <AudioPlayerProvider>
+      <AppShell />
+    </AudioPlayerProvider>
+  );
+}
+
+function AppShell() {
   const [repo, setRepo] = useState<DiwanRepository | null>(null);
   const [poems, setPoems] = useState<Poem[]>([]);
   const [activeTab, setActiveTab] = useState<ActiveTab>("library");
   const [activePoem, setActivePoem] = useState<Poem | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const { controller, playerState, currentPoem, clearPoem } = useAudioPlayerContext();
 
   // Initialize DB and load initial data
   useEffect(() => {
@@ -246,7 +257,7 @@ export function App() {
       />
 
       {/* Main Content Area */}
-      <div className="flex-1 flex flex-col h-full overflow-hidden bg-paper-200">
+      <div className="flex-1 flex flex-col h-full overflow-hidden bg-paper-200 relative">
         <Header
           activeTab={activeTab}
           activePoem={activePoem}
@@ -298,6 +309,22 @@ export function App() {
             </>
           )}
         </main>
+
+        {/* Persistent mini player: visible whenever a poem is loaded but the
+            full player view isn't showing (e.g. browsing the library while
+            a poem keeps playing in the background). */}
+        {activeTab !== "player" && currentPoem && (
+          <MiniPlayer
+            poem={currentPoem}
+            playerState={playerState}
+            onTogglePlay={() => controller.togglePlay()}
+            onExpand={() => {
+              setActivePoem(currentPoem);
+              setActiveTab("player");
+            }}
+            onClose={clearPoem}
+          />
+        )}
       </div>
     </div>
   );

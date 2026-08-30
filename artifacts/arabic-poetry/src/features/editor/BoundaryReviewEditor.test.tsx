@@ -2,16 +2,19 @@ import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { BoundaryReviewEditor } from "./BoundaryReviewEditor";
 import { mockPoems } from "@/data/mockData";
+import { AudioPlayerProvider } from "@/contexts/AudioPlayerContext";
 
 describe("BoundaryReviewEditor", () => {
   const mockPoem = mockPoems[0];
 
   it("renders poem title and verses list", () => {
     render(
-      <BoundaryReviewEditor
-        poem={mockPoem}
-        onUpdateBoundary={() => {}}
-      />
+      <AudioPlayerProvider>
+        <BoundaryReviewEditor
+          poem={mockPoem}
+          onUpdateBoundary={() => {}}
+        />
+      </AudioPlayerProvider>
     );
 
     expect(screen.getByText("محرر المحاذاة وتدقيق الحدود")).toBeInTheDocument();
@@ -21,10 +24,12 @@ describe("BoundaryReviewEditor", () => {
   it("updates boundary when nudging start time", () => {
     const onUpdate = vi.fn();
     render(
-      <BoundaryReviewEditor
-        poem={mockPoem}
-        onUpdateBoundary={onUpdate}
-      />
+      <AudioPlayerProvider>
+        <BoundaryReviewEditor
+          poem={mockPoem}
+          onUpdateBoundary={onUpdate}
+        />
+      </AudioPlayerProvider>
     );
 
     const plus50Btns = screen.getAllByText("+50");
@@ -36,10 +41,12 @@ describe("BoundaryReviewEditor", () => {
   it("toggles status between auto, reviewed, and manual", () => {
     const onUpdate = vi.fn();
     render(
-      <BoundaryReviewEditor
-        poem={mockPoem}
-        onUpdateBoundary={onUpdate}
-      />
+      <AudioPlayerProvider>
+        <BoundaryReviewEditor
+          poem={mockPoem}
+          onUpdateBoundary={onUpdate}
+        />
+      </AudioPlayerProvider>
     );
 
     const manualBtn = screen.getByRole("button", { name: "يدوي" });
