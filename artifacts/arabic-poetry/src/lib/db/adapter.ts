@@ -77,6 +77,7 @@ export class WebMemoryAdapter implements DatabaseAdapter {
           source_url: p.sourceUrl || null,
           theme: p.theme || null,
           verified: p.verified ? 1 : 0,
+          cover_image_url: p.coverImageUrl || null,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         });
@@ -248,6 +249,7 @@ export class WebMemoryAdapter implements DatabaseAdapter {
         source_url: p.sourceUrl || null,
         theme: p.theme || null,
         verified: p.verified ? 1 : 0,
+        cover_image_url: p.coverImageUrl || null,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       });
@@ -343,6 +345,7 @@ export class WebMemoryAdapter implements DatabaseAdapter {
         source_url: params[12] ? String(params[12]) : null,
         theme: params[13] ? String(params[13]) : null,
         verified: params[14] ? 1 : 0,
+        cover_image_url: params[15] ? String(params[15]) : null,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       });
@@ -432,6 +435,16 @@ export class WebMemoryAdapter implements DatabaseAdapter {
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       });
+    } else if (trimmed.startsWith("UPDATE poems SET cover_image_url")) {
+      const id = String(params[1]);
+      const existing = this.poems.get(id);
+      if (existing) {
+        this.poems.set(id, {
+          ...existing,
+          cover_image_url: params[0] ? String(params[0]) : null,
+          updated_at: new Date().toISOString(),
+        });
+      }
     } else if (trimmed.startsWith("DELETE FROM poems WHERE id = ?")) {
       const id = String(params[0]);
       this.poems.delete(id);

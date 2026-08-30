@@ -117,6 +117,7 @@ export interface Poem {
   sourceUrl?: string;
   theme?: string;
   verified?: boolean;
+  coverImageUrl?: string;
 }
 
 export interface WordDefinition {

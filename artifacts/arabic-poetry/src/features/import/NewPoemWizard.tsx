@@ -286,6 +286,7 @@ export const NewPoemWizard: React.FC<NewPoemWizardProps> = ({ onFinishWizard }) 
         externalProvider: importedFromMizan ? "mizan_al_arab" : undefined,
         externalId: importedFromMizan ? mizanPoemId : undefined,
         sourceUrl: importedFromMizan ? mizanUrl.trim() : undefined,
+        coverImageUrl: youtubeInfo?.thumbnail || undefined,
         verses: parsedVerses.map((v) => {
           const alignmentItem = alignRes.alignments.find((a) => a.order_index === v.orderIndex);
           return {

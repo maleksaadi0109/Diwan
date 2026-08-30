@@ -1,21 +1,38 @@
-import React from "react";
+import React, { useRef, useState } from "react";
 import { Poem } from "@/types";
 import { Badge } from "@/components/Badge";
-import { User, Music, Mic, Sparkles, X, Feather } from "lucide-react";
+import { User, Music, Mic, Sparkles, X, Feather, ImageIcon, Pencil, Trash2 } from "lucide-react";
 import { toArabicDigits } from "@/lib/utils";
 
 interface PoemMetadataDrawerProps {
   poem: Poem;
   isOpen: boolean;
   onToggle: () => void;
+  onChangeCoverImage?: (coverImageUrl: string | null) => void | Promise<void>;
 }
 
 export const PoemMetadataDrawer: React.FC<PoemMetadataDrawerProps> = ({
   poem,
   isOpen,
-  onToggle
+  onToggle,
+  onChangeCoverImage,
 }) => {
+  const [isEditingImage, setIsEditingImage] = useState(false);
+  const [imageUrlInput, setImageUrlInput] = useState("");
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
   if (!isOpen) return null;
+
+  const handleFileSelected = (file: File) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === "string" && onChangeCoverImage) {
+        onChangeCoverImage(reader.result);
+      }
+      setIsEditingImage(false);
+    };
+    reader.readAsDataURL(file);
+  };
 
   return (
     <aside className="w-80 bg-paper-100 border-r border-paper-400 p-6 flex flex-col gap-6 overflow-y-auto shrink-0 select-none relative shadow-sm">
@@ -26,6 +43,94 @@ export const PoemMetadataDrawer: React.FC<PoemMetadataDrawerProps> = ({
       >
         <X className="w-4 h-4" strokeWidth={2} />
       </button>
+
+      {/* Cover Image Section */}
+      {onChangeCoverImage && (
+        <div className="space-y-3 pt-2">
+          <div className="flex items-center gap-2 text-accent-700 text-sm font-bold font-ui">
+            <ImageIcon className="w-4 h-4" />
+            <span>صورة القصيدة</span>
+          </div>
+
+          <div className="relative group bg-paper-200 border border-paper-400 rounded-none overflow-hidden shadow-sm h-36 flex items-center justify-center">
+            {poem.coverImageUrl ? (
+              <img src={poem.coverImageUrl} alt="" className="w-full h-full object-cover" />
+            ) : (
+              <span className="text-ink-500 text-xs font-bold">لا توجد صورة بعد</span>
+            )}
+            <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+              <button
+                type="button"
+                onClick={() => setIsEditingImage((v) => !v)}
+                className="p-2 rounded-full bg-white/90 text-ink-900 hover:bg-white transition-colors"
+                title="تغيير الصورة"
+              >
+                <Pencil className="w-4 h-4" />
+              </button>
+              {poem.coverImageUrl && (
+                <button
+                  type="button"
+                  onClick={() => onChangeCoverImage(null)}
+                  className="p-2 rounded-full bg-white/90 text-rose-600 hover:bg-white transition-colors"
+                  title="إزالة الصورة"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+          </div>
+
+          {isEditingImage && (
+            <div className="space-y-2 bg-paper-200 border border-paper-400 p-3 rounded-none">
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  value={imageUrlInput}
+                  onChange={(e) => setImageUrlInput(e.target.value)}
+                  placeholder="رابط الصورة (URL)"
+                  dir="ltr"
+                  className="flex-1 min-w-0 bg-white/80 border border-paper-400 rounded-none px-3 py-2 text-xs font-ui focus:outline-none focus:border-accent-700"
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    const trimmed = imageUrlInput.trim();
+                    if (trimmed) {
+                      onChangeCoverImage(trimmed);
+                      setImageUrlInput("");
+                      setIsEditingImage(false);
+                    }
+                  }}
+                  className="px-3 py-2 text-xs font-bold bg-accent-700 text-white rounded-none hover:bg-accent-800 transition-colors shrink-0"
+                >
+                  حفظ
+                </button>
+              </div>
+              <div className="flex items-center gap-2 text-[11px] text-ink-600">
+                <span>أو</span>
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="underline font-bold text-accent-700 hover:text-accent-900"
+                >
+                  اختر صورة من جهازك
+                </button>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) handleFileSelected(file);
+                    e.target.value = "";
+                  }}
+                />
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Poet Section */}
       <div className="space-y-3 pt-2">

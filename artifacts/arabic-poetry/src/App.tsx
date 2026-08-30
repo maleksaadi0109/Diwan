@@ -102,6 +102,17 @@ function AppShell() {
     [repo]
   );
 
+  const handleChangeCoverImage = useCallback(
+    async (coverImageUrl: string | null) => {
+      if (!activePoem) return;
+      if (repo) await repo.updatePoemCoverImage(activePoem.id, coverImageUrl);
+      const updated: Poem = { ...activePoem, coverImageUrl: coverImageUrl || undefined };
+      setActivePoem(updated);
+      setPoems((prev) => prev.map((p) => (p.id === updated.id ? updated : p)));
+    },
+    [repo, activePoem]
+  );
+
   const handleImportExplanations = useCallback(
     async (blocks: ParsedExplanationBlock[]) => {
       if (!activePoem) return;
@@ -242,6 +253,7 @@ function AppShell() {
                 <PoemPlayerView
                   poem={activePoem}
                   onSaveExplanations={handleSaveExplanations}
+                  onChangeCoverImage={handleChangeCoverImage}
                   onDeleteVerse={handleDeleteVerse}
                   onEditVerse={handleEditVerse}
                   onImportExplanations={handleImportExplanations}
