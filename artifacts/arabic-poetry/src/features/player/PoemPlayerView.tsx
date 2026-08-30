@@ -7,10 +7,12 @@ import { PoemMetadataDrawer } from "./PoemMetadataDrawer";
 import { DictionaryWordModal } from "./DictionaryWordModal";
 import { VerseExplanationModal } from "./VerseExplanationModal";
 import { ExportModal } from "../export/ExportModal";
+import { ImportExplanationModal } from "./ImportExplanationModal";
 import { WaveformDebugView } from "./WaveformDebugView";
 import { FocusModeView } from "./FocusModeView";
 import { usePoemPlayback } from "@/hooks/usePoemPlayback";
-import { Info, BookOpen, AlertCircle, Download, Activity, AudioWaveform, Maximize2 } from "lucide-react";
+import { Info, BookOpen, AlertCircle, Download, Activity, AudioWaveform, Maximize2, ClipboardPaste } from "lucide-react";
+import { ParsedExplanationBlock } from "@/lib/import/pasteExplanationParser";
 import { analyzeVerseMeter } from "@/lib/arud/meterDetector";
 import { DiwanRepository } from "@/lib/db/repository";
 import { MizanAlArabProvider } from "@/lib/providers/MizanAlArabProvider";
@@ -32,6 +34,7 @@ interface PoemPlayerViewProps {
   ) => Promise<void>;
   onDeleteVerse?: (verseId: string) => Promise<void> | void;
   onEditVerse?: (verseId: string, firstHemistich: string, secondHemistich: string) => Promise<void> | void;
+  onImportExplanations?: (blocks: ParsedExplanationBlock[]) => Promise<void> | void;
 }
 
 interface ExplanationViewState {
@@ -48,11 +51,13 @@ export const PoemPlayerView: React.FC<PoemPlayerViewProps> = ({
   onApplyOffset,
   onDeleteVerse,
   onEditVerse,
+  onImportExplanations,
 }) => {
   const [isFocusMode, setIsFocusMode] = useState(false);
   const [explanationModalVerseId, setExplanationModalVerseId] = useState<string | null>(null);
   const [showMetadata, setShowMetadata] = useState(false);
   const [showExport, setShowExport] = useState(false);
+  const [showImportExplanation, setShowImportExplanation] = useState(false);
   const [showDebugOverlay, setShowDebugOverlay] = useState(false);
   const [showWaveformDebug, setShowWaveformDebug] = useState(false);
   const [selectedWord, setSelectedWord] = useState<string | null>(null);
@@ -274,6 +279,17 @@ export const PoemPlayerView: React.FC<PoemPlayerViewProps> = ({
             <span>مؤشرات التزامن</span>
           </button>
 
+          {onImportExplanations && (
+            <button
+              onClick={() => setShowImportExplanation(true)}
+              className="shrink-0 flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold border bg-white/[0.04] text-[#A0AAB7] border-white/10 hover:bg-white/[0.08] transition-all whitespace-nowrap cursor-pointer"
+              title="استيراد شرح جاهز عبر النسخ واللصق من موقع خارجي"
+            >
+              <ClipboardPaste className="w-3.5 h-3.5 text-[#D4AF37]" />
+              <span>استيراد شرح (لصق)</span>
+            </button>
+          )}
+
           <button
             onClick={() => setShowExport(true)}
             className="shrink-0 flex items-center gap-1.5 px-4 py-1.5 rounded-xl text-xs font-bold bg-gradient-to-r from-[#D4AF37] to-[#B89225] hover:from-[#E6C265] hover:to-[#C9A233] text-[#0A0C10] shadow-[0_0_15px_rgba(212,175,55,0.3)] transition-all whitespace-nowrap cursor-pointer"
@@ -471,6 +487,29 @@ export const PoemPlayerView: React.FC<PoemPlayerViewProps> = ({
         isOpen={showExport}
         onClose={() => setShowExport(false)}
       />
+
+      {/* Import Explanation (paste) Modal */}
+      {showImportExplanation && onImportExplanations && (
+        <ImportExplanationModal
+          verses={poem.verses}
+          onClose={() => setShowImportExplanation(false)}
+          onImport={async (blocks) => {
+            await onImportExplanations(blocks);
+            setExplanationStates((previous) => {
+              const next = { ...previous };
+              blocks.forEach((block) => {
+                const existing = next[block.verseId]?.items || [];
+                next[block.verseId] = {
+                  status: "loaded",
+                  items: [...existing, ...block.items],
+                  error: null,
+                };
+              });
+              return next;
+            });
+          }}
+        />
+      )}
 
       {/* Focus Mode: fullscreen, distraction-free verses only */}
       {isFocusMode && (
