@@ -1,25 +1,27 @@
 import React from "react";
 import { BookOpen, PlayCircle, Sliders, PlusCircle, Settings, Feather } from "lucide-react";
 import { ActiveTab } from "@/types";
-import { cn } from "@/lib/utils";
+import { cn, toArabicDigits } from "@/lib/utils";
 
 interface NavigationProps {
   activeTab: ActiveTab;
   onSelectTab: (tab: ActiveTab) => void;
   hasActivePoem: boolean;
+  poemsCount?: number;
 }
 
 export const Navigation: React.FC<NavigationProps> = ({
   activeTab,
   onSelectTab,
   hasActivePoem,
+  poemsCount = 0,
 }) => {
   const navItems = [
     {
       id: "library" as ActiveTab,
       label: "المكتبة",
       icon: BookOpen,
-      badge: "٣ قصائد",
+      badge: `${toArabicDigits(poemsCount)} قصائد`,
     },
     {
       id: "player" as ActiveTab,
