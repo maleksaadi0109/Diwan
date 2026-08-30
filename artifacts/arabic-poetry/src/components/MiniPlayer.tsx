@@ -54,6 +54,16 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = ({
           {isPlaying ? <Pause className="w-4.5 h-4.5" fill="currentColor" /> : <Play className="w-4.5 h-4.5 mr-[-2px]" fill="currentColor" />}
         </button>
 
+        {poem.coverImageUrl && (
+          <button
+            onClick={onExpand}
+            className="shrink-0 w-10 h-10 rounded-lg overflow-hidden border border-white/10"
+            title="العودة إلى المشغّل"
+          >
+            <img src={poem.coverImageUrl} alt="" className="w-full h-full object-cover" />
+          </button>
+        )}
+
         <button
           onClick={onExpand}
           className="flex-1 min-w-0 flex flex-col items-start text-right cursor-pointer group"
