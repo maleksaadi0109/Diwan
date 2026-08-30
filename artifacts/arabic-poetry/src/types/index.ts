@@ -46,7 +46,7 @@ export interface VerseExplanationItem {
   author?: string;
   authorDeathHijri?: string;
   sourceTitle?: string;
-  explanationType: 'classical' | 'verse' | 'manual';
+  explanationType: 'classical' | 'verse' | 'manual' | 'rhetorical';
   provider: string;
   rawSourceJson?: string;
   createdAt?: string;

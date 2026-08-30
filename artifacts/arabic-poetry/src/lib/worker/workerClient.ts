@@ -593,6 +593,8 @@ export async function fetchUrlViaWorker(
   let targetUrl = url;
   if (url.startsWith("https://mizanalarab.com")) {
     targetUrl = url.replace("https://mizanalarab.com", "/api-mizan");
+  } else if (url.startsWith("https://adabworld.com") || url.startsWith("https://www.adabworld.com")) {
+    targetUrl = url.replace(/^https:\/\/(www\.)?adabworld\.com/, "/api-adabworld");
   }
 
   // Filter out forbidden browser headers in client-side fetch (e.g., User-Agent)
