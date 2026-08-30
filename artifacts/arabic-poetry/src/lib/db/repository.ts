@@ -376,7 +376,12 @@ export class DiwanRepository {
       await this.adapter.execute(`UPDATE verses SET order_index = order_index + 1 WHERE id = ?;`, [row.id]);
     }
 
-    const newVerseId = `${verseId}-split-${Date.now()}`;
+    // A plain Date.now() suffix collides when several split_verse suggestions
+    // are accepted in the same batch (synchronous adapters can process two
+    // splits within the same millisecond), and INSERT OR REPLACE would then
+    // silently overwrite one new verse with the other. Add a random suffix
+    // to keep every split's new verse id unique.
+    const newVerseId = `${verseId}-split-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     const newText = `${secondPair.firstHemistich} ${secondPair.secondHemistich}`.trim();
     await this.saveVerse({
       id: newVerseId,

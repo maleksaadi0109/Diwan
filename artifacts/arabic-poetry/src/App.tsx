@@ -227,7 +227,11 @@ function AppShell() {
             if (v.id === verseId) {
               next.push({ ...v, firstHemistich: first.firstHemistich, secondHemistich: first.secondHemistich, text: firstText, normalizedText: normalizeArabic(firstText) });
               next.push({
-                id: `${verseId}-split-${Date.now()}`,
+                // See repository.ts splitVerse for why a random suffix is
+                // required alongside Date.now(): accepting multiple
+                // split_verse suggestions in one batch can otherwise produce
+                // colliding ids within the same millisecond.
+                id: `${verseId}-split-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
                 poemId: v.poemId,
                 orderIndex: 0,
                 text: secondText,
