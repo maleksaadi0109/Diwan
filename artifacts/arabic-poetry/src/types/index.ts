@@ -147,4 +147,14 @@ export interface ImportJob {
   updatedAt: string;
 }
 
-export type ActiveTab = 'library' | 'player' | 'import' | 'settings';
+export interface Playlist {
+  id: string;
+  name: string;
+  poemIds: string[]; // ordered
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type RepeatMode = 'off' | 'one' | 'all';
+
+export type ActiveTab = 'library' | 'player' | 'import' | 'settings' | 'playlists';

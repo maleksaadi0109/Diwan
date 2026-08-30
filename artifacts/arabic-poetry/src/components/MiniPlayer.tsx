@@ -1,6 +1,6 @@
 import React from "react";
-import { Play, Pause, X, ChevronUp } from "lucide-react";
-import { Poem } from "@/types";
+import { Play, Pause, X, ChevronUp, SkipBack, SkipForward, Shuffle, Repeat, Repeat1 } from "lucide-react";
+import { Poem, RepeatMode } from "@/types";
 import { AudioPlayerState } from "@/lib/audio/AudioController";
 
 interface MiniPlayerProps {
@@ -9,6 +9,14 @@ interface MiniPlayerProps {
   onTogglePlay: () => void;
   onExpand: () => void;
   onClose: () => void;
+  hasQueue?: boolean;
+  queueIndex?: number;
+  shuffle?: boolean;
+  repeatMode?: RepeatMode;
+  onNext?: () => void;
+  onPrevious?: () => void;
+  onToggleShuffle?: () => void;
+  onCycleRepeatMode?: () => void;
 }
 
 function formatTime(ms: number): string {
@@ -25,9 +33,17 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = ({
   onTogglePlay,
   onExpand,
   onClose,
+  hasQueue,
+  shuffle,
+  repeatMode = "off",
+  onNext,
+  onPrevious,
+  onToggleShuffle,
+  onCycleRepeatMode,
 }) => {
   const { isPlaying, currentTimeMs, durationMs } = playerState;
   const progress = durationMs > 0 ? Math.min(100, (currentTimeMs / durationMs) * 100) : 0;
+  const RepeatIcon = repeatMode === "one" ? Repeat1 : Repeat;
 
   return (
     <div
@@ -43,6 +59,19 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = ({
       </div>
 
       <div className="flex items-center gap-3 px-4 py-2.5">
+        {hasQueue && onPrevious && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onPrevious();
+            }}
+            className="shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-[#A0AAB7] hover:text-[#F8F9FA] hover:bg-white/[0.06] transition-all cursor-pointer"
+            title="القصيدة السابقة"
+          >
+            <SkipForward className="w-4 h-4" />
+          </button>
+        )}
+
         <button
           onClick={(e) => {
             e.stopPropagation();
@@ -53,6 +82,19 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = ({
         >
           {isPlaying ? <Pause className="w-4.5 h-4.5" fill="currentColor" /> : <Play className="w-4.5 h-4.5 mr-[-2px]" fill="currentColor" />}
         </button>
+
+        {hasQueue && onNext && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onNext();
+            }}
+            className="shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-[#A0AAB7] hover:text-[#F8F9FA] hover:bg-white/[0.06] transition-all cursor-pointer"
+            title="القصيدة التالية"
+          >
+            <SkipBack className="w-4 h-4" />
+          </button>
+        )}
 
         {poem.coverImageUrl && (
           <button
@@ -78,6 +120,36 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = ({
             <span className="ltr-num">{formatTime(currentTimeMs)} / {formatTime(durationMs)}</span>
           </span>
         </button>
+
+        {hasQueue && onToggleShuffle && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggleShuffle();
+            }}
+            className={`shrink-0 w-8 h-8 rounded-full flex items-center justify-center transition-all cursor-pointer ${
+              shuffle ? "text-[#D4AF37] bg-[#D4AF37]/10" : "text-[#A0AAB7] hover:text-[#F8F9FA] hover:bg-white/[0.06]"
+            }`}
+            title="تشغيل عشوائي"
+          >
+            <Shuffle className="w-4 h-4" />
+          </button>
+        )}
+
+        {hasQueue && onCycleRepeatMode && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onCycleRepeatMode();
+            }}
+            className={`shrink-0 w-8 h-8 rounded-full flex items-center justify-center transition-all cursor-pointer ${
+              repeatMode !== "off" ? "text-[#D4AF37] bg-[#D4AF37]/10" : "text-[#A0AAB7] hover:text-[#F8F9FA] hover:bg-white/[0.06]"
+            }`}
+            title="تكرار"
+          >
+            <RepeatIcon className="w-4 h-4" />
+          </button>
+        )}
 
         <button
           onClick={onExpand}

@@ -10,6 +10,7 @@ import {
   Era,
   Bahr,
   AlignmentStatus,
+  Playlist,
 } from "@/types";
 import { normalizeArabic } from "@/lib/utils";
 import { DatabaseAdapter, getDatabase } from "./adapter";
@@ -23,6 +24,8 @@ import {
   VerseAlignmentRow,
   WordDefinitionRow,
   ImportJobRow,
+  PlaylistRow,
+  PlaylistPoemRow,
 } from "./schema";
 import { MOCK_POEMS, MOCK_POETS } from "@/data/mockData";
 
@@ -613,5 +616,141 @@ export class DiwanRepository {
       status: status || existing.status,
       errorMessage: error !== undefined ? error : existing.errorMessage,
     });
+  }
+
+  // --- Playlist Methods ---
+  async createPlaylist(name: string): Promise<Playlist> {
+    const id = `playlist-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    await this.adapter.execute(
+      `INSERT INTO playlists (id, name, created_at, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);`,
+      [id, name]
+    );
+    const created = await this.getPlaylistById(id);
+    if (!created) throw new Error("تعذر إنشاء قائمة التشغيل.");
+    return created;
+  }
+
+  async renamePlaylist(id: string, name: string): Promise<void> {
+    await this.adapter.execute(
+      `UPDATE playlists SET name = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?;`,
+      [name, id]
+    );
+  }
+
+  async deletePlaylist(id: string): Promise<void> {
+    await this.adapter.execute(`DELETE FROM playlist_poems WHERE playlist_id = ?;`, [id]);
+    await this.adapter.execute(`DELETE FROM playlists WHERE id = ?;`, [id]);
+  }
+
+  private async mapPlaylistRow(row: PlaylistRow): Promise<Playlist> {
+    const items = await this.adapter.select<PlaylistPoemRow>(
+      `SELECT * FROM playlist_poems WHERE playlist_id = ? ORDER BY order_index ASC;`,
+      [row.id]
+    );
+    return {
+      id: row.id,
+      name: row.name,
+      poemIds: items.map((i) => i.poem_id),
+      createdAt: row.created_at || new Date().toISOString(),
+      updatedAt: row.updated_at || new Date().toISOString(),
+    };
+  }
+
+  async getAllPlaylists(): Promise<Playlist[]> {
+    const rows = await this.adapter.select<PlaylistRow>(
+      `SELECT * FROM playlists ORDER BY created_at DESC;`
+    );
+    const playlists: Playlist[] = [];
+    for (const r of rows) {
+      playlists.push(await this.mapPlaylistRow(r));
+    }
+    return playlists;
+  }
+
+  async getPlaylistById(id: string): Promise<Playlist | null> {
+    const rows = await this.adapter.select<PlaylistRow>(
+      `SELECT * FROM playlists WHERE id = ? LIMIT 1;`,
+      [id]
+    );
+    if (rows.length === 0) return null;
+    return this.mapPlaylistRow(rows[0]);
+  }
+
+  async getPlaylistPoems(id: string): Promise<Poem[]> {
+    const playlist = await this.getPlaylistById(id);
+    if (!playlist) return [];
+    const poems: Poem[] = [];
+    for (const poemId of playlist.poemIds) {
+      const poem = await this.getPoemById(poemId);
+      if (poem) poems.push(poem);
+    }
+    return poems;
+  }
+
+  async addPoemToPlaylist(playlistId: string, poemId: string): Promise<void> {
+    const existing = await this.adapter.select<PlaylistPoemRow>(
+      `SELECT * FROM playlist_poems WHERE playlist_id = ? AND poem_id = ? LIMIT 1;`,
+      [playlistId, poemId]
+    );
+    if (existing.length > 0) return; // already in the playlist
+
+    const rows = await this.adapter.select<PlaylistPoemRow>(
+      `SELECT * FROM playlist_poems WHERE playlist_id = ?;`,
+      [playlistId]
+    );
+    const nextIndex = rows.length;
+    await this.adapter.execute(
+      `INSERT INTO playlist_poems (playlist_id, poem_id, order_index, added_at) VALUES (?, ?, ?, CURRENT_TIMESTAMP);`,
+      [playlistId, poemId, nextIndex]
+    );
+    await this.adapter.execute(
+      `UPDATE playlists SET updated_at = CURRENT_TIMESTAMP WHERE id = ?;`,
+      [playlistId]
+    );
+  }
+
+  async removePoemFromPlaylist(playlistId: string, poemId: string): Promise<void> {
+    await this.adapter.execute(
+      `DELETE FROM playlist_poems WHERE playlist_id = ? AND poem_id = ?;`,
+      [playlistId, poemId]
+    );
+    // Re-pack order indices so they stay contiguous starting from 0.
+    const rows = await this.adapter.select<PlaylistPoemRow>(
+      `SELECT * FROM playlist_poems WHERE playlist_id = ? ORDER BY order_index ASC;`,
+      [playlistId]
+    );
+    for (let i = 0; i < rows.length; i++) {
+      if (rows[i].order_index !== i) {
+        await this.adapter.execute(
+          `UPDATE playlist_poems SET order_index = ? WHERE playlist_id = ? AND poem_id = ?;`,
+          [i, playlistId, rows[i].poem_id]
+        );
+      }
+    }
+    await this.adapter.execute(
+      `UPDATE playlists SET updated_at = CURRENT_TIMESTAMP WHERE id = ?;`,
+      [playlistId]
+    );
+  }
+
+  async reorderPlaylistPoems(playlistId: string, orderedPoemIds: string[]): Promise<void> {
+    // Push indices into a temporary negative range first to avoid clashing
+    // with the UNIQUE(playlist_id, order_index) constraint mid-update.
+    for (let i = 0; i < orderedPoemIds.length; i++) {
+      await this.adapter.execute(
+        `UPDATE playlist_poems SET order_index = ? WHERE playlist_id = ? AND poem_id = ?;`,
+        [-(i + 1), playlistId, orderedPoemIds[i]]
+      );
+    }
+    for (let i = 0; i < orderedPoemIds.length; i++) {
+      await this.adapter.execute(
+        `UPDATE playlist_poems SET order_index = ? WHERE playlist_id = ? AND poem_id = ?;`,
+        [i, playlistId, orderedPoemIds[i]]
+      );
+    }
+    await this.adapter.execute(
+      `UPDATE playlists SET updated_at = CURRENT_TIMESTAMP WHERE id = ?;`,
+      [playlistId]
+    );
   }
 }

@@ -118,6 +118,22 @@ CREATE TABLE IF NOT EXISTS import_jobs (
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS playlists (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS playlist_poems (
+    playlist_id TEXT NOT NULL REFERENCES playlists(id) ON DELETE CASCADE,
+    poem_id TEXT NOT NULL REFERENCES poems(id) ON DELETE CASCADE,
+    order_index INTEGER NOT NULL,
+    added_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (playlist_id, poem_id),
+    UNIQUE (playlist_id, order_index)
+);
+
 CREATE INDEX IF NOT EXISTS idx_poems_poet_id ON poems(poet_id);
 CREATE INDEX IF NOT EXISTS idx_poems_era ON poems(era);
 CREATE INDEX IF NOT EXISTS idx_verses_poem_id ON verses(poem_id);
@@ -126,6 +142,8 @@ CREATE INDEX IF NOT EXISTS idx_verse_explanations_verse_id ON verse_explanations
 CREATE INDEX IF NOT EXISTS idx_recordings_poem_id ON recordings(poem_id);
 CREATE INDEX IF NOT EXISTS idx_alignments_verse_rec ON verse_alignments(verse_id, recording_id);
 CREATE INDEX IF NOT EXISTS idx_definitions_normalized_word ON word_definitions(normalized_word);
+CREATE INDEX IF NOT EXISTS idx_playlist_poems_playlist_id ON playlist_poems(playlist_id);
+CREATE INDEX IF NOT EXISTS idx_playlist_poems_poem_id ON playlist_poems(poem_id);
 `;
 
 export interface PoetRow {
@@ -243,4 +261,18 @@ export interface ImportJobRow {
   error_message: string | null;
   created_at: string;
   updated_at: string;
+}
+
+export interface PlaylistRow {
+  id: string;
+  name: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface PlaylistPoemRow {
+  playlist_id: string;
+  poem_id: string;
+  order_index: number;
+  added_at?: string;
 }
