@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { ActiveTab, Poem, VerseExplanationItem } from "./types";
+import { ActiveTab, Playlist, Poem, VerseExplanationItem } from "./types";
 import { Navigation } from "./components/Navigation";
 import { Header } from "./components/Header";
 import { MiniPlayer } from "./components/MiniPlayer";
@@ -7,6 +7,9 @@ import { LibraryView } from "./features/library/LibraryView";
 import { PoemPlayerView } from "./features/player/PoemPlayerView";
 import { ImportView } from "./features/import/ImportView";
 import { SettingsView } from "./features/settings/SettingsView";
+import { PlaylistsView } from "./features/playlists/PlaylistsView";
+import { PlaylistDetailView } from "./features/playlists/PlaylistDetailView";
+import { AddToPlaylistModal } from "./features/playlists/AddToPlaylistModal";
 import { DiwanRepository } from "./lib/db/repository";
 import { normalizeArabic } from "./lib/utils";
 import { ParsedExplanationBlock } from "./lib/import/pasteExplanationParser";
@@ -26,7 +29,25 @@ function AppShell() {
   const [activeTab, setActiveTab] = useState<ActiveTab>("library");
   const [activePoem, setActivePoem] = useState<Poem | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const { controller, playerState, currentPoem, clearPoem } = useAudioPlayerContext();
+  const [playlists, setPlaylists] = useState<Playlist[]>([]);
+  const [activePlaylist, setActivePlaylist] = useState<Playlist | null>(null);
+  const [addToPlaylistPoem, setAddToPlaylistPoem] = useState<Poem | null>(null);
+  const {
+    controller,
+    playerState,
+    currentPoem,
+    clearPoem,
+    loadQueue,
+    activePlaylistId,
+    queueIndex,
+    hasQueue,
+    shuffle,
+    repeatMode,
+    toggleShuffle,
+    cycleRepeatMode,
+    playNextInQueue,
+    playPreviousInQueue,
+  } = useAudioPlayerContext();
 
   // Initialize DB and load initial data
   useEffect(() => {
@@ -45,8 +66,11 @@ function AppShell() {
           loadedPoems = await repository.getAllPoems();
         }
 
+        const loadedPlaylists = await repository.getAllPlaylists();
+
         if (isMounted) {
           setPoems(loadedPoems);
+          setPlaylists(loadedPlaylists);
           if (loadedPoems.length > 0) {
             setActivePoem(loadedPoems[0]);
           }
@@ -215,6 +239,114 @@ function AppShell() {
     [repo, activePoem]
   );
 
+  const refreshPlaylists = useCallback(async () => {
+    if (!repo) return;
+    const updated = await repo.getAllPlaylists();
+    setPlaylists(updated);
+    return updated;
+  }, [repo]);
+
+  const handleOpenPlaylist = useCallback(
+    (playlist: Playlist) => {
+      setActivePlaylist(playlist);
+      setActiveTab("playlists");
+    },
+    []
+  );
+
+  const handleCreatePlaylist = useCallback(
+    async (name: string) => {
+      if (!repo) return;
+      await repo.createPlaylist(name);
+      await refreshPlaylists();
+    },
+    [repo, refreshPlaylists]
+  );
+
+  const handleDeletePlaylist = useCallback(
+    async (playlistId: string) => {
+      if (!repo) return;
+      await repo.deletePlaylist(playlistId);
+      if (activePlaylist?.id === playlistId) setActivePlaylist(null);
+      await refreshPlaylists();
+    },
+    [repo, activePlaylist, refreshPlaylists]
+  );
+
+  const handleRenamePlaylist = useCallback(
+    async (playlistId: string, name: string) => {
+      if (!repo) return;
+      await repo.renamePlaylist(playlistId, name);
+      const updated = await refreshPlaylists();
+      const refreshed = updated?.find((p) => p.id === playlistId) || null;
+      if (refreshed) setActivePlaylist(refreshed);
+    },
+    [repo, refreshPlaylists]
+  );
+
+  const handleAddPoemToPlaylist = useCallback(
+    async (playlistId: string, poemId: string) => {
+      if (!repo) return;
+      await repo.addPoemToPlaylist(playlistId, poemId);
+      const updated = await refreshPlaylists();
+      const refreshed = updated?.find((p) => p.id === playlistId) || null;
+      if (refreshed && activePlaylist?.id === playlistId) setActivePlaylist(refreshed);
+      setAddToPlaylistPoem(null);
+    },
+    [repo, refreshPlaylists, activePlaylist]
+  );
+
+  const handleCreatePlaylistAndAddPoem = useCallback(
+    async (name: string, poemId: string) => {
+      if (!repo) return;
+      const created = await repo.createPlaylist(name);
+      await repo.addPoemToPlaylist(created.id, poemId);
+      await refreshPlaylists();
+      setAddToPlaylistPoem(null);
+    },
+    [repo, refreshPlaylists]
+  );
+
+  const handleRemovePoemFromPlaylist = useCallback(
+    async (playlistId: string, poemId: string) => {
+      if (!repo) return;
+      await repo.removePoemFromPlaylist(playlistId, poemId);
+      const updated = await refreshPlaylists();
+      const refreshed = updated?.find((p) => p.id === playlistId) || null;
+      if (refreshed) setActivePlaylist(refreshed);
+    },
+    [repo, refreshPlaylists]
+  );
+
+  const handleReorderPlaylist = useCallback(
+    async (playlistId: string, orderedPoemIds: string[]) => {
+      if (!repo) return;
+      await repo.reorderPlaylistPoems(playlistId, orderedPoemIds);
+      const updated = await refreshPlaylists();
+      const refreshed = updated?.find((p) => p.id === playlistId) || null;
+      if (refreshed) setActivePlaylist(refreshed);
+    },
+    [repo, refreshPlaylists]
+  );
+
+  const getPlaylistPoems = useCallback(
+    (playlist: Playlist): Poem[] => {
+      return playlist.poemIds
+        .map((id) => poems.find((p) => p.id === id))
+        .filter((p): p is Poem => Boolean(p));
+    },
+    [poems]
+  );
+
+  const handlePlayPlaylistFromIndex = useCallback(
+    (playlist: Playlist, index: number) => {
+      const orderedPoems = getPlaylistPoems(playlist);
+      if (orderedPoems.length === 0) return;
+      loadQueue(orderedPoems, index, playlist.id);
+    },
+    [getPlaylistPoems, loadQueue]
+  );
+
   return (
     <div className="h-screen w-screen flex bg-[#080A0E] text-[#F8F9FA] overflow-hidden select-none min-w-[900px] min-h-[600px] font-sans">
       {/* Right-side RTL Navigation */}
@@ -246,6 +378,7 @@ function AppShell() {
                   onOpenPoem={handleOpenPoem}
                   onNavigateToImport={() => setActiveTab("import")}
                   onDeletePoem={handleDeletePoem}
+                  onAddToPlaylist={setAddToPlaylistPoem}
                 />
               )}
 
@@ -262,6 +395,35 @@ function AppShell() {
 
               {activeTab === "import" && (
                 <ImportView onImportPoem={handleImportPoem} />
+              )}
+
+              {activeTab === "playlists" && !activePlaylist && (
+                <PlaylistsView
+                  playlists={playlists}
+                  onOpenPlaylist={handleOpenPlaylist}
+                  onCreatePlaylist={handleCreatePlaylist}
+                  onDeletePlaylist={handleDeletePlaylist}
+                />
+              )}
+
+              {activeTab === "playlists" && activePlaylist && (
+                <PlaylistDetailView
+                  playlist={activePlaylist}
+                  poems={getPlaylistPoems(activePlaylist)}
+                  isPlayingThisPlaylist={activePlaylistId === activePlaylist.id}
+                  isPlaying={playerState.isPlaying}
+                  currentPoemId={currentPoem?.id}
+                  shuffle={shuffle}
+                  repeatMode={repeatMode}
+                  onBack={() => setActivePlaylist(null)}
+                  onPlayFromIndex={(index) => handlePlayPlaylistFromIndex(activePlaylist, index)}
+                  onTogglePlay={() => controller.togglePlay()}
+                  onToggleShuffle={toggleShuffle}
+                  onCycleRepeatMode={cycleRepeatMode}
+                  onRemovePoem={(poemId) => handleRemovePoemFromPlaylist(activePlaylist.id, poemId)}
+                  onReorder={(orderedPoemIds) => handleReorderPlaylist(activePlaylist.id, orderedPoemIds)}
+                  onRenamePlaylist={(name) => handleRenamePlaylist(activePlaylist.id, name)}
+                />
               )}
 
               {activeTab === "settings" && <SettingsView />}
@@ -282,9 +444,27 @@ function AppShell() {
               setActiveTab("player");
             }}
             onClose={clearPoem}
+            hasQueue={hasQueue}
+            queueIndex={queueIndex}
+            shuffle={shuffle}
+            repeatMode={repeatMode}
+            onNext={playNextInQueue}
+            onPrevious={playPreviousInQueue}
+            onToggleShuffle={toggleShuffle}
+            onCycleRepeatMode={cycleRepeatMode}
           />
         )}
       </div>
+
+      {addToPlaylistPoem && (
+        <AddToPlaylistModal
+          poem={addToPlaylistPoem}
+          playlists={playlists}
+          onClose={() => setAddToPlaylistPoem(null)}
+          onAddToExisting={(playlistId) => handleAddPoemToPlaylist(playlistId, addToPlaylistPoem.id)}
+          onCreateAndAdd={(name) => handleCreatePlaylistAndAddPoem(name, addToPlaylistPoem.id)}
+        />
+      )}
     </div>
   );
 }

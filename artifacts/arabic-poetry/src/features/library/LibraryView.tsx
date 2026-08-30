@@ -11,6 +11,7 @@ interface LibraryViewProps {
   onOpenPoem: (poem: Poem) => void;
   onNavigateToImport: () => void;
   onDeletePoem?: (poemId: string) => void;
+  onAddToPlaylist?: (poem: Poem) => void;
 }
 
 export const LibraryView: React.FC<LibraryViewProps> = ({
@@ -18,6 +19,7 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
   onOpenPoem,
   onNavigateToImport,
   onDeletePoem,
+  onAddToPlaylist,
 }) => {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedEra, setSelectedEra] = useState<Era | "الكل">("الكل");
@@ -100,6 +102,7 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
               poem={poem}
               onOpenPoem={onOpenPoem}
               onDeletePoem={onDeletePoem}
+              onAddToPlaylist={onAddToPlaylist}
             />
           ))}
         </div>

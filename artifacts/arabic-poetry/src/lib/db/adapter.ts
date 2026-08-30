@@ -1,4 +1,4 @@
-import { PoemRow, PoetRow, VerseRow, RecordingRow, VerseAlignmentRow, WordDefinitionRow, VerseExplanationRow, ImportJobRow } from "./schema";
+import { PoemRow, PoetRow, VerseRow, RecordingRow, VerseAlignmentRow, WordDefinitionRow, VerseExplanationRow, ImportJobRow, PlaylistRow, PlaylistPoemRow } from "./schema";
 import { MOCK_POEMS, MOCK_POETS } from "@/data/mockData";
 
 export interface DatabaseAdapter {
@@ -18,6 +18,9 @@ export class WebMemoryAdapter implements DatabaseAdapter {
   private definitions = new Map<string, WordDefinitionRow>();
   private explanations = new Map<string, VerseExplanationRow>();
   private importJobs = new Map<string, ImportJobRow>();
+  private playlists = new Map<string, PlaylistRow>();
+  // Keyed by `${playlist_id}::${poem_id}` since this join table has a composite key.
+  private playlistPoems = new Map<string, PlaylistPoemRow>();
 
   constructor() {
     const restored = this.restore();
@@ -189,6 +192,8 @@ export class WebMemoryAdapter implements DatabaseAdapter {
       this.definitions = restoreMap<WordDefinitionRow>("definitions");
       this.explanations = restoreMap<VerseExplanationRow>("explanations");
       this.importJobs = restoreMap<ImportJobRow>("importJobs");
+      this.playlists = restoreMap<PlaylistRow>("playlists");
+      this.playlistPoems = restoreMap<PlaylistPoemRow>("playlistPoems");
       return true;
     } catch (error) {
       console.warn("تعذر استعادة قاعدة البيانات المحلية، سيتم استخدام بيانات البداية.", error);
@@ -210,6 +215,8 @@ export class WebMemoryAdapter implements DatabaseAdapter {
           definitions: Array.from(this.definitions.entries()),
           explanations: Array.from(this.explanations.entries()),
           importJobs: Array.from(this.importJobs.entries()),
+          playlists: Array.from(this.playlists.entries()),
+          playlistPoems: Array.from(this.playlistPoems.entries()),
         })
       );
     } catch (error) {
@@ -451,6 +458,55 @@ export class WebMemoryAdapter implements DatabaseAdapter {
       for (const [vid, v] of this.verses.entries()) {
         if (v.poem_id === id) this.verses.delete(vid);
       }
+    } else if (trimmed.startsWith("INSERT INTO playlists")) {
+      const id = String(params[0]);
+      this.playlists.set(id, {
+        id,
+        name: String(params[1]),
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      });
+    } else if (trimmed.startsWith("UPDATE playlists SET name")) {
+      const id = String(params[1]);
+      const existing = this.playlists.get(id);
+      if (existing) {
+        this.playlists.set(id, { ...existing, name: String(params[0]), updated_at: new Date().toISOString() });
+      }
+    } else if (trimmed.startsWith("UPDATE playlists SET updated_at")) {
+      const id = String(params[0]);
+      const existing = this.playlists.get(id);
+      if (existing) {
+        this.playlists.set(id, { ...existing, updated_at: new Date().toISOString() });
+      }
+    } else if (trimmed.startsWith("DELETE FROM playlist_poems WHERE playlist_id = ? AND poem_id = ?")) {
+      const playlistId = String(params[0]);
+      const poemId = String(params[1]);
+      this.playlistPoems.delete(`${playlistId}::${poemId}`);
+    } else if (trimmed.startsWith("DELETE FROM playlist_poems WHERE playlist_id = ?")) {
+      const playlistId = String(params[0]);
+      for (const [key, row] of this.playlistPoems.entries()) {
+        if (row.playlist_id === playlistId) this.playlistPoems.delete(key);
+      }
+    } else if (trimmed.startsWith("DELETE FROM playlists WHERE id = ?")) {
+      const id = String(params[0]);
+      this.playlists.delete(id);
+    } else if (trimmed.startsWith("INSERT INTO playlist_poems")) {
+      const playlistId = String(params[0]);
+      const poemId = String(params[1]);
+      this.playlistPoems.set(`${playlistId}::${poemId}`, {
+        playlist_id: playlistId,
+        poem_id: poemId,
+        order_index: Number(params[2]),
+        added_at: new Date().toISOString(),
+      });
+    } else if (trimmed.startsWith("UPDATE playlist_poems SET order_index")) {
+      const playlistId = String(params[1]);
+      const poemId = String(params[2]);
+      const key = `${playlistId}::${poemId}`;
+      const existing = this.playlistPoems.get(key);
+      if (existing) {
+        this.playlistPoems.set(key, { ...existing, order_index: Number(params[0]) });
+      }
     }
     this.persist();
   }
@@ -539,6 +595,34 @@ export class WebMemoryAdapter implements DatabaseAdapter {
       const id = String(params[0]);
       const job = this.importJobs.get(id);
       return job ? ([job] as unknown as T[]) : [];
+    }
+
+    if (trimmed.includes("FROM playlist_poems WHERE playlist_id = ? AND poem_id = ?")) {
+      const playlistId = String(params[0]);
+      const poemId = String(params[1]);
+      const row = this.playlistPoems.get(`${playlistId}::${poemId}`);
+      return row ? ([row] as unknown as T[]) : [];
+    }
+
+    if (trimmed.includes("FROM playlist_poems WHERE playlist_id = ?")) {
+      const playlistId = String(params[0]);
+      const list = Array.from(this.playlistPoems.values())
+        .filter((r) => r.playlist_id === playlistId)
+        .sort((a, b) => a.order_index - b.order_index);
+      return list as unknown as T[];
+    }
+
+    if (trimmed.includes("FROM playlists WHERE id = ?")) {
+      const id = String(params[0]);
+      const row = this.playlists.get(id);
+      return row ? ([row] as unknown as T[]) : [];
+    }
+
+    if (trimmed.includes("FROM playlists")) {
+      const list = Array.from(this.playlists.values()).sort((a, b) =>
+        (b.created_at || "").localeCompare(a.created_at || "")
+      );
+      return list as unknown as T[];
     }
 
     return [] as T[];

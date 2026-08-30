@@ -1,16 +1,17 @@
 import React, { useState } from "react";
 import { Poem } from "@/types";
 import { Badge } from "@/components/Badge";
-import { Mic, BookOpen, ChevronLeft, Feather, Trash2, AlertTriangle, X } from "lucide-react";
+import { Mic, BookOpen, ChevronLeft, Feather, Trash2, AlertTriangle, X, ListPlus } from "lucide-react";
 import { toArabicDigits } from "@/lib/utils";
 
 interface PoemCardProps {
   poem: Poem;
   onOpenPoem: (poem: Poem) => void;
   onDeletePoem?: (poemId: string) => void;
+  onAddToPlaylist?: (poem: Poem) => void;
 }
 
-export const PoemCard: React.FC<PoemCardProps> = ({ poem, onOpenPoem, onDeletePoem }) => {
+export const PoemCard: React.FC<PoemCardProps> = ({ poem, onOpenPoem, onDeletePoem, onAddToPlaylist }) => {
   const [showConfirmDelete, setShowConfirmDelete] = useState(false);
   const hasAudio = poem.recordings.length > 0;
   const firstVerse = poem.verses[0];
@@ -60,6 +61,20 @@ export const PoemCard: React.FC<PoemCardProps> = ({ poem, onOpenPoem, onDeletePo
                 <Mic className="w-3 h-3 text-emerald-400" />
                 <span>صوتي</span>
               </span>
+            )}
+
+            {onAddToPlaylist && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onAddToPlaylist(poem);
+                }}
+                className="opacity-0 group-hover:opacity-100 p-1.5 rounded-xl text-[#6C7A8C] hover:text-[#D4AF37] hover:bg-[#D4AF37]/10 border border-transparent hover:border-[#D4AF37]/30 transition-all cursor-pointer"
+                title="إضافة إلى قائمة تشغيل"
+              >
+                <ListPlus className="w-4 h-4" />
+              </button>
             )}
 
             {onDeletePoem && (
