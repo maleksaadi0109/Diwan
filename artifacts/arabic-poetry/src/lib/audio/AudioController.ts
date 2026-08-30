@@ -154,6 +154,17 @@ export class AudioController {
       }
     });
 
+    this.audio.addEventListener("playing", () => {
+      this.updateState({ isPlaying: true, status: "playing" });
+      this.startPrecisionLoop();
+    });
+
+    this.audio.addEventListener("timeupdate", () => {
+      if (this.state.isPlaying) {
+        this.recomputeSyncImmediately();
+      }
+    });
+
     this.audio.addEventListener("ended", () => {
       this.stopPrecisionLoop();
       this.updateState({
@@ -385,37 +396,39 @@ export class AudioController {
     this.fpsTimer = performance.now();
 
     const sync = (now: number) => {
-      if (!this.audio || this.audio.paused || !this.state.isPlaying) {
+      if (!this.state.isPlaying) {
         return;
       }
 
-      this.frameCount++;
-      if (now - this.fpsTimer >= 500) {
-        this.calculatedFps = Math.round((this.frameCount * 1000) / (now - this.fpsTimer));
-        this.frameCount = 0;
-        this.fpsTimer = now;
-      }
+      if (this.audio) {
+        this.frameCount++;
+        if (now - this.fpsTimer >= 500) {
+          this.calculatedFps = Math.round((this.frameCount * 1000) / (now - this.fpsTimer));
+          this.frameCount = 0;
+          this.fpsTimer = now;
+        }
 
-      const currentMs = Math.round(this.audio.currentTime * 1000);
-      const activeIdx = this.computeStableActiveIndex(currentMs);
+        const currentMs = Math.round(this.audio.currentTime * 1000);
+        const activeIdx = this.computeStableActiveIndex(currentMs);
 
-      const verseChanged = activeIdx !== this.state.activeVerseIndex;
+        const verseChanged = activeIdx !== this.state.activeVerseIndex;
 
-      if (verseChanged) {
-        const activeVerse = activeIdx >= 0 && activeIdx < this.verses.length ? this.verses[activeIdx] : null;
-        this.updateState({
-          currentTimeMs: currentMs,
-          activeVerseIndex: activeIdx,
-          activeVerse,
-          fps: this.calculatedFps,
-        });
-        lastTimelineUpdate = now;
-      } else if (now - lastTimelineUpdate >= 40) {
-        lastTimelineUpdate = now;
-        this.updateState({
-          currentTimeMs: currentMs,
-          fps: this.calculatedFps,
-        });
+        if (verseChanged) {
+          const activeVerse = activeIdx >= 0 && activeIdx < this.verses.length ? this.verses[activeIdx] : null;
+          this.updateState({
+            currentTimeMs: currentMs,
+            activeVerseIndex: activeIdx,
+            activeVerse,
+            fps: this.calculatedFps,
+          });
+          lastTimelineUpdate = now;
+        } else if (now - lastTimelineUpdate >= 30) {
+          lastTimelineUpdate = now;
+          this.updateState({
+            currentTimeMs: currentMs,
+            fps: this.calculatedFps,
+          });
+        }
       }
 
       this.rafId = requestAnimationFrame(sync);
