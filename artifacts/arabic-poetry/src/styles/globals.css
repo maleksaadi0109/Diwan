@@ -2,24 +2,18 @@
 @import "tailwindcss";
 
 @theme {
-  --color-charcoal-950: #080a0e;
-  --color-charcoal-900: #0e1015;
-  --color-charcoal-850: #14171e;
-  --color-charcoal-800: #1a1e27;
-  --color-charcoal-700: #252b37;
-  --color-charcoal-600: #353d4e;
+  --color-charcoal-950: #0a0b0e;
+  --color-charcoal-900: #101217;
+  --color-charcoal-850: #14171d;
+  --color-charcoal-800: #181b23;
+  --color-charcoal-700: #20242e;
+  --color-charcoal-600: #2b303d;
 
   --color-parchment-50: #fdfbf7;
-  --color-parchment-100: #f8f9fa;
+  --color-parchment-100: #f7f4ec;
   --color-parchment-200: #eee4d0;
   --color-parchment-300: #dfcfb0;
   --color-parchment-400: #c7b189;
-
-  --color-paper-100: #14171e;
-  --color-paper-200: #0e1015;
-  --color-paper-300: #1a1e27;
-  --color-paper-400: rgba(255, 255, 255, 0.08);
-  --color-paper-500: rgba(255, 255, 255, 0.15);
 
   --color-ink-900: #f8f9fa;
   --color-ink-800: #e9ecef;
@@ -32,36 +26,43 @@
   --color-accent-700: #d4af37;
   --color-accent-600: #e9be4f;
   --color-accent-500: #f5d77f;
-
-  --color-gold-300: #f7e4a1;
-  --color-gold-400: #edce6b;
-  --color-gold-500: #d4af37;
-  --color-gold-600: #b89225;
-  --color-gold-700: #8c6d14;
+  --color-accent-400: #f9e5a3;
 
   --color-crimson-500: #e63946;
   --color-crimson-600: #c92a3a;
-  --color-crimson-700: #a32230;
-  --color-crimson-800: #7a1924;
-  --color-crimson-900: #4a1017;
 
   --font-poetry: "Amiri", "Scheherazade New", "Noto Naskh Arabic", "Traditional Arabic", serif;
   --font-heading: "Amiri", "Scheherazade New", "Cairo", serif;
   --font-sans: "Cairo", "Almarai", "Noto Sans Arabic", "Segoe UI", Tahoma, sans-serif;
   --font-ui: "Cairo", "Almarai", "Noto Sans Arabic", sans-serif;
+
+  --animate-fade-in: fade-in 0.3s ease-out;
+  --animate-slide-up: slide-up 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  
+  @keyframes fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  @keyframes slide-up {
+    from { opacity: 0; transform: translateY(16px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
 }
 
 @layer base {
   :root {
     color-scheme: dark;
+    /* Fixed content height of the mobile bottom navigation (excludes the
+       safe-area inset, which is added separately wherever this is used so
+       fixed offsets never drift out of sync with the bar's real height). */
+    --mobile-nav-h: 4rem;
   }
 
   body {
-    background-color: #080a0e;
-    color: #f8f9fa;
-    font-family: 'Cairo', 'Almarai', system-ui, -apple-system, sans-serif;
+    background-color: var(--color-charcoal-950);
+    color: var(--color-parchment-100);
+    font-family: var(--font-sans);
     direction: rtl;
-    user-select: none;
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
   }
@@ -72,32 +73,26 @@
     height: 6px;
   }
   ::-webkit-scrollbar-track {
-    background: #0e1015;
+    background: transparent;
   }
   ::-webkit-scrollbar-thumb {
-    background: #252b37;
+    background: var(--color-charcoal-700);
     border-radius: 4px;
   }
   ::-webkit-scrollbar-thumb:hover {
-    background: #353d4e;
+    background: var(--color-charcoal-600);
+  }
+
+  /* Focus rings */
+  *:focus-visible {
+    outline: 2px solid var(--color-accent-700);
+    outline-offset: 2px;
   }
 }
 
 @layer utilities {
-  .font-poetry {
-    font-family: 'Amiri', 'Scheherazade New', 'Noto Naskh Arabic', 'Traditional Arabic', serif;
-  }
-  
-  .font-heading {
-    font-family: 'Amiri', 'Scheherazade New', 'Cairo', serif;
-  }
-
-  .font-sans {
-    font-family: 'Cairo', 'Almarai', 'Noto Sans Arabic', 'Segoe UI', Tahoma, sans-serif;
-  }
-
   .text-shadow-gold {
-    text-shadow: 0 0 16px rgba(212, 175, 55, 0.4);
+    text-shadow: 0 0 24px rgba(212, 175, 55, 0.25);
   }
 
   .ltr-num {

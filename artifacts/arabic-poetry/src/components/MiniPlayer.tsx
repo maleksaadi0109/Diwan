@@ -47,25 +47,25 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = ({
 
   return (
     <div
-      className="absolute bottom-0 left-0 right-0 z-30 border-t border-white/[0.08] bg-[#0E1015]/95 backdrop-blur-xl shadow-[0_-8px_30px_rgba(0,0,0,0.35)] font-sans"
+      className="absolute bottom-[calc(var(--mobile-nav-h)+env(safe-area-inset-bottom))] md:bottom-0 left-0 right-0 z-30 border-t border-white/5 bg-charcoal-900/95 backdrop-blur-xl shadow-[0_-8px_30px_rgba(0,0,0,0.35)] font-sans"
       dir="rtl"
     >
       {/* Progress bar */}
-      <div className="h-1 w-full bg-white/[0.06]">
+      <div className="h-1 w-full bg-white/5">
         <div
-          className="h-full bg-gradient-to-r from-[#B89225] to-[#D4AF37] transition-[width] duration-150"
+          className="h-full bg-gradient-to-r from-accent-600 to-accent-700 transition-[width] duration-150"
           style={{ width: `${progress}%` }}
         />
       </div>
 
-      <div className="flex items-center gap-3 px-4 py-2.5">
+      <div className="flex items-center gap-2 md:gap-3 px-3 md:px-4 py-2.5">
         {hasQueue && onPrevious && (
           <button
             onClick={(e) => {
               e.stopPropagation();
               onPrevious();
             }}
-            className="shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-[#A0AAB7] hover:text-[#F8F9FA] hover:bg-white/[0.06] transition-all cursor-pointer"
+            className="shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-ink-500 hover:text-parchment-100 hover:bg-white/10 transition-all cursor-pointer focus-visible:ring-2 focus-visible:ring-accent-700 focus-visible:outline-none"
             title="القصيدة السابقة"
           >
             <SkipForward className="w-4 h-4" />
@@ -77,7 +77,7 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = ({
             e.stopPropagation();
             onTogglePlay();
           }}
-          className="shrink-0 w-10 h-10 rounded-full flex items-center justify-center bg-gradient-to-br from-[#D4AF37] to-[#B89225] text-[#0A0C10] shadow-[0_0_15px_rgba(212,175,55,0.3)] cursor-pointer hover:brightness-110 transition-all"
+          className="shrink-0 w-10 h-10 rounded-full flex items-center justify-center bg-gradient-to-br from-accent-700 to-accent-600 text-charcoal-950 shadow-md shadow-accent-700/20 cursor-pointer hover:brightness-110 transition-all focus-visible:ring-2 focus-visible:ring-accent-700 focus-visible:ring-offset-2 focus-visible:ring-offset-charcoal-900 focus-visible:outline-none"
           title={isPlaying ? "إيقاف مؤقت" : "تشغيل"}
         >
           {isPlaying ? <Pause className="w-4.5 h-4.5" fill="currentColor" /> : <Play className="w-4.5 h-4.5 mr-[-2px]" fill="currentColor" />}
@@ -89,7 +89,7 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = ({
               e.stopPropagation();
               onNext();
             }}
-            className="shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-[#A0AAB7] hover:text-[#F8F9FA] hover:bg-white/[0.06] transition-all cursor-pointer"
+            className="shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-ink-500 hover:text-parchment-100 hover:bg-white/10 transition-all cursor-pointer focus-visible:ring-2 focus-visible:ring-accent-700 focus-visible:outline-none"
             title="القصيدة التالية"
           >
             <SkipBack className="w-4 h-4" />
@@ -99,7 +99,7 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = ({
         {poem.coverImageUrl && (
           <button
             onClick={onExpand}
-            className="shrink-0 w-10 h-10 rounded-lg overflow-hidden border border-white/10"
+            className="shrink-0 w-10 h-10 rounded-lg overflow-hidden border border-white/10 focus-visible:ring-2 focus-visible:ring-accent-700 focus-visible:outline-none hidden sm:block"
             title="العودة إلى المشغّل"
           >
             <img src={poem.coverImageUrl} alt="" className="w-full h-full object-cover" />
@@ -108,67 +108,69 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = ({
 
         <button
           onClick={onExpand}
-          className="flex-1 min-w-0 flex flex-col items-start text-right cursor-pointer group"
+          className="flex-1 min-w-0 flex flex-col items-start text-right cursor-pointer group focus-visible:ring-2 focus-visible:ring-accent-700 focus-visible:outline-none px-2 rounded-lg"
           title="العودة إلى المشغّل"
         >
-          <span className="font-poetry text-base font-bold text-[#F8F9FA] truncate w-full group-hover:text-[#D4AF37] transition-colors">
+          <span className="font-poetry text-[15px] md:text-base font-bold text-parchment-100 truncate w-full group-hover:text-accent-500 transition-colors">
             {poem.title}
           </span>
-          <span className="text-[11px] text-[#A0AAB7] font-medium truncate w-full flex items-center gap-1.5">
+          <span className="text-[10px] md:text-[11px] text-ink-500 font-medium truncate w-full flex items-center gap-1.5">
             <span>{poem.poet.name}</span>
             <span className="text-white/20">•</span>
             <span className="ltr-num">{formatTime(currentTimeMs)} / {formatTime(durationMs)}</span>
           </span>
         </button>
 
-        {hasQueue && onToggleShuffle && (
+        <div className="flex items-center gap-1">
+          {hasQueue && onToggleShuffle && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onToggleShuffle();
+              }}
+              className={`shrink-0 w-8 h-8 rounded-full flex items-center justify-center transition-all cursor-pointer focus-visible:ring-2 focus-visible:ring-accent-700 focus-visible:outline-none ${
+                shuffle ? "text-accent-700 bg-accent-700/10" : "text-ink-500 hover:text-parchment-100 hover:bg-white/10"
+              }`}
+              title="تشغيل عشوائي"
+            >
+              <Shuffle className="w-4 h-4" />
+            </button>
+          )}
+
+          {hasQueue && onCycleRepeatMode && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onCycleRepeatMode();
+              }}
+              className={`shrink-0 w-8 h-8 rounded-full flex items-center justify-center transition-all cursor-pointer focus-visible:ring-2 focus-visible:ring-accent-700 focus-visible:outline-none ${
+                repeatMode !== "off" ? "text-accent-700 bg-accent-700/10" : "text-ink-500 hover:text-parchment-100 hover:bg-white/10"
+              }`}
+              title="تكرار"
+            >
+              <RepeatIcon className="w-4 h-4" />
+            </button>
+          )}
+
+          <button
+            onClick={onExpand}
+            className="shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-ink-500 hover:text-parchment-100 hover:bg-white/10 transition-all cursor-pointer focus-visible:ring-2 focus-visible:ring-accent-700 focus-visible:outline-none"
+            title="العودة إلى المشغّل"
+          >
+            <ChevronUp className="w-4.5 h-4.5" />
+          </button>
+
           <button
             onClick={(e) => {
               e.stopPropagation();
-              onToggleShuffle();
+              onClose();
             }}
-            className={`shrink-0 w-8 h-8 rounded-full flex items-center justify-center transition-all cursor-pointer ${
-              shuffle ? "text-[#D4AF37] bg-[#D4AF37]/10" : "text-[#A0AAB7] hover:text-[#F8F9FA] hover:bg-white/[0.06]"
-            }`}
-            title="تشغيل عشوائي"
+            className="shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-ink-500 hover:text-parchment-100 hover:bg-white/10 transition-all cursor-pointer focus-visible:ring-2 focus-visible:ring-accent-700 focus-visible:outline-none"
+            title="إيقاف التشغيل وإغلاق"
           >
-            <Shuffle className="w-4 h-4" />
+            <X className="w-4 h-4" />
           </button>
-        )}
-
-        {hasQueue && onCycleRepeatMode && (
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onCycleRepeatMode();
-            }}
-            className={`shrink-0 w-8 h-8 rounded-full flex items-center justify-center transition-all cursor-pointer ${
-              repeatMode !== "off" ? "text-[#D4AF37] bg-[#D4AF37]/10" : "text-[#A0AAB7] hover:text-[#F8F9FA] hover:bg-white/[0.06]"
-            }`}
-            title="تكرار"
-          >
-            <RepeatIcon className="w-4 h-4" />
-          </button>
-        )}
-
-        <button
-          onClick={onExpand}
-          className="shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-[#A0AAB7] hover:text-[#F8F9FA] hover:bg-white/[0.06] transition-all cursor-pointer"
-          title="العودة إلى المشغّل"
-        >
-          <ChevronUp className="w-4.5 h-4.5" />
-        </button>
-
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            onClose();
-          }}
-          className="shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-[#A0AAB7] hover:text-[#F8F9FA] hover:bg-white/[0.06] transition-all cursor-pointer"
-          title="إيقاف التشغيل وإغلاق"
-        >
-          <X className="w-4 h-4" />
-        </button>
+        </div>
       </div>
     </div>
   );

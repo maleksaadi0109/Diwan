@@ -42,20 +42,20 @@ export const FocusModeView: React.FC<FocusModeViewProps> = ({
   }, [activeVerseIndex]);
 
   return (
-    <div className="fixed inset-0 z-50 bg-[#05060A] text-[#F8F9FA] flex flex-col">
+    <div className="fixed inset-0 z-50 bg-charcoal-950 text-parchment-100 flex flex-col">
       {/* Minimal exit affordance */}
       <button
         type="button"
         onClick={onExit}
         title="الخروج من وضع التركيز (Esc)"
-        className="absolute top-6 left-6 z-10 w-10 h-10 rounded-full bg-white/[0.04] hover:bg-white/[0.1] border border-white/10 flex items-center justify-center text-[#A0AAB7] hover:text-[#F8F9FA] transition-all cursor-pointer"
+        className="absolute top-6 left-6 md:top-8 md:left-8 z-10 w-10 h-10 md:w-12 md:h-12 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-center text-ink-500 hover:text-parchment-100 transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-700"
       >
-        <X className="w-5 h-5" />
+        <X className="w-5 h-5 md:w-6 md:h-6" />
       </button>
 
-      <div className="flex-1 overflow-y-auto px-6 md:px-16 py-20 md:py-24">
-        <div className="max-w-3xl mx-auto w-full space-y-14">
-          <h1 className="font-poetry text-2xl md:text-3xl text-center text-[#D4AF37]/90 select-none mb-4">
+      <div className="flex-1 overflow-y-auto px-4 md:px-16 py-20 md:py-24 scroll-smooth">
+        <div className="max-w-3xl mx-auto w-full space-y-12 md:space-y-16">
+          <h1 className="font-poetry text-2xl md:text-4xl text-center text-accent-700/80 select-none mb-4 md:mb-8 font-bold">
             {poem.title}
           </h1>
 
@@ -64,30 +64,40 @@ export const FocusModeView: React.FC<FocusModeViewProps> = ({
               key={verse.id}
               id={`focus-verse-${index}`}
               onClick={() => onSeekToVerse(verse)}
-              className="flex flex-col items-center justify-center gap-3 cursor-pointer select-text py-2"
+              className="flex flex-col items-center justify-center gap-3 md:gap-4 cursor-pointer select-text py-2"
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  onSeekToVerse(verse);
+                }
+              }}
             >
               <p
                 className={cn(
-                  "font-poetry text-2xl md:text-4xl leading-[2.6] text-center transition-all duration-300",
+                  "font-poetry text-2xl md:text-[40px] leading-[2.6] text-center transition-all duration-500",
                   index === activeVerseIndex
-                    ? "text-[#F8F9FA] font-bold text-shadow-gold"
-                    : "text-[#5C6470] hover:text-[#9AA2AD]"
+                    ? "text-parchment-100 font-bold text-shadow-gold scale-105"
+                    : "text-ink-600 hover:text-ink-400"
                 )}
               >
                 {verse.firstHemistich}
               </p>
               <p
                 className={cn(
-                  "font-poetry text-2xl md:text-4xl leading-[2.6] text-center transition-all duration-300",
+                  "font-poetry text-2xl md:text-[40px] leading-[2.6] text-center transition-all duration-500",
                   index === activeVerseIndex
-                    ? "text-[#F8F9FA] font-bold text-shadow-gold"
-                    : "text-[#5C6470] hover:text-[#9AA2AD]"
+                    ? "text-parchment-100 font-bold text-shadow-gold scale-105"
+                    : "text-ink-600 hover:text-ink-400"
                 )}
               >
                 {verse.secondHemistich}
               </p>
             </div>
           ))}
+          
+          <div className="h-32" /> {/* Bottom padding to allow last verse to scroll to center */}
         </div>
       </div>
 
@@ -96,9 +106,9 @@ export const FocusModeView: React.FC<FocusModeViewProps> = ({
         type="button"
         onClick={onTogglePlay}
         title={isPlaying ? "إيقاف مؤقت" : "تشغيل"}
-        className="absolute bottom-8 left-1/2 -translate-x-1/2 w-14 h-14 rounded-full bg-white/[0.06] hover:bg-white/[0.12] border border-white/10 backdrop-blur-xl flex items-center justify-center text-[#D4AF37] transition-all cursor-pointer shadow-[0_0_20px_rgba(0,0,0,0.4)]"
+        className="absolute bottom-10 left-1/2 -translate-x-1/2 w-14 h-14 md:w-16 md:h-16 rounded-full bg-charcoal-900/60 hover:bg-charcoal-800/80 border border-white/10 backdrop-blur-xl flex items-center justify-center text-accent-700 transition-all cursor-pointer shadow-[0_0_30px_rgba(0,0,0,0.5)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-700 hover:scale-110 active:scale-95"
       >
-        {isPlaying ? <Pause className="w-6 h-6" /> : <Play className="w-6 h-6 mr-[-2px]" />}
+        {isPlaying ? <Pause className="w-6 h-6 md:w-7 md:h-7" /> : <Play className="w-6 h-6 md:w-7 md:h-7 mr-[-2px]" />}
       </button>
     </div>
   );
