@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Verse, VerseExplanationItem } from "@/types";
 import { cn, formatTime, toArabicDigits } from "@/lib/utils";
-import { Info, CheckCircle2, Volume2, Sparkles } from "lucide-react";
+import { Info, CheckCircle2, Volume2, Sparkles, Trash2, AlertTriangle, X, BookOpenText } from "lucide-react";
 
 export type VerseExplanationStatus = "idle" | "loading" | "loaded" | "empty" | "error";
 
@@ -11,6 +11,8 @@ interface VerseItemProps {
   isSelected?: boolean;
   onSeekToVerse: (verse: Verse) => void;
   onSelectVerse?: (verse: Verse) => void;
+  onDeleteVerse?: (verse: Verse) => void;
+  onOpenExplanation?: (verse: Verse) => void;
   explanationItems?: VerseExplanationItem[];
   explanationStatus?: VerseExplanationStatus;
   explanationError?: string | null;
@@ -25,6 +27,8 @@ export const VerseItem: React.FC<VerseItemProps> = ({
   isSelected = false,
   onSeekToVerse,
   onSelectVerse,
+  onDeleteVerse,
+  onOpenExplanation,
   onWordClick,
   verseRef,
   explanationItems,
@@ -33,6 +37,7 @@ export const VerseItem: React.FC<VerseItemProps> = ({
   onRetryExplanation,
 }) => {
   const [showExplanation, setShowExplanation] = useState(true);
+  const [showConfirmDelete, setShowConfirmDelete] = useState(false);
   const alignment = verse.alignment;
   const items = explanationItems ?? verse.explanations ?? [];
   const hasExplanation = Boolean(verse.explanation || items.length > 0 || explanationStatus !== "idle");
@@ -68,6 +73,10 @@ export const VerseItem: React.FC<VerseItemProps> = ({
         else onSeekToVerse(verse);
         setShowExplanation(true);
       }}
+      onDoubleClick={() => {
+        if (onOpenExplanation) onOpenExplanation(verse);
+      }}
+      title={onOpenExplanation ? "انقر نقرًا مزدوجًا لعرض شرح البيت في نافذة مستقلة" : undefined}
       className={cn(
         "group relative p-6 md:p-8 rounded-3xl border transition-all duration-300 cursor-pointer select-text font-sans",
         isActive
@@ -150,6 +159,34 @@ export const VerseItem: React.FC<VerseItemProps> = ({
               <span>الشرح</span>
             </button>
           )}
+
+          {onOpenExplanation && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onOpenExplanation(verse);
+              }}
+              className="p-1.5 rounded-lg text-[#6C7A8C] hover:text-[#F3E19C] hover:bg-white/[0.06] border border-transparent hover:border-white/10 transition-all cursor-pointer"
+              title="فتح شرح البيت في نافذة مستقلة"
+            >
+              <BookOpenText className="w-3.5 h-3.5" />
+            </button>
+          )}
+
+          {onDeleteVerse && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowConfirmDelete(true);
+              }}
+              className="p-1.5 rounded-lg text-[#6C7A8C] hover:text-rose-400 hover:bg-rose-500/15 border border-transparent hover:border-rose-500/30 opacity-0 group-hover:opacity-100 transition-all cursor-pointer"
+              title="حذف هذا البيت من القصيدة"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+            </button>
+          )}
         </div>
       </div>
 
@@ -211,6 +248,53 @@ export const VerseItem: React.FC<VerseItemProps> = ({
               <p>{item.text}</p>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Delete Confirmation Overlay */}
+      {showConfirmDelete && (
+        <div
+          onClick={(e) => e.stopPropagation()}
+          onDoubleClick={(e) => e.stopPropagation()}
+          className="absolute inset-0 z-30 bg-[#0E1015]/95 backdrop-blur-md rounded-3xl p-6 flex flex-col justify-between animate-in fade-in duration-200 border border-rose-500/40 shadow-2xl"
+        >
+          <div className="flex items-start justify-between">
+            <div className="flex items-center gap-2.5 text-rose-400">
+              <AlertTriangle className="w-5 h-5" />
+              <span className="font-bold text-sm">تأكيد حذف البيت</span>
+            </div>
+            <button
+              onClick={() => setShowConfirmDelete(false)}
+              className="text-[#6C7A8C] hover:text-[#F8F9FA] p-1"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+
+          <p className="text-xs text-[#CED4DA] leading-relaxed my-3 font-sans">
+            هل أنت متأكد من رغبتك في حذف البيت رقم <strong className="text-[#F8F9FA]">{toArabicDigits(verse.orderIndex)}</strong> نهائيًا؟ سيتم حذف محاذاته الصوتية وشرحه أيضًا، وستُعاد ترقيم الأبيات التالية.
+          </p>
+
+          <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-white/10">
+            <button
+              type="button"
+              onClick={() => setShowConfirmDelete(false)}
+              className="px-3.5 py-1.5 rounded-xl bg-white/[0.06] hover:bg-white/[0.1] text-xs font-semibold text-[#CED4DA] transition-colors"
+            >
+              إلغاء
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setShowConfirmDelete(false);
+                onDeleteVerse?.(verse);
+              }}
+              className="px-4 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-[#F8F9FA] text-xs font-bold transition-all shadow-[0_0_12px_rgba(225,29,72,0.4)] flex items-center gap-1.5"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              <span>حذف نهائي</span>
+            </button>
+          </div>
         </div>
       )}
     </div>

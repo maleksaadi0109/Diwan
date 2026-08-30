@@ -226,6 +226,28 @@ function AppShell() {
     [repo, activePoem]
   );
 
+  const handleDeleteVerse = useCallback(
+    async (verseId: string) => {
+      if (!activePoem) return;
+      if (repo) {
+        await repo.deleteVerse(activePoem.id, verseId);
+        const refreshed = await repo.getPoemById(activePoem.id);
+        if (refreshed) {
+          setActivePoem(refreshed);
+          setPoems((prev) => prev.map((p) => (p.id === refreshed.id ? refreshed : p)));
+        }
+      } else {
+        const remaining = activePoem.verses
+          .filter((v) => v.id !== verseId)
+          .map((v, idx) => ({ ...v, orderIndex: idx + 1 }));
+        const updated: Poem = { ...activePoem, verses: remaining, versesCount: remaining.length };
+        setActivePoem(updated);
+        setPoems((prev) => prev.map((p) => (p.id === updated.id ? updated : p)));
+      }
+    },
+    [repo, activePoem]
+  );
+
   const handleDeletePoem = useCallback(
     async (poemId: string) => {
       if (repo) {
@@ -287,6 +309,7 @@ function AppShell() {
                   onCreateBoundary={handleCreateBoundary}
                   onSaveExplanations={handleSaveExplanations}
                   onApplyOffset={handleApplyOffset}
+                  onDeleteVerse={handleDeleteVerse}
                 />
               )}
 

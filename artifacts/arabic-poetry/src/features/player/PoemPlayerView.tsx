@@ -5,6 +5,7 @@ import { VerseSyncPanel } from "./VerseSyncPanel";
 import { AudioControlsBar } from "./AudioControlsBar";
 import { PoemMetadataDrawer } from "./PoemMetadataDrawer";
 import { DictionaryWordModal } from "./DictionaryWordModal";
+import { VerseExplanationModal } from "./VerseExplanationModal";
 import { ExportModal } from "../export/ExportModal";
 import { WaveformDebugView } from "./WaveformDebugView";
 import { FocusModeView } from "./FocusModeView";
@@ -29,6 +30,7 @@ interface PoemPlayerViewProps {
     offsetMs: number,
     includeFollowing: boolean
   ) => Promise<void>;
+  onDeleteVerse?: (verseId: string) => Promise<void> | void;
 }
 
 interface ExplanationViewState {
@@ -43,8 +45,10 @@ export const PoemPlayerView: React.FC<PoemPlayerViewProps> = ({
   onCreateBoundary,
   onSaveExplanations,
   onApplyOffset,
+  onDeleteVerse,
 }) => {
   const [isFocusMode, setIsFocusMode] = useState(false);
+  const [explanationModalVerseId, setExplanationModalVerseId] = useState<string | null>(null);
   const [showMetadata, setShowMetadata] = useState(false);
   const [showExport, setShowExport] = useState(false);
   const [showDebugOverlay, setShowDebugOverlay] = useState(false);
@@ -168,6 +172,19 @@ export const PoemPlayerView: React.FC<PoemPlayerViewProps> = ({
 
   const handleRetryExplanation = (verse: Verse) => {
     loadExplanation(verse);
+  };
+
+  const handleOpenExplanation = (verse: Verse) => {
+    setSelectedVerseId(verse.id);
+    setExplanationModalVerseId(verse.id);
+    loadExplanation(verse);
+  };
+
+  const handleDeleteVerse = async (verse: Verse) => {
+    if (!onDeleteVerse) return;
+    await onDeleteVerse(verse.id);
+    if (selectedVerseId === verse.id) setSelectedVerseId(null);
+    if (explanationModalVerseId === verse.id) setExplanationModalVerseId(null);
   };
 
   const handleWordClick = async (word: string) => {
@@ -365,6 +382,8 @@ export const PoemPlayerView: React.FC<PoemPlayerViewProps> = ({
               isSelected={verse.id === selectedVerseId}
               onSeekToVerse={(v: Verse) => seekToVerse(v)}
               onSelectVerse={handleVerseSelect}
+              onOpenExplanation={handleOpenExplanation}
+              onDeleteVerse={onDeleteVerse ? handleDeleteVerse : undefined}
               explanationItems={explanationStates[verse.id]?.items}
               explanationStatus={explanationStates[verse.id]?.status}
               explanationError={explanationStates[verse.id]?.error}
@@ -417,6 +436,19 @@ export const PoemPlayerView: React.FC<PoemPlayerViewProps> = ({
         onNextVerse={nextVerse}
         onChangeSpeed={setPlaybackRate}
         onChangeVolume={setVolume}
+      />
+
+      {/* Verse Explanation Modal (opened via double-click on a verse) */}
+      <VerseExplanationModal
+        verse={poem.verses.find((v) => v.id === explanationModalVerseId) || null}
+        items={explanationModalVerseId ? explanationStates[explanationModalVerseId]?.items : undefined}
+        status={explanationModalVerseId ? explanationStates[explanationModalVerseId]?.status : undefined}
+        error={explanationModalVerseId ? explanationStates[explanationModalVerseId]?.error : undefined}
+        onRetry={() => {
+          const verse = poem.verses.find((v) => v.id === explanationModalVerseId);
+          if (verse) handleRetryExplanation(verse);
+        }}
+        onClose={() => setExplanationModalVerseId(null)}
       />
 
       {/* Dictionary Word Modal */}
