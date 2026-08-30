@@ -344,7 +344,7 @@ export class DiwanRepository {
       author: r.author || undefined,
       authorDeathHijri: r.author_death_hijri || undefined,
       sourceTitle: r.source_title || undefined,
-      explanationType: r.explanation_type as "classical" | "verse" | "manual",
+      explanationType: r.explanation_type as "classical" | "verse" | "manual" | "rhetorical",
       provider: r.provider,
       rawSourceJson: r.raw_source_json || undefined,
       createdAt: r.created_at,
