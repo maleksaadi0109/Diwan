@@ -1,4 +1,4 @@
-import { Verse, VerseExplanationItem } from "@/types";
+import { Verse, VerseExplanationItem, VerseSegmentationSuggestion } from "@/types";
 import { normalizeArabic } from "@/lib/utils";
 
 /**
@@ -33,6 +33,13 @@ export interface ParsePasteExplanationResult {
   matched: ParsedExplanationBlock[];
   unmatchedVerseBlocks: string[];
   overviewText: string | null;
+  /**
+   * Discrepancies between how the pasted explanation quotes a verse and how
+   * the poem's own verse records are currently segmented. Always requires
+   * explicit user confirmation before being applied — see `App.tsx`'s
+   * segmentation-suggestion handling.
+   */
+  segmentationSuggestions: VerseSegmentationSuggestion[];
 }
 
 const DIACRITICS_RE = /[\u064B-\u065F\u0670]/g;
@@ -102,6 +109,105 @@ function makeId(prefix: string): string {
   return `paste-import-${prefix}-${Date.now()}-${uidCounter}`;
 }
 
+/** Threshold for the cross-verse merge/split heuristics — stricter than the
+ * single-verse match threshold (0.55) because combined text is longer and a
+ * false positive here would suggest restructuring the poem's own verse rows. */
+const BOUNDARY_MATCH_THRESHOLD = 0.6;
+
+function verseFullText(verse: Verse): string {
+  return verse.text || `${verse.firstHemistich} ${verse.secondHemistich}`.trim();
+}
+
+/**
+ * Detects two poem-data segmentation problems by comparing raw hemistich
+ * quote blocks that failed to match any single existing verse against
+ * combinations of the poem's own (still-unused) verses:
+ *  - `merge_verses`: one explanation quote block matches the concatenation of
+ *    two adjacent stored verses — the poem likely split one بيت into two rows.
+ *  - `split_verse`: two consecutive explanation quote blocks together match
+ *    one stored verse — the poem likely merged two abيات into one row.
+ */
+function detectBoundarySuggestions(
+  unmatchedBlocks: { combined: string; rawLines: string[] }[],
+  verses: Verse[],
+  usedVerseIds: Set<string>
+): { suggestions: VerseSegmentationSuggestion[]; remainingUnmatched: string[] } {
+  const suggestions: VerseSegmentationSuggestion[] = [];
+  const consumedVerseIds = new Set<string>();
+  const blockConsumed = new Array(unmatchedBlocks.length).fill(false);
+  const orderedVerses = [...verses].sort((a, b) => a.orderIndex - b.orderIndex);
+
+  const isAvailable = (id: string) => !usedVerseIds.has(id) && !consumedVerseIds.has(id);
+
+  // Pass 1: merge_verses — one quote block spans two adjacent stored verses.
+  for (let bi = 0; bi < unmatchedBlocks.length; bi++) {
+    const block = unmatchedBlocks[bi];
+    const normalizedBlock = normalizeArabic(block.combined);
+    let best: { a: Verse; b: Verse; score: number } | null = null;
+    for (let vi = 0; vi < orderedVerses.length - 1; vi++) {
+      const a = orderedVerses[vi];
+      const b = orderedVerses[vi + 1];
+      if (!isAvailable(a.id) || !isAvailable(b.id)) continue;
+      const combinedNormalized = normalizeArabic(`${verseFullText(a)} ${verseFullText(b)}`);
+      const score = wordOverlapScore(normalizedBlock, combinedNormalized);
+      if (!best || score > best.score) best = { a, b, score };
+    }
+    if (best && best.score >= BOUNDARY_MATCH_THRESHOLD) {
+      const [suggestedFirst, suggestedSecond] =
+        block.rawLines.length === 2
+          ? block.rawLines
+          : [verseFullText(best.a), verseFullText(best.b)];
+      suggestions.push({
+        id: makeId("merge"),
+        kind: "merge_verses",
+        verseIds: [best.a.id, best.b.id],
+        description: `يبدو أن الشرح يقتبس هذين البيتين كبيت واحد، بينما هما مخزّنان كبيتين منفصلين في القصيدة.`,
+        current: [
+          { firstHemistich: best.a.firstHemistich, secondHemistich: best.a.secondHemistich },
+          { firstHemistich: best.b.firstHemistich, secondHemistich: best.b.secondHemistich },
+        ],
+        suggested: [{ firstHemistich: suggestedFirst, secondHemistich: suggestedSecond }],
+      });
+      consumedVerseIds.add(best.a.id);
+      consumedVerseIds.add(best.b.id);
+      blockConsumed[bi] = true;
+    }
+  }
+
+  // Pass 2: split_verse — two consecutive quote blocks together match one stored verse.
+  for (let bi = 0; bi < unmatchedBlocks.length - 1; bi++) {
+    if (blockConsumed[bi] || blockConsumed[bi + 1]) continue;
+    const blockA = unmatchedBlocks[bi];
+    const blockB = unmatchedBlocks[bi + 1];
+    const normalizedCombined = normalizeArabic(`${blockA.combined} ${blockB.combined}`);
+    let best: { verse: Verse; score: number } | null = null;
+    for (const verse of orderedVerses) {
+      if (!isAvailable(verse.id)) continue;
+      const score = wordOverlapScore(normalizedCombined, normalizeArabic(verseFullText(verse)));
+      if (!best || score > best.score) best = { verse, score };
+    }
+    if (best && best.score >= BOUNDARY_MATCH_THRESHOLD) {
+      suggestions.push({
+        id: makeId("split"),
+        kind: "split_verse",
+        verseIds: [best.verse.id],
+        description: `يبدو أن الشرح يقتبس هذا البيت كبيتين منفصلين، بينما هو مخزّن كبيت واحد في القصيدة.`,
+        current: [{ firstHemistich: best.verse.firstHemistich, secondHemistich: best.verse.secondHemistich }],
+        suggested: [
+          { firstHemistich: blockA.rawLines[0] || blockA.combined, secondHemistich: blockA.rawLines[1] || "" },
+          { firstHemistich: blockB.rawLines[0] || blockB.combined, secondHemistich: blockB.rawLines[1] || "" },
+        ],
+      });
+      consumedVerseIds.add(best.verse.id);
+      blockConsumed[bi] = true;
+      blockConsumed[bi + 1] = true;
+    }
+  }
+
+  const remainingUnmatched = unmatchedBlocks.filter((_, idx) => !blockConsumed[idx]).map((b) => b.combined);
+  return { suggestions, remainingUnmatched };
+}
+
 export function parsePasteExplanationText(rawText: string, verses: Verse[]): ParsePasteExplanationResult {
   const lines = rawText
     .replace(/\r\n/g, "\n")
@@ -115,8 +221,9 @@ export function parsePasteExplanationText(rawText: string, verses: Verse[]): Par
 
   const usedVerseIds = new Set<string>();
   const matched: ParsedExplanationBlock[] = [];
-  const unmatchedVerseBlocks: string[] = [];
+  const unmatchedBlocks: { combined: string; rawLines: string[] }[] = [];
   const preVerseProse: string[] = [];
+  const segmentationSuggestions: VerseSegmentationSuggestion[] = [];
 
   interface CurrentVerseState {
     verse: Verse;
@@ -158,7 +265,8 @@ export function parsePasteExplanationText(rawText: string, verses: Verse[]): Par
 
   const flushVerseBuffer = () => {
     if (verseLineBuffer.length === 0) return;
-    const combined = verseLineBuffer.join(" ");
+    const rawLines = verseLineBuffer;
+    const combined = rawLines.join(" ");
     verseLineBuffer = [];
 
     const matchedVerse = findMatchingVerse(combined, verses, usedVerseIds);
@@ -166,8 +274,37 @@ export function parsePasteExplanationText(rawText: string, verses: Verse[]): Par
       flushCurrent();
       usedVerseIds.add(matchedVerse.id);
       state.current = { verse: matchedVerse, prose: [], glossary: [] };
+
+      // The explanation quotes this بيت split across two lines — check
+      // whether that split matches how the poem itself stores the hemistich
+      // boundary. Only flag it when the combined wording is the same (this
+      // is genuinely a different split point, not a differently-worded verse).
+      if (rawLines.length === 2) {
+        const [quotedFirst, quotedSecond] = rawLines;
+        const normalizedQuotedFirst = normalizeArabic(quotedFirst);
+        const normalizedQuotedSecond = normalizeArabic(quotedSecond);
+        const normalizedStoredFirst = normalizeArabic(matchedVerse.firstHemistich);
+        const normalizedStoredSecond = normalizeArabic(matchedVerse.secondHemistich);
+        const combinedQuotedNoSpace = normalizeArabic(combined).replace(/\s+/g, "");
+        const combinedStoredNoSpace = normalizeArabic(
+          `${matchedVerse.firstHemistich} ${matchedVerse.secondHemistich}`
+        ).replace(/\s+/g, "");
+        const sameWording = combinedQuotedNoSpace === combinedStoredNoSpace;
+        const differentSplit =
+          normalizedQuotedFirst !== normalizedStoredFirst || normalizedQuotedSecond !== normalizedStoredSecond;
+        if (sameWording && differentSplit) {
+          segmentationSuggestions.push({
+            id: makeId("hemistich"),
+            kind: "hemistich_split",
+            verseIds: [matchedVerse.id],
+            description: "الشرح يقتبس هذا البيت مقسّماً إلى شطرين بشكل مختلف عمّا هو مخزّن حالياً.",
+            current: [{ firstHemistich: matchedVerse.firstHemistich, secondHemistich: matchedVerse.secondHemistich }],
+            suggested: [{ firstHemistich: quotedFirst, secondHemistich: quotedSecond }],
+          });
+        }
+      }
     } else {
-      unmatchedVerseBlocks.push(combined);
+      unmatchedBlocks.push({ combined, rawLines });
     }
   };
 
@@ -224,9 +361,16 @@ export function parsePasteExplanationText(rawText: string, verses: Verse[]): Par
     });
   }
 
+  const { suggestions: boundarySuggestions, remainingUnmatched } = detectBoundarySuggestions(
+    unmatchedBlocks,
+    verses,
+    usedVerseIds
+  );
+
   return {
     matched,
-    unmatchedVerseBlocks,
+    unmatchedVerseBlocks: remainingUnmatched,
     overviewText: preVerseProse.length > 0 ? preVerseProse.join("\n\n") : null,
+    segmentationSuggestions: [...segmentationSuggestions, ...boundarySuggestions],
   };
 }

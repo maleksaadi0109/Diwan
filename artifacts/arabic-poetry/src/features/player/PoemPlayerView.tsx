@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { Poem, Verse, VerseExplanationItem, WordDefinition } from "@/types";
+import { Poem, Verse, VerseExplanationItem, VerseSegmentationSuggestion, WordDefinition } from "@/types";
 import { VerseExplanationStatus, VerseItem } from "./VerseItem";
 import { AudioControlsBar } from "./AudioControlsBar";
 import { PoemMetadataDrawer } from "./PoemMetadataDrawer";
@@ -21,6 +21,7 @@ interface PoemPlayerViewProps {
   onDeleteVerse?: (verseId: string) => Promise<void> | void;
   onEditVerse?: (verseId: string, firstHemistich: string, secondHemistich: string) => Promise<void> | void;
   onImportExplanations?: (blocks: ParsedExplanationBlock[]) => Promise<void> | void;
+  onApplySegmentationSuggestions?: (accepted: VerseSegmentationSuggestion[]) => Promise<void> | void;
 }
 
 interface ExplanationViewState {
@@ -36,6 +37,7 @@ export const PoemPlayerView: React.FC<PoemPlayerViewProps> = ({
   onDeleteVerse,
   onEditVerse,
   onImportExplanations,
+  onApplySegmentationSuggestions,
 }) => {
   const [isFocusMode, setIsFocusMode] = useState(false);
   const [explanationModalVerseId, setExplanationModalVerseId] = useState<string | null>(null);
@@ -349,6 +351,7 @@ export const PoemPlayerView: React.FC<PoemPlayerViewProps> = ({
         <ImportExplanationModal
           verses={poem.verses}
           onClose={() => setShowImportExplanation(false)}
+          onApplySuggestions={onApplySegmentationSuggestions}
           onImport={async (blocks) => {
             await onImportExplanations(blocks);
             setExplanationStates((previous) => {

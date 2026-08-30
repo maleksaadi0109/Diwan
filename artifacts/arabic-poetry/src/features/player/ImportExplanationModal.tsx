@@ -1,17 +1,34 @@
 import React, { useState } from "react";
-import { Verse } from "@/types";
-import { ClipboardPaste, X, CheckCircle2, AlertTriangle, Loader2, Clipboard } from "lucide-react";
+import { Verse, VerseSegmentationSuggestion } from "@/types";
+import { ClipboardPaste, X, CheckCircle2, AlertTriangle, Loader2, Clipboard, Wand2 } from "lucide-react";
 import { parsePasteExplanationText, ParsedExplanationBlock } from "@/lib/import/pasteExplanationParser";
 
 interface ImportExplanationModalProps {
   verses: Verse[];
   onClose: () => void;
   onImport: (blocks: ParsedExplanationBlock[]) => Promise<void> | void;
+  onApplySuggestions?: (accepted: VerseSegmentationSuggestion[]) => Promise<void> | void;
 }
 
-export const ImportExplanationModal: React.FC<ImportExplanationModalProps> = ({ verses, onClose, onImport }) => {
+const SUGGESTION_LABELS: Record<VerseSegmentationSuggestion["kind"], string> = {
+  hemistich_split: "تصحيح تقسيم الشطرين",
+  merge_verses: "دمج بيتين في بيت واحد",
+  split_verse: "تقسيم بيت إلى بيتين",
+};
+
+export const ImportExplanationModal: React.FC<ImportExplanationModalProps> = ({
+  verses,
+  onClose,
+  onImport,
+  onApplySuggestions,
+}) => {
   const [rawText, setRawText] = useState("");
-  const [preview, setPreview] = useState<{ matched: ParsedExplanationBlock[]; unmatchedCount: number } | null>(null);
+  const [preview, setPreview] = useState<{
+    matched: ParsedExplanationBlock[];
+    unmatchedCount: number;
+    suggestions: VerseSegmentationSuggestion[];
+  } | null>(null);
+  const [acceptedSuggestionIds, setAcceptedSuggestionIds] = useState<Set<string>>(new Set());
   const [parseError, setParseError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -46,11 +63,26 @@ export const ImportExplanationModal: React.FC<ImportExplanationModalProps> = ({ 
         return;
       }
       setParseError(null);
-      setPreview({ matched: result.matched, unmatchedCount: result.unmatchedVerseBlocks.length });
+      setPreview({
+        matched: result.matched,
+        unmatchedCount: result.unmatchedVerseBlocks.length,
+        suggestions: result.segmentationSuggestions,
+      });
+      // Suggestions default to accepted — the user reviews and unchecks any they disagree with.
+      setAcceptedSuggestionIds(new Set(result.segmentationSuggestions.map((s) => s.id)));
     } catch (err: unknown) {
       setParseError((err as Error).message || "تعذّر تحليل النص الملصق.");
       setPreview(null);
     }
+  };
+
+  const toggleSuggestion = (id: string) => {
+    setAcceptedSuggestionIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
   };
 
   const handleConfirmImport = async () => {
@@ -59,6 +91,10 @@ export const ImportExplanationModal: React.FC<ImportExplanationModalProps> = ({ 
     setSaveError(null);
     try {
       await onImport(preview.matched);
+      const accepted = preview.suggestions.filter((s) => acceptedSuggestionIds.has(s.id));
+      if (accepted.length > 0 && onApplySuggestions) {
+        await onApplySuggestions(accepted);
+      }
       setDone(true);
     } catch (err: unknown) {
       setSaveError((err as Error).message || "تعذّر حفظ الشرح المستورد.");
@@ -147,6 +183,52 @@ export const ImportExplanationModal: React.FC<ImportExplanationModalProps> = ({ 
                   <li key={b.verseId} className="truncate">— {b.verseText}</li>
                 ))}
               </ul>
+            </div>
+          )}
+
+          {preview && preview.suggestions.length > 0 && !done && (
+            <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4 space-y-3">
+              <div className="flex items-center gap-2 text-amber-300">
+                <Wand2 className="w-4 h-4 shrink-0" />
+                <p className="text-xs font-bold font-sans">
+                  الشرح كشف {preview.suggestions.length} احتمال خطأ في تقسيم الأبيات — راجع واختر ما تريد تصحيحه:
+                </p>
+              </div>
+              <div className="space-y-2 max-h-56 overflow-y-auto">
+                {preview.suggestions.map((s) => (
+                  <label
+                    key={s.id}
+                    className="flex items-start gap-2.5 bg-black/20 border border-white/[0.06] rounded-xl p-3 cursor-pointer"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={acceptedSuggestionIds.has(s.id)}
+                      onChange={() => toggleSuggestion(s.id)}
+                      className="mt-0.5 accent-[#D4AF37] shrink-0"
+                    />
+                    <div className="min-w-0 flex-1 space-y-1.5">
+                      <p className="text-[11px] font-bold text-[#F3E19C] font-sans">
+                        {SUGGESTION_LABELS[s.kind]}
+                      </p>
+                      <p className="text-[11px] text-[#A0AAB7] font-sans">{s.description}</p>
+                      <div className="grid grid-cols-1 gap-1.5 text-[11px] font-sans">
+                        <div className="bg-rose-500/10 rounded-lg p-2 text-rose-300/90">
+                          <span className="text-[10px] font-bold block mb-0.5">الحالي:</span>
+                          {s.current.map((pair, idx) => (
+                            <p key={idx} className="truncate">{pair.firstHemistich} … {pair.secondHemistich}</p>
+                          ))}
+                        </div>
+                        <div className="bg-emerald-500/10 rounded-lg p-2 text-emerald-300/90">
+                          <span className="text-[10px] font-bold block mb-0.5">المقترح:</span>
+                          {s.suggested.map((pair, idx) => (
+                            <p key={idx} className="truncate">{pair.firstHemistich} … {pair.secondHemistich}</p>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </label>
+                ))}
+              </div>
             </div>
           )}
 

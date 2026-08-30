@@ -442,6 +442,46 @@ export class WebMemoryAdapter implements DatabaseAdapter {
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       });
+    } else if (trimmed.startsWith("UPDATE verses SET text = ?, normalized_text = ?, first_hemistich = ?, second_hemistich = ?")) {
+      const id = String(params[4]);
+      const existing = this.verses.get(id);
+      if (existing) {
+        this.verses.set(id, {
+          ...existing,
+          text: String(params[0]),
+          normalized_text: String(params[1]),
+          first_hemistich: String(params[2]),
+          second_hemistich: String(params[3]),
+        });
+      }
+    } else if (trimmed.startsWith("UPDATE verses SET order_index = order_index - 1 WHERE id = ?")) {
+      const id = String(params[0]);
+      const existing = this.verses.get(id);
+      if (existing) this.verses.set(id, { ...existing, order_index: existing.order_index - 1 });
+    } else if (trimmed.startsWith("UPDATE verses SET order_index = order_index + 1 WHERE id = ?")) {
+      const id = String(params[0]);
+      const existing = this.verses.get(id);
+      if (existing) this.verses.set(id, { ...existing, order_index: existing.order_index + 1 });
+    } else if (trimmed.startsWith("DELETE FROM verse_alignments WHERE verse_id = ?")) {
+      const verseId = String(params[0]);
+      for (const [aid, a] of this.alignments.entries()) {
+        if (a.verse_id === verseId) this.alignments.delete(aid);
+      }
+    } else if (trimmed.startsWith("DELETE FROM verse_explanations WHERE verse_id = ?")) {
+      const verseId = String(params[0]);
+      for (const [eid, e] of this.explanations.entries()) {
+        if (e.verse_id === verseId) this.explanations.delete(eid);
+      }
+    } else if (trimmed.startsWith("DELETE FROM verses WHERE id = ?")) {
+      const id = String(params[0]);
+      this.verses.delete(id);
+    } else if (trimmed.startsWith("UPDATE poems SET verses_count = (SELECT COUNT(*) FROM verses WHERE poem_id = ?)")) {
+      const poemId = String(params[1]);
+      const existing = this.poems.get(poemId);
+      if (existing) {
+        const count = Array.from(this.verses.values()).filter((v) => v.poem_id === poemId).length;
+        this.poems.set(poemId, { ...existing, verses_count: count, updated_at: new Date().toISOString() });
+      }
     } else if (trimmed.startsWith("UPDATE poems SET cover_image_url")) {
       const id = String(params[1]);
       const existing = this.poems.get(id);

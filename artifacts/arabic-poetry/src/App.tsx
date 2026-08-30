@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { ActiveTab, Playlist, Poem, VerseExplanationItem } from "./types";
+import { ActiveTab, Playlist, Poem, Verse, VerseExplanationItem, VerseSegmentationSuggestion } from "./types";
 import { Navigation } from "./components/Navigation";
 import { Header } from "./components/Header";
 import { MiniPlayer } from "./components/MiniPlayer";
@@ -160,6 +160,91 @@ function AppShell() {
         setActivePoem(updated);
         setPoems((prev) => prev.map((p) => (p.id === updated.id ? updated : p)));
       }
+    },
+    [repo, activePoem]
+  );
+
+  const handleApplySegmentationSuggestions = useCallback(
+    async (accepted: VerseSegmentationSuggestion[]) => {
+      if (!activePoem || accepted.length === 0) return;
+
+      if (repo) {
+        for (const suggestion of accepted) {
+          if (suggestion.kind === "hemistich_split") {
+            const [verseId] = suggestion.verseIds;
+            const [target] = suggestion.suggested;
+            await repo.updateVerseText(verseId, target.firstHemistich, target.secondHemistich);
+          } else if (suggestion.kind === "merge_verses") {
+            const [keepId, removeId] = suggestion.verseIds;
+            const [target] = suggestion.suggested;
+            await repo.mergeVerses(activePoem.id, keepId, removeId, target.firstHemistich, target.secondHemistich);
+          } else if (suggestion.kind === "split_verse") {
+            const [verseId] = suggestion.verseIds;
+            const [first, second] = suggestion.suggested;
+            await repo.splitVerse(activePoem.id, verseId, first, second);
+          }
+        }
+        const refreshed = await repo.getPoemById(activePoem.id);
+        if (refreshed) {
+          setActivePoem(refreshed);
+          setPoems((prev) => prev.map((p) => (p.id === refreshed.id ? refreshed : p)));
+        }
+        return;
+      }
+
+      // In-memory fallback (no repo yet) — mirror the same transformations
+      // directly on the poem's verse array, keeping order_index contiguous.
+      let verses = [...activePoem.verses].sort((a, b) => a.orderIndex - b.orderIndex);
+      for (const suggestion of accepted) {
+        if (suggestion.kind === "hemistich_split") {
+          const [verseId] = suggestion.verseIds;
+          const [target] = suggestion.suggested;
+          const text = `${target.firstHemistich} ${target.secondHemistich}`.trim();
+          verses = verses.map((v) =>
+            v.id === verseId
+              ? { ...v, firstHemistich: target.firstHemistich, secondHemistich: target.secondHemistich, text, normalizedText: normalizeArabic(text) }
+              : v
+          );
+        } else if (suggestion.kind === "merge_verses") {
+          const [keepId, removeId] = suggestion.verseIds;
+          const [target] = suggestion.suggested;
+          const text = `${target.firstHemistich} ${target.secondHemistich}`.trim();
+          verses = verses
+            .filter((v) => v.id !== removeId)
+            .map((v) =>
+              v.id === keepId
+                ? { ...v, firstHemistich: target.firstHemistich, secondHemistich: target.secondHemistich, text, normalizedText: normalizeArabic(text) }
+                : v
+            )
+            .map((v, idx) => ({ ...v, orderIndex: idx + 1 }));
+        } else if (suggestion.kind === "split_verse") {
+          const [verseId] = suggestion.verseIds;
+          const [first, second] = suggestion.suggested;
+          const firstText = `${first.firstHemistich} ${first.secondHemistich}`.trim();
+          const secondText = `${second.firstHemistich} ${second.secondHemistich}`.trim();
+          const next: Verse[] = [];
+          verses.forEach((v) => {
+            if (v.id === verseId) {
+              next.push({ ...v, firstHemistich: first.firstHemistich, secondHemistich: first.secondHemistich, text: firstText, normalizedText: normalizeArabic(firstText) });
+              next.push({
+                id: `${verseId}-split-${Date.now()}`,
+                poemId: v.poemId,
+                orderIndex: 0,
+                text: secondText,
+                normalizedText: normalizeArabic(secondText),
+                firstHemistich: second.firstHemistich,
+                secondHemistich: second.secondHemistich,
+              });
+            } else {
+              next.push(v);
+            }
+          });
+          verses = next.map((v, idx) => ({ ...v, orderIndex: idx + 1 }));
+        }
+      }
+      const updated: Poem = { ...activePoem, verses, versesCount: verses.length };
+      setActivePoem(updated);
+      setPoems((prev) => prev.map((p) => (p.id === updated.id ? updated : p)));
     },
     [repo, activePoem]
   );
@@ -390,6 +475,7 @@ function AppShell() {
                   onDeleteVerse={handleDeleteVerse}
                   onEditVerse={handleEditVerse}
                   onImportExplanations={handleImportExplanations}
+                  onApplySegmentationSuggestions={handleApplySegmentationSuggestions}
                 />
               )}
 

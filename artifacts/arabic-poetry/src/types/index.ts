@@ -70,6 +70,28 @@ export interface Verse {
   explanations?: VerseExplanationItem[];
 }
 
+/**
+ * A discrepancy detected while importing an explanation, between how the
+ * explanation quotes a verse (or verses) and how the poem's own verse
+ * records are currently segmented — e.g. the explanation's quoted line
+ * splits into two hemistichs at a different point than the stored verse, or
+ * shows one bayt where the poem currently has it stored as two separate
+ * verse rows (or vice versa). Always presented to the user for confirmation
+ * before anything is changed.
+ */
+export interface VerseSegmentationSuggestion {
+  id: string;
+  kind: 'hemistich_split' | 'merge_verses' | 'split_verse';
+  /** Affected verse id(s), in poem order. */
+  verseIds: string[];
+  /** Short Arabic description of the detected issue. */
+  description: string;
+  /** Current hemistich pairs for the affected verse(s), in the same order as verseIds. */
+  current: { firstHemistich: string; secondHemistich: string }[];
+  /** Suggested hemistich pairs to replace the current ones. Length differs from `current` for merge (2 -> 1) and split (1 -> 2). */
+  suggested: { firstHemistich: string; secondHemistich: string }[];
+}
+
 export type AlignmentStatus = 'auto' | 'review' | 'reviewed' | 'manual';
 
 export interface VerseAlignment {
