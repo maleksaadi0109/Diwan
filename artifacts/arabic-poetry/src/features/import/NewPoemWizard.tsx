@@ -219,10 +219,38 @@ export const NewPoemWizard: React.FC<NewPoemWizardProps> = ({ onFinishWizard }) 
     // never a fabricated verse-count estimate.
     let durationMs = 0;
 
+    // Track the resolved YouTube info/cover locally (not via React state) so the
+    // pipeline works correctly even if the user never clicked "جلب" to fetch
+    // the video info/thumbnail before starting the import.
+    let resolvedYoutubeInfo = youtubeInfo;
+    let resolvedCoverImage = youtubeCoverImage;
+
     try {
       // Stage 1: Download (if YouTube)
       if (audioSourceMode === "youtube" && youtubeUrl) {
         updateStage("download", { status: "running", progress: 0.2 });
+
+        // Ensure we have the video info and cover image even if the user
+        // skipped the explicit "fetch info" step.
+        if (!resolvedYoutubeInfo) {
+          try {
+            resolvedYoutubeInfo = await fetchYoutubeVideoInfo(youtubeUrl.trim());
+            setYoutubeInfo(resolvedYoutubeInfo);
+          } catch (infoErr) {
+            console.warn("Could not fetch YouTube video info before download:", infoErr);
+          }
+        }
+        if (!resolvedCoverImage && resolvedYoutubeInfo?.thumbnail) {
+          try {
+            const dataUrl = await downloadYoutubeThumbnail(resolvedYoutubeInfo.thumbnail);
+            resolvedCoverImage = dataUrl || resolvedYoutubeInfo.thumbnail;
+            setYoutubeCoverImage(resolvedCoverImage);
+          } catch (thumbErr) {
+            console.warn("Could not download YouTube thumbnail before pipeline:", thumbErr);
+            resolvedCoverImage = resolvedYoutubeInfo.thumbnail;
+          }
+        }
+
         const targetDir = await getPoemRecordingDirectory(poemId, recId);
         const ytRes = await downloadYoutubeAudio(youtubeUrl, targetDir, "192k");
         sourceAudioPath = ytRes.playback_audio_path;
@@ -297,7 +325,7 @@ export const NewPoemWizard: React.FC<NewPoemWizardProps> = ({ onFinishWizard }) 
         externalProvider: importedFromMizan ? "mizan_al_arab" : undefined,
         externalId: importedFromMizan ? mizanPoemId : undefined,
         sourceUrl: importedFromMizan ? mizanUrl.trim() : undefined,
-        coverImageUrl: youtubeCoverImage || youtubeInfo?.thumbnail || undefined,
+        coverImageUrl: resolvedCoverImage || resolvedYoutubeInfo?.thumbnail || undefined,
         verses: parsedVerses.map((v) => {
           const alignmentItem = alignRes.alignments.find((a) => a.order_index === v.orderIndex);
           return {
@@ -326,7 +354,7 @@ export const NewPoemWizard: React.FC<NewPoemWizardProps> = ({ onFinishWizard }) 
           {
             id: recId,
             poemId,
-            title: youtubeInfo?.title || localAudioName || "تسجيل صوتي",
+            title: resolvedYoutubeInfo?.title || localAudioName || "تسجيل صوتي",
             reciter: poetName.trim(),
             audioPath: sourceAudioPath,
             durationMs,
