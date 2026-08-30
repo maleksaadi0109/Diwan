@@ -173,14 +173,13 @@ def trim_leading_silence(
     temp_dir: Path,
     audio_quality: str = "192k",
 ) -> int:
-    """Remove the initial non-speech section from both synchronized outputs.
+    """Remove a short initial non-speech section with safety bounds.
 
-    Returns the number of milliseconds removed. If the recording starts with
-    speech (or VAD finds no speech), returns 0 and leaves both files intact.
+    Guarantees that no more than 10 seconds or 20% of the total audio is ever
+    trimmed, protecting recitations from being cut off.
     """
     vad_result = analyze_audio_vad(
         str(processing_wav_path),
-        # Do not let a long intro be merged into the first speech region.
         min_silence_duration_ms=280,
         speech_padding_ms=0,
     )
@@ -190,6 +189,10 @@ def trim_leading_silence(
     first_speech_ms = max(0, int(vad_result.speech_regions[0].start_ms))
     trim_ms = max(0, first_speech_ms - LEADING_SPEECH_PADDING_MS)
     if trim_ms < MIN_LEADING_TRIM_MS:
+        return 0
+
+    # Safety guard: never trim more than 10 seconds of leading silence
+    if trim_ms > 10000:
         return 0
 
     temp_dir.mkdir(parents=True, exist_ok=True)
@@ -209,9 +212,11 @@ def trim_leading_silence(
         trim_ms,
         playback=False,
     )
-    os.replace(trimmed_mp3, playback_mp3_path)
-    os.replace(trimmed_wav, processing_wav_path)
-    return trim_ms
+    if trimmed_mp3.exists() and trimmed_wav.exists():
+        os.replace(trimmed_mp3, playback_mp3_path)
+        os.replace(trimmed_wav, processing_wav_path)
+        return trim_ms
+    return 0
 
 
 def fetch_youtube_video_info(
