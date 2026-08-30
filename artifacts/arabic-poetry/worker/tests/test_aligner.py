@@ -196,6 +196,21 @@ def test_unmatched_middle_verse_interpolated_and_flagged():
     assert a[1].confidence <= 0.3
     assert a[0].end_ms <= a[1].start_ms <= a[1].end_ms <= a[2].start_ms
 
+def test_unanchored_first_verse_spans_from_recording_start():
+    # Verse 1 has no ASR words at all (e.g. reciter mumbles/ASR misses it
+    # entirely) while verse 2 anchors cleanly starting at 2000ms. Verse 1
+    # must be interpolated across [0, verse2_start] and flagged for review,
+    # NOT collapsed to a near-zero-length slot right before verse 2's anchor.
+    verses = _mtnb_verses()[:2]
+    words = _words("ما لي أكتم حبا قد برى جسدي وتدعي حب سيف الدوله الامم".split(), start=2000)
+    result = align_transcript_to_verses(verses, words, audio_duration_ms=10000)
+    v1, v2 = result.alignments
+    assert v1.start_ms == 0
+    assert v1.end_ms == v2.start_ms
+    assert v2.start_ms >= 1500  # spans most of the leading gap, not collapsed to ~0
+    assert v1.status == "review"
+    assert result.intro_offset_ms == 0
+
 def test_phonetic_confusions_still_match():
     from diwan_worker.alignment.aligner import token_similarity
     assert token_similarity("سقم", "صقم") > 0.7        # س/ص
