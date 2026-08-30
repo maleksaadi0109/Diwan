@@ -25,59 +25,68 @@ export interface AudioPlayerState {
 
 export type StateListener = (state: AudioPlayerState) => void;
 
-export const FORWARD_SWITCH_MARGIN_MS = 80;
+export const FORWARD_SWITCH_MARGIN_MS = 60;
 
+/**
+ * Robust active verse resolution:
+ * Matches timestamp to exact verse intervals, inter-verse pauses, or edges.
+ */
 export function findActiveVerseIndexBinary(verses: Verse[], currentMs: number): number {
   if (!verses || verses.length === 0) return -1;
 
-  const timed: number[] = [];
+  const timedIndices: number[] = [];
   for (let i = 0; i < verses.length; i++) {
-    if (verses[i].alignment) timed.push(i);
-  }
-  if (timed.length === 0) return -1;
-
-  let low = 0;
-  let high = timed.length - 1;
-
-  while (low <= high) {
-    const mid = (low + high) >> 1;
-    const v = verses[timed[mid]];
-    const startMs = Number(v.alignment!.startMs);
-    const endMs = Number(v.alignment!.endMs);
-
-    if (currentMs >= startMs && currentMs < endMs) {
-      return timed[mid];
-    } else if (currentMs < startMs) {
-      high = mid - 1;
-    } else {
-      low = mid + 1;
+    if (verses[i].alignment) {
+      timedIndices.push(i);
     }
   }
 
-  // Before first timed verse
-  const firstStart = Number(verses[timed[0]].alignment!.startMs);
-  if (currentMs < firstStart) return timed[0];
+  if (timedIndices.length === 0) return -1;
 
-  // After last timed verse
-  const lastEnd = Number(verses[timed[timed.length - 1]].alignment!.endMs);
-  if (currentMs >= lastEnd) return timed[timed.length - 1];
-
-  // Gap between timed verses: keep the nearest preceding timed verse
-  for (let i = timed.length - 1; i >= 0; i--) {
-    if (currentMs >= Number(verses[timed[i]].alignment!.startMs)) return timed[i];
+  // 1. Check exact match inside verse boundaries
+  for (const idx of timedIndices) {
+    const v = verses[idx];
+    const startMs = Number(v.alignment!.startMs);
+    const endMs = Number(v.alignment!.endMs);
+    if (currentMs >= startMs && currentMs < endMs) {
+      return idx;
+    }
   }
 
-  return timed[0];
+  // 2. If before the first timed verse, anchor to first timed verse
+  const firstIdx = timedIndices[0];
+  const firstStart = Number(verses[firstIdx].alignment!.startMs);
+  if (currentMs < firstStart) {
+    return firstIdx;
+  }
+
+  // 3. If after the last timed verse, anchor to last timed verse
+  const lastIdx = timedIndices[timedIndices.length - 1];
+  const lastEnd = Number(verses[lastIdx].alignment!.endMs);
+  if (currentMs >= lastEnd) {
+    return lastIdx;
+  }
+
+  // 4. Inter-verse gap: anchor to the closest preceding verse
+  let closestPreceding = firstIdx;
+  for (const idx of timedIndices) {
+    const startMs = Number(verses[idx].alignment!.startMs);
+    if (currentMs >= startMs) {
+      closestPreceding = idx;
+    }
+  }
+
+  return closestPreceding;
 }
 
 export class AudioController {
   private audio: HTMLAudioElement | null = null;
+  private currentSrc: string = "";
   private verses: Verse[] = [];
   private baselineVerses: Verse[] = [];
   private state: AudioPlayerState;
   private listeners: Set<StateListener> = new Set();
   private rafId: number | null = null;
-  private simulatedTimer: ReturnType<typeof setInterval> | null = null;
   private anchor1: SyncAnchor | null = null;
   private anchor2: SyncAnchor | null = null;
 
@@ -188,73 +197,73 @@ export class AudioController {
   }
 
   public loadAudio(src: string, fallbackDurationMs?: number) {
+    if (this.currentSrc === src && this.audio && this.audio.src) {
+      if (fallbackDurationMs && this.state.durationMs === 0) {
+        this.updateState({ durationMs: fallbackDurationMs });
+      }
+      return;
+    }
+
     this.stopPrecisionLoop();
-    this.clearSimulation();
+    this.currentSrc = src;
 
     if (!src) {
+      if (this.audio) {
+        this.audio.pause();
+        this.audio.src = "";
+      }
       this.updateState({
         status: "idle",
         isPlaying: false,
         currentTimeMs: 0,
         durationMs: fallbackDurationMs || 0,
-        activeVerseIndex: -1,
-        activeVerse: null,
+        activeVerseIndex: 0,
+        activeVerse: this.verses[0] || null,
         errorMessage: null,
       });
       return;
     }
 
     if (this.audio) {
-      if (this.audio.src !== src) {
-        this.audio.src = src;
-        this.audio.playbackRate = this.state.playbackRate;
-        this.audio.volume = this.state.isMuted ? 0 : this.state.volume;
-        this.updateState({
-          status: "loading",
-          currentTimeMs: 0,
-          durationMs: fallbackDurationMs || 0,
-          errorMessage: null,
-        });
-        this.audio.load();
-      }
-    } else {
+      this.audio.pause();
+      this.audio.src = src;
+      this.audio.currentTime = 0;
+      this.audio.playbackRate = this.state.playbackRate;
+      this.audio.volume = this.state.isMuted ? 0 : this.state.volume;
       this.updateState({
-        status: "paused",
+        status: "loading",
+        isPlaying: false,
         currentTimeMs: 0,
-        durationMs: fallbackDurationMs || 60000,
+        durationMs: fallbackDurationMs || 0,
+        activeVerseIndex: 0,
+        activeVerse: this.verses[0] || null,
         errorMessage: null,
       });
+      this.audio.load();
     }
   }
 
-  public async play(): Promise<void> {
-    if (this.state.isPlaying) return;
+  public play(): Promise<void> {
+    if (this.state.isPlaying) return Promise.resolve();
 
+    let playPromise: Promise<void> = Promise.resolve();
     if (this.audio && this.audio.src) {
       try {
-        await this.audio.play();
-        this.updateState({
-          isPlaying: true,
-          status: "playing",
-          errorMessage: null,
+        playPromise = this.audio.play().catch((err) => {
+          console.warn("Audio element play warning:", err);
         });
-        this.startPrecisionLoop();
-      } catch (err: unknown) {
-        console.error("Audio play error:", err);
-        const error = err as { name?: string; message?: string };
-        if (error.name === "NotAllowedError") {
-          this.updateState({
-            status: "error",
-            isPlaying: false,
-            errorMessage: "يتطلب التشغيل تفاعل المستخدم مع الصفحة أولاً (Autoplay restricted)",
-          });
-        } else {
-          this.startSimulation();
-        }
+      } catch (err) {
+        console.warn("Audio element play sync error:", err);
       }
-    } else {
-      this.startSimulation();
     }
+
+    this.updateState({
+      isPlaying: true,
+      status: "playing",
+      errorMessage: null,
+    });
+    this.startPrecisionLoop();
+    return playPromise;
   }
 
   public pause(): void {
@@ -262,7 +271,6 @@ export class AudioController {
       this.audio.pause();
     }
     this.stopPrecisionLoop();
-    this.clearSimulation();
     this.updateState({
       isPlaying: false,
       status: "paused",
@@ -455,47 +463,6 @@ export class AudioController {
     this.recomputeSyncImmediately();
   }
 
-  private startSimulation() {
-    this.clearSimulation();
-    this.updateState({
-      isPlaying: true,
-      status: "playing",
-      errorMessage: null,
-    });
-
-    let last = Date.now();
-    this.simulatedTimer = setInterval(() => {
-      const now = Date.now();
-      const delta = (now - last) * this.state.playbackRate;
-      last = now;
-
-      const next = this.state.currentTimeMs + delta;
-      if (next >= this.state.durationMs && this.state.durationMs > 0) {
-        this.clearSimulation();
-        this.updateState({
-          isPlaying: false,
-          status: "ended",
-          currentTimeMs: this.state.durationMs,
-        });
-      } else {
-        const activeIdx = this.computeStableActiveIndex(next);
-        const activeVerse = activeIdx >= 0 && activeIdx < this.verses.length ? this.verses[activeIdx] : null;
-        this.updateState({
-          currentTimeMs: next,
-          activeVerseIndex: activeIdx,
-          activeVerse,
-        });
-      }
-    }, 30);
-  }
-
-  private clearSimulation() {
-    if (this.simulatedTimer) {
-      clearInterval(this.simulatedTimer);
-      this.simulatedTimer = null;
-    }
-  }
-
   public subscribe(listener: StateListener): () => void {
     this.listeners.add(listener);
     listener(this.state);
@@ -515,7 +482,6 @@ export class AudioController {
 
   public destroy() {
     this.stopPrecisionLoop();
-    this.clearSimulation();
     if (this.audio) {
       this.audio.pause();
       this.audio.src = "";

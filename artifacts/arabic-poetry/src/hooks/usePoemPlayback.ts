@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Poem, Verse } from "@/types";
 import { AudioController, AudioPlayerState } from "@/lib/audio/AudioController";
-import { resolveAudioSrc, resolveAudioSrcAsync } from "@/lib/audio/fileManager";
+import { resolveAudioSrcAsync } from "@/lib/audio/fileManager";
 
 export function usePoemPlayback(poem: Poem | null) {
   const controllerRef = useRef<AudioController | null>(null);
@@ -16,6 +16,8 @@ export function usePoemPlayback(poem: Poem | null) {
   const [playerState, setPlayerState] = useState<AudioPlayerState>(controller.getState());
   const [isUserScrolling, setIsUserScrolling] = useState(false);
   const userScrollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastLoadedPoemIdRef = useRef<string | null>(null);
+  const lastLoadedAudioPathRef = useRef<string | null>(null);
 
   // Sync verses with controller whenever poem or its verses change
   useEffect(() => {
@@ -27,24 +29,33 @@ export function usePoemPlayback(poem: Poem | null) {
         poem.recordings.find((recording) => recording.id === poem.defaultRecordingId) ||
         poem.recordings[0];
 
-      // Real duration only: recording metadata, else the last aligned verse
-      // end. Never a fabricated verse-count × 8s estimate.
       const lastAlignedEnd = poem.verses.reduce(
         (max, v) => (v.alignment ? Math.max(max, v.alignment.endMs) : max),
         0
       );
       const defaultDuration = defaultRec?.durationMs || lastAlignedEnd;
+      const audioPath = defaultRec?.audioPath || "";
+      const isNewPoemOrTrack =
+        lastLoadedPoemIdRef.current !== poem.id ||
+        lastLoadedAudioPathRef.current !== audioPath;
 
-      if (defaultRec && defaultRec.audioPath) {
-        resolveAudioSrcAsync(defaultRec.audioPath).then((audioUrl) => {
-          if (!isCancelled) {
-            controller.loadAudio(audioUrl, defaultDuration);
-          }
-        });
-      } else {
-        controller.loadAudio("", defaultDuration);
+      if (isNewPoemOrTrack) {
+        lastLoadedPoemIdRef.current = poem.id;
+        lastLoadedAudioPathRef.current = audioPath;
+
+        if (audioPath) {
+          resolveAudioSrcAsync(audioPath).then((audioUrl) => {
+            if (!isCancelled) {
+              controller.loadAudio(audioUrl, defaultDuration);
+            }
+          });
+        } else {
+          controller.loadAudio("", defaultDuration);
+        }
       }
     } else {
+      lastLoadedPoemIdRef.current = null;
+      lastLoadedAudioPathRef.current = null;
       controller.setVerses([]);
       controller.loadAudio("");
     }
