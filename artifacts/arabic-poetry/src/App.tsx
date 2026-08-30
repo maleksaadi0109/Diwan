@@ -9,6 +9,7 @@ import { BoundaryReviewEditor } from "./features/editor/BoundaryReviewEditor";
 import { ImportView } from "./features/import/ImportView";
 import { SettingsView } from "./features/settings/SettingsView";
 import { DiwanRepository } from "./lib/db/repository";
+import { normalizeArabic } from "./lib/utils";
 import { AudioPlayerProvider, useAudioPlayerContext } from "./contexts/AudioPlayerContext";
 
 export function App() {
@@ -248,6 +249,38 @@ function AppShell() {
     [repo, activePoem]
   );
 
+  const handleEditVerse = useCallback(
+    async (verseId: string, firstHemistich: string, secondHemistich: string) => {
+      if (!activePoem) return;
+      const trimmedFirst = firstHemistich.trim();
+      const trimmedSecond = secondHemistich.trim();
+      if (!trimmedFirst || !trimmedSecond) {
+        throw new Error("لا يمكن ترك شطر البيت فارغًا.");
+      }
+      if (repo) {
+        await repo.updateVerseText(verseId, trimmedFirst, trimmedSecond);
+        const refreshed = await repo.getPoemById(activePoem.id);
+        if (refreshed) {
+          setActivePoem(refreshed);
+          setPoems((prev) => prev.map((p) => (p.id === refreshed.id ? refreshed : p)));
+        }
+      } else {
+        const text = `${trimmedFirst} ${trimmedSecond}`.trim();
+        const updated: Poem = {
+          ...activePoem,
+          verses: activePoem.verses.map((v) =>
+            v.id === verseId
+              ? { ...v, firstHemistich: trimmedFirst, secondHemistich: trimmedSecond, text, normalizedText: normalizeArabic(text) }
+              : v
+          ),
+        };
+        setActivePoem(updated);
+        setPoems((prev) => prev.map((p) => (p.id === updated.id ? updated : p)));
+      }
+    },
+    [repo, activePoem]
+  );
+
   const handleDeletePoem = useCallback(
     async (poemId: string) => {
       if (repo) {
@@ -310,6 +343,7 @@ function AppShell() {
                   onSaveExplanations={handleSaveExplanations}
                   onApplyOffset={handleApplyOffset}
                   onDeleteVerse={handleDeleteVerse}
+                  onEditVerse={handleEditVerse}
                 />
               )}
 

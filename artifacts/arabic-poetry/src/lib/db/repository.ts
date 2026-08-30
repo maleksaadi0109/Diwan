@@ -289,6 +289,15 @@ export class DiwanRepository {
     );
   }
 
+  async updateVerseText(verseId: string, firstHemistich: string, secondHemistich: string): Promise<void> {
+    const text = `${firstHemistich} ${secondHemistich}`.trim();
+    const normalizedText = normalizeArabic(text);
+    await this.adapter.execute(
+      `UPDATE verses SET text = ?, normalized_text = ?, first_hemistich = ?, second_hemistich = ? WHERE id = ?;`,
+      [text, normalizedText, firstHemistich, secondHemistich, verseId]
+    );
+  }
+
   async saveVerse(verse: Verse): Promise<void> {
     const sql = `
       INSERT OR REPLACE INTO verses (

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Verse, VerseExplanationItem } from "@/types";
 import { cn, formatTime, toArabicDigits } from "@/lib/utils";
-import { Info, CheckCircle2, Volume2, Sparkles, Trash2, AlertTriangle, X, BookOpenText } from "lucide-react";
+import { Info, CheckCircle2, Volume2, Sparkles, Trash2, AlertTriangle, X, BookOpenText, Pencil, Save, Loader2 } from "lucide-react";
 
 export type VerseExplanationStatus = "idle" | "loading" | "loaded" | "empty" | "error";
 
@@ -13,6 +13,7 @@ interface VerseItemProps {
   onSelectVerse?: (verse: Verse) => void;
   onDeleteVerse?: (verse: Verse) => void;
   onOpenExplanation?: (verse: Verse) => void;
+  onEditVerse?: (verseId: string, firstHemistich: string, secondHemistich: string) => Promise<void> | void;
   explanationItems?: VerseExplanationItem[];
   explanationStatus?: VerseExplanationStatus;
   explanationError?: string | null;
@@ -29,6 +30,7 @@ export const VerseItem: React.FC<VerseItemProps> = ({
   onSelectVerse,
   onDeleteVerse,
   onOpenExplanation,
+  onEditVerse,
   onWordClick,
   verseRef,
   explanationItems,
@@ -38,6 +40,41 @@ export const VerseItem: React.FC<VerseItemProps> = ({
 }) => {
   const [showExplanation, setShowExplanation] = useState(true);
   const [showConfirmDelete, setShowConfirmDelete] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editFirst, setEditFirst] = useState(verse.firstHemistich);
+  const [editSecond, setEditSecond] = useState(verse.secondHemistich);
+  const [editError, setEditError] = useState<string | null>(null);
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
+
+  const startEditing = () => {
+    setEditFirst(verse.firstHemistich);
+    setEditSecond(verse.secondHemistich);
+    setEditError(null);
+    setIsEditing(true);
+  };
+
+  const cancelEditing = () => {
+    setIsEditing(false);
+    setEditError(null);
+  };
+
+  const saveEditing = async () => {
+    if (!onEditVerse) return;
+    if (!editFirst.trim() || !editSecond.trim()) {
+      setEditError("لا يمكن ترك شطر البيت فارغًا.");
+      return;
+    }
+    setIsSavingEdit(true);
+    setEditError(null);
+    try {
+      await onEditVerse(verse.id, editFirst, editSecond);
+      setIsEditing(false);
+    } catch (err: unknown) {
+      setEditError((err as Error).message || "تعذر حفظ تعديل البيت.");
+    } finally {
+      setIsSavingEdit(false);
+    }
+  };
   const alignment = verse.alignment;
   const items = explanationItems ?? verse.explanations ?? [];
   const hasExplanation = Boolean(verse.explanation || items.length > 0 || explanationStatus !== "idle");
@@ -160,6 +197,20 @@ export const VerseItem: React.FC<VerseItemProps> = ({
             </button>
           )}
 
+          {onEditVerse && !isEditing && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                startEditing();
+              }}
+              className="p-1.5 rounded-lg text-[#6C7A8C] hover:text-[#F3E19C] hover:bg-white/[0.06] border border-transparent hover:border-white/10 opacity-0 group-hover:opacity-100 transition-all cursor-pointer"
+              title="تعديل نص البيت"
+            >
+              <Pencil className="w-3.5 h-3.5" />
+            </button>
+          )}
+
           {onOpenExplanation && (
             <button
               type="button"
@@ -192,44 +243,91 @@ export const VerseItem: React.FC<VerseItemProps> = ({
 
       {/* Poetic Verse with Two Hemistichs */}
       <div className="my-4">
-        <div className="flex flex-col md:flex-row items-center justify-between gap-4 md:gap-8 px-2 py-2 relative">
-          {/* الصدر (First Hemistich) */}
-          <div className="flex-1 text-center md:text-right">
-            <span
-              className={cn(
-                "font-poetry text-2xl md:text-[30px] leading-[2.3] tracking-wide transition-all duration-300",
-                isActive
-                  ? "text-[#F8F9FA] font-bold text-shadow-gold"
-                  : isSelected
-                  ? "text-[#F8F9FA] font-bold"
-                  : "text-[#E9ECEF] group-hover:text-[#F8F9FA]"
-              )}
-            >
-              {renderWords(verse.firstHemistich)}
-            </span>
+        {isEditing ? (
+          <div
+            onClick={(e) => e.stopPropagation()}
+            onDoubleClick={(e) => e.stopPropagation()}
+            className="space-y-3"
+          >
+            <div className="flex flex-col md:flex-row items-stretch gap-3">
+              <input
+                type="text"
+                value={editFirst}
+                onChange={(e) => setEditFirst(e.target.value)}
+                placeholder="الصدر"
+                dir="rtl"
+                className="flex-1 bg-black/30 text-[#F8F9FA] placeholder-[#6C7A8C] border border-white/15 focus:border-[#D4AF37] focus:outline-none rounded-2xl px-4 py-3 text-lg md:text-xl font-poetry text-center"
+              />
+              <input
+                type="text"
+                value={editSecond}
+                onChange={(e) => setEditSecond(e.target.value)}
+                placeholder="العجز"
+                dir="rtl"
+                className="flex-1 bg-black/30 text-[#F8F9FA] placeholder-[#6C7A8C] border border-white/15 focus:border-[#D4AF37] focus:outline-none rounded-2xl px-4 py-3 text-lg md:text-xl font-poetry text-center"
+              />
+            </div>
+            {editError && <p className="text-xs text-rose-400 font-sans text-center">{editError}</p>}
+            <div className="flex items-center justify-center gap-2.5">
+              <button
+                type="button"
+                onClick={cancelEditing}
+                disabled={isSavingEdit}
+                className="px-4 py-1.5 rounded-xl bg-white/[0.06] hover:bg-white/[0.1] text-xs font-semibold text-[#CED4DA] transition-colors disabled:opacity-50"
+              >
+                إلغاء
+              </button>
+              <button
+                type="button"
+                onClick={saveEditing}
+                disabled={isSavingEdit}
+                className="px-4 py-1.5 rounded-xl bg-[#D4AF37] hover:bg-[#E6C265] text-[#0A0C10] text-xs font-bold transition-all flex items-center gap-1.5 disabled:opacity-60"
+              >
+                {isSavingEdit ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+                <span>حفظ التعديل</span>
+              </button>
+            </div>
           </div>
+        ) : (
+          <div className="flex flex-col md:flex-row items-center justify-between gap-4 md:gap-8 px-2 py-2 relative">
+            {/* الصدر (First Hemistich) */}
+            <div className="flex-1 text-center md:text-right">
+              <span
+                className={cn(
+                  "font-poetry text-2xl md:text-[30px] leading-[2.3] tracking-wide transition-all duration-300",
+                  isActive
+                    ? "text-[#F8F9FA] font-bold text-shadow-gold"
+                    : isSelected
+                    ? "text-[#F8F9FA] font-bold"
+                    : "text-[#E9ECEF] group-hover:text-[#F8F9FA]"
+                )}
+              >
+                {renderWords(verse.firstHemistich)}
+              </span>
+            </div>
 
-          {/* فاصل الشطرين */}
-          <div className="shrink-0 flex items-center justify-center select-none text-[#D4AF37] transition-colors">
-            <Sparkles className="w-4 h-4 text-[#D4AF37]/70" />
-          </div>
+            {/* فاصل الشطرين */}
+            <div className="shrink-0 flex items-center justify-center select-none text-[#D4AF37] transition-colors">
+              <Sparkles className="w-4 h-4 text-[#D4AF37]/70" />
+            </div>
 
-          {/* العجز (Second Hemistich) */}
-          <div className="flex-1 text-center md:text-left">
-            <span
-              className={cn(
-                "font-poetry text-2xl md:text-[30px] leading-[2.3] tracking-wide transition-all duration-300",
-                isActive
-                  ? "text-[#F8F9FA] font-bold text-shadow-gold"
-                  : isSelected
-                  ? "text-[#F8F9FA] font-bold"
-                  : "text-[#E9ECEF] group-hover:text-[#F8F9FA]"
-              )}
-            >
-              {renderWords(verse.secondHemistich)}
-            </span>
+            {/* العجز (Second Hemistich) */}
+            <div className="flex-1 text-center md:text-left">
+              <span
+                className={cn(
+                  "font-poetry text-2xl md:text-[30px] leading-[2.3] tracking-wide transition-all duration-300",
+                  isActive
+                    ? "text-[#F8F9FA] font-bold text-shadow-gold"
+                    : isSelected
+                    ? "text-[#F8F9FA] font-bold"
+                    : "text-[#E9ECEF] group-hover:text-[#F8F9FA]"
+                )}
+              >
+                {renderWords(verse.secondHemistich)}
+              </span>
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
       {/* Verse Explanation / Meanings */}
