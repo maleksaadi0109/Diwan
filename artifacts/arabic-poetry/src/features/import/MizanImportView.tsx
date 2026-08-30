@@ -152,7 +152,7 @@ export const MizanImportView: React.FC<MizanImportViewProps> = ({ onPoemImported
           value={url}
           onChange={(e) => setUrl(e.target.value)}
           placeholder="https://mizanalarab.com/poem/12345"
-          className="flex-1 bg-white text-ink-900 placeholder-ink-300/50 border border-paper-500 rounded-none px-4 py-2.5 text-xs focus:outline-none focus:border-accent-700 ltr-num"
+          className="flex-1 bg-paper-200 text-ink-900 placeholder-ink-500 border border-paper-500 rounded-none px-4 py-2.5 text-xs focus:outline-none focus:border-accent-700 ltr-num"
         />
         <button
           type="submit"
