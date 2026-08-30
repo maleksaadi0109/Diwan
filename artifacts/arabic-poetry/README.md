@@ -70,10 +70,12 @@ graph TD
 - **Python**: 3.10+ مع تثبيت `ffmpeg` و `ffprobe`
 - **حزم النظام (Linux)**: `webkit2gtk-4.1`, `libsoup`, `openssl`
 
+> ⚠️ **مهم**: هذا المشروع جزء من monorepo يستخدم **pnpm** (وليس npm) لإدارة الحزم، ويعتمد على ميزة الـ`catalog:` في pnpm لتوحيد إصدارات الحزم المشتركة. استخدام `npm install` لن يعمل بشكل صحيح — سيفشل في حل الإصدارات المكتوبة كـ`catalog:` مما يكسر التطبيق بالكامل (تشغيل الصوت، والواجهة، وكل شيء). ثبّت pnpm أولاً إذا لم يكن مثبتاً: `npm install -g pnpm` أو `corepack enable`.
+
 ### 1. تثبيت الاعتماديات
 ```bash
-# تثبيت حزم واجهة المستخدم
-npm install
+# من جذر المستودع (monorepo root) — ليس من داخل artifacts/arabic-poetry
+pnpm install
 
 # تثبيت حزم معالج بايثون
 pip install -e worker/
@@ -81,11 +83,11 @@ pip install -e worker/
 
 ### 2. التشغيل في وضع التطوير
 ```bash
-# تشغيل خادم الواجهة والمحرر
-npm run dev
+# تشغيل خادم الواجهة والمحرر (من جذر المستودع)
+pnpm --filter @workspace/arabic-poetry run dev
 
 # أو تشغيل التطبيق المكتبي بالكامل عبر Tauri
-npm run tauri dev
+pnpm --filter @workspace/arabic-poetry run tauri:dev
 ```
 
 ### 3. تشغيل الاختبارات
@@ -94,10 +96,10 @@ npm run tauri dev
 PYTHONPATH=worker python3 -m pytest worker/tests/
 
 # اختبارات واجهة المستخدم والمكونات
-npm test
+pnpm --filter @workspace/arabic-poetry run test
 
-# فحص المعايير البرمجية
-npm run lint
+# فحص المعايير البرمجية (فحص الأنواع TypeScript)
+pnpm --filter @workspace/arabic-poetry run typecheck
 
 # اختبار التحقق الشامل (E2E Pipeline)
 python3 scripts/e2e_verify.py
@@ -105,8 +107,8 @@ python3 scripts/e2e_verify.py
 
 ### 4. بناء حزمة الإنتاج (Production Packaging)
 ```bash
-npm run build
-npm run tauri build
+pnpm --filter @workspace/arabic-poetry run build
+pnpm --filter @workspace/arabic-poetry run tauri build
 ```
 
 ---
