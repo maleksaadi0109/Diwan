@@ -80,4 +80,79 @@ describe("parsePasteExplanationText", () => {
   it("throws a clear error for empty input", () => {
     expect(() => parsePasteExplanationText("   ", verses)).toThrow();
   });
+
+  describe("boundary suggestions (merge_verses / split_verse)", () => {
+    // v-split-a + v-split-b together are one over-split بيت stored as two rows:
+    // the explanation quotes it (correctly) as one بيت spread over two printed
+    // lines, but that combined wording only matches the *concatenation* of
+    // the two stored rows, not either row alone.
+    // Each row's word count is balanced (4 vs 4) so a quote of the combined
+    // 8-word بيت scores below the single-verse match threshold (0.55)
+    // against either row alone, but above the boundary threshold (0.6)
+    // against their concatenation.
+    const overSplitVerses: Verse[] = [
+      makeVerse("v-split-a", 1, "تَطاوَلَ لَيلُكَ", "بِالأَثمَدِ الجَميلِ"),
+      makeVerse("v-split-b", 2, "وَنامَ الخَلِيُّ", "وَلَم تَرقُدِ"),
+      makeVerse("v-split-c", 3, "وَذَلِكَ مِن نَبَإٍ جاءَني", "وَخُبِّرتُهُ عَن أَبي الأَسوَدِ"),
+    ];
+
+    it("detects merge_verses when a quoted بيت spans two adjacent stored verse rows", () => {
+      const pasted = `شرح قصيدة تطاول ليلك بالأثمد
+
+تَطاوَلَ لَيلُكَ بِالأَثمَدِ الجَميلِ وَنامَ الخَلِيُّ
+وَلَم تَرقُدِ
+
+هذا الشرح يتناول البيت الأول من القصيدة بتفصيل.
+`;
+      const result = parsePasteExplanationText(pasted, overSplitVerses);
+      const merge = result.segmentationSuggestions.find((s) => s.kind === "merge_verses");
+      expect(merge).toBeTruthy();
+      expect(merge!.verseIds).toEqual(["v-split-a", "v-split-b"]);
+      expect(merge!.suggested).toHaveLength(1);
+      // Neither consumed verse remains available for further single-verse matching.
+      expect(result.matched.some((m) => m.verseId === "v-split-a" || m.verseId === "v-split-b")).toBe(false);
+    });
+
+    // v-merged is a single stored row that actually holds two separate abيات
+    // — its text is the exact concatenation of the two halves below.
+    const overMergedVerses: Verse[] = [
+      makeVerse("v-merged", 1, "تَطاوَلَ لَيلُكَ بِالأَثمَدِ الجَميلِ", "وَنامَ الخَلِيُّ وَلَم تَرقُدِ"),
+      makeVerse("v-merged-2", 2, "وَباتَ وَباتَت لَهُ لَيلَةٌ", "كَلَيلَةِ ذي العائِرِ الأَرمَدِ"),
+    ];
+
+    it("detects split_verse when two consecutive quoted lines together match one stored verse", () => {
+      // Each half is quoted on its own, separated by a short prose aside, so
+      // the parser records them as two distinct unmatched quote blocks
+      // instead of re-grouping them into a single two-line block.
+      const pasted = `شرح قصيدة تطاول ليلك بالأثمد
+
+تَطاوَلَ لَيلُكَ بِالأَثمَدِ الجَميلِ
+
+هذا هو الشطر الأول من البيت كما ورد في الشرح.
+
+وَنامَ الخَلِيُّ وَلَم تَرقُدِ
+
+وهذا شطره الثاني، مقتبس هنا كبيت منفصل تماماً.
+`;
+      const result = parsePasteExplanationText(pasted, overMergedVerses);
+      const split = result.segmentationSuggestions.find((s) => s.kind === "split_verse");
+      expect(split).toBeTruthy();
+      expect(split!.verseIds).toEqual(["v-merged"]);
+      expect(split!.suggested).toHaveLength(2);
+      expect(split!.suggested[0].firstHemistich).toContain("تَطاوَلَ");
+      expect(split!.suggested[1].firstHemistich).toContain("وَنامَ");
+    });
+
+    it("does not raise a boundary suggestion for wording that merely differs, not merges/splits", () => {
+      const pasted = `شرح قصيدة أخرى
+
+بيت مختلف تماماً عن القصيدة
+لا يطابق أي شيء مخزّن هنا
+
+شرح غير ذي صلة بالقصيدة الأصلية.
+`;
+      const result = parsePasteExplanationText(pasted, verses);
+      expect(result.segmentationSuggestions.filter((s) => s.kind !== "hemistich_split")).toHaveLength(0);
+    });
+  });
 });
