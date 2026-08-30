@@ -10,6 +10,7 @@ import { ImportView } from "./features/import/ImportView";
 import { SettingsView } from "./features/settings/SettingsView";
 import { DiwanRepository } from "./lib/db/repository";
 import { normalizeArabic } from "./lib/utils";
+import { ParsedExplanationBlock } from "./lib/import/pasteExplanationParser";
 import { AudioPlayerProvider, useAudioPlayerContext } from "./contexts/AudioPlayerContext";
 
 export function App() {
@@ -172,6 +173,33 @@ function AppShell() {
       );
     },
     [repo]
+  );
+
+  const handleImportExplanations = useCallback(
+    async (blocks: ParsedExplanationBlock[]) => {
+      if (!activePoem) return;
+      if (repo) {
+        for (const block of blocks) {
+          await repo.saveVerseExplanations(block.verseId, block.items);
+        }
+        const refreshed = await repo.getPoemById(activePoem.id);
+        if (refreshed) {
+          setActivePoem(refreshed);
+          setPoems((prev) => prev.map((p) => (p.id === refreshed.id ? refreshed : p)));
+        }
+      } else {
+        const byVerseId = new Map(blocks.map((b) => [b.verseId, b.items]));
+        const updated: Poem = {
+          ...activePoem,
+          verses: activePoem.verses.map((v) =>
+            byVerseId.has(v.id) ? { ...v, explanations: [...(v.explanations || []), ...byVerseId.get(v.id)!] } : v
+          ),
+        };
+        setActivePoem(updated);
+        setPoems((prev) => prev.map((p) => (p.id === updated.id ? updated : p)));
+      }
+    },
+    [repo, activePoem]
   );
 
   const handleApplyOffset = useCallback(
@@ -344,6 +372,7 @@ function AppShell() {
                   onApplyOffset={handleApplyOffset}
                   onDeleteVerse={handleDeleteVerse}
                   onEditVerse={handleEditVerse}
+                  onImportExplanations={handleImportExplanations}
                 />
               )}
 
