@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { Poem, Era, Bahr } from "@/types";
 import { MizanAlArabProvider } from "@/lib/providers/MizanAlArabProvider";
+import { AdabWorldProvider } from "@/lib/providers/AdabWorldProvider";
 import type { ParsedPoemPayload, ParsedVersePayload } from "@/lib/providers/types";
 import {
   fetchYoutubeVideoInfo,
@@ -78,13 +79,19 @@ export const NewPoemWizard: React.FC<NewPoemWizardProps> = ({ onFinishWizard }) 
   const [currentStep, setCurrentStep] = useState<WizardStep>(1);
 
   // Step 1: Poem Data
-  const [poemSourceMode, setPoemSourceMode] = useState<"mizan" | "manual" | "json">("mizan");
+  const [poemSourceMode, setPoemSourceMode] = useState<"mizan" | "adab_world" | "manual" | "json">("mizan");
   const [mizanUrl, setMizanUrl] = useState("");
   const [mizanLoading, setMizanLoading] = useState(false);
   const [mizanError, setMizanError] = useState<string | null>(null);
   const [mizanPayload, setMizanPayload] = useState<ParsedPoemPayload | null>(null);
   const [mizanSourceText, setMizanSourceText] = useState("");
   const [mizanPoemId, setMizanPoemId] = useState<string | null>(null);
+
+  const [adabWorldUrl, setAdabWorldUrl] = useState("");
+  const [adabWorldLoading, setAdabWorldLoading] = useState(false);
+  const [adabWorldError, setAdabWorldError] = useState<string | null>(null);
+  const [adabWorldPayload, setAdabWorldPayload] = useState<ParsedPoemPayload | null>(null);
+  const [adabWorldSourceText, setAdabWorldSourceText] = useState("");
 
   const [title, setTitle] = useState("");
   const [poetName, setPoetName] = useState("");
@@ -118,6 +125,9 @@ export const NewPoemWizard: React.FC<NewPoemWizardProps> = ({ onFinishWizard }) 
   const getParsedVerses = (): ParsedVersePayload[] => {
     if (poemSourceMode === "mizan" && mizanPayload && versesRaw === mizanSourceText) {
       return mizanPayload.verses;
+    }
+    if (poemSourceMode === "adab_world" && adabWorldPayload && versesRaw === adabWorldSourceText) {
+      return adabWorldPayload.verses;
     }
 
     const provider = new MizanAlArabProvider();
@@ -163,6 +173,34 @@ export const NewPoemWizard: React.FC<NewPoemWizardProps> = ({ onFinishWizard }) 
     }
   };
 
+  // Adab World Fetch Action
+  const handleFetchAdabWorld = async () => {
+    if (!adabWorldUrl.trim()) return;
+    setAdabWorldLoading(true);
+    setAdabWorldError(null);
+    try {
+      const provider = new AdabWorldProvider();
+      const data = await provider.fetchPoemData(adabWorldUrl.trim());
+      const parsed = provider.mapDataToPayload(data);
+      const sourceText = parsed.verses
+        .map((v) => `${v.firstHemistich} — ${v.secondHemistich}`)
+        .join("\n");
+
+      setTitle(parsed.title);
+      setPoetName(parsed.poetName);
+      setEra(parsed.era);
+      setBahr(parsed.bahr);
+      setRhyme(parsed.rhyme);
+      setVersesRaw(sourceText);
+      setAdabWorldPayload(parsed);
+      setAdabWorldSourceText(sourceText);
+    } catch (err: unknown) {
+      setAdabWorldError((err as Error).message || "تعذر جلب القصيدة من عالَم الأدب");
+    } finally {
+      setAdabWorldLoading(false);
+    }
+  };
+
   // YouTube Fetch Action
   const handleFetchYoutube = async () => {
     if (!youtubeUrl.trim()) return;
@@ -199,6 +237,9 @@ export const NewPoemWizard: React.FC<NewPoemWizardProps> = ({ onFinishWizard }) 
       && mizanPayload !== null
       && mizanPoemId !== null
       && versesRaw === mizanSourceText;
+    const importedFromAdabWorld = poemSourceMode === "adab_world"
+      && adabWorldPayload !== null
+      && versesRaw === adabWorldSourceText;
     const poemId = `poem-wiz-${Date.now()}`;
     const recId = `rec-wiz-${Date.now()}`;
 
@@ -283,9 +324,9 @@ export const NewPoemWizard: React.FC<NewPoemWizardProps> = ({ onFinishWizard }) 
         rhyme: rhyme || "الميم",
         versesCount: parsedVerses.length,
         tags: ["مستورد عبر المعالج", `بحر ${bahr}`],
-        externalProvider: importedFromMizan ? "mizan_al_arab" : undefined,
+        externalProvider: importedFromMizan ? "mizan_al_arab" : importedFromAdabWorld ? "adab_world" : undefined,
         externalId: importedFromMizan ? mizanPoemId : undefined,
-        sourceUrl: importedFromMizan ? mizanUrl.trim() : undefined,
+        sourceUrl: importedFromMizan ? mizanUrl.trim() : importedFromAdabWorld ? adabWorldUrl.trim() : undefined,
         verses: parsedVerses.map((v) => {
           const alignmentItem = alignRes.alignments.find((a) => a.order_index === v.orderIndex);
           return {
@@ -401,6 +442,15 @@ export const NewPoemWizard: React.FC<NewPoemWizardProps> = ({ onFinishWizard }) 
               <span>ميزان العرب (Mizan Al-Arab)</span>
             </button>
             <button
+              onClick={() => setPoemSourceMode("adab_world")}
+              className={`flex-1 py-2 rounded-none text-xs font-bold transition-colors flex items-center justify-center gap-2 ${
+                poemSourceMode === "adab_world" ? "bg-accent-700 text-paper-100" : "text-ink-600 hover:text-ink-800"
+              }`}
+            >
+              <Sparkles className="w-3.5 h-3.5" />
+              <span>عالَم الأدب (Adab World)</span>
+            </button>
+            <button
               onClick={() => setPoemSourceMode("manual")}
               className={`flex-1 py-2 rounded-none text-xs font-bold transition-colors flex items-center justify-center gap-2 ${
                 poemSourceMode === "manual" ? "bg-accent-700 text-paper-100" : "text-ink-600 hover:text-ink-800"
@@ -435,6 +485,36 @@ export const NewPoemWizard: React.FC<NewPoemWizardProps> = ({ onFinishWizard }) 
                 </button>
               </div>
               {mizanError && <p className="text-xs text-red-700">{mizanError}</p>}
+            </div>
+          )}
+
+          {/* Adab World URL Input */}
+          {poemSourceMode === "adab_world" && (
+            <div className="space-y-3">
+              <label className="block text-xs font-semibold text-ink-700">
+                رابط القصيدة في موقع عالَم الأدب:
+              </label>
+              <div className="flex gap-2">
+                <input
+                  type="url"
+                  value={adabWorldUrl}
+                  onChange={(e) => setAdabWorldUrl(e.target.value)}
+                  placeholder="https://adabworld.com/poems/ttawl-lylk-balathmd-blgg5d"
+                  className="flex-1 bg-paper-200 text-ink-900 placeholder-ink-500 border border-paper-500 rounded-none px-4 py-2.5 text-xs focus:outline-none focus:border-accent-700 ltr-num"
+                />
+                <button
+                  type="button"
+                  onClick={handleFetchAdabWorld}
+                  disabled={!adabWorldUrl.trim() || adabWorldLoading}
+                  className="px-4 py-2.5 rounded-none bg-accent-700 hover:bg-accent-700 disabled:opacity-50 text-paper-100 font-bold text-xs"
+                >
+                  {adabWorldLoading ? "جاري الجلب..." : "جلب النص"}
+                </button>
+              </div>
+              {adabWorldError && <p className="text-xs text-red-700">{adabWorldError}</p>}
+              <p className="text-[11px] text-amber-500">
+                قد يرفض هذا المصدر الطلب أحيانًا (حماية آلية ضد الروبوتات) — جرّب مرة أخرى لاحقًا إذا فشل الجلب.
+              </p>
             </div>
           )}
 
