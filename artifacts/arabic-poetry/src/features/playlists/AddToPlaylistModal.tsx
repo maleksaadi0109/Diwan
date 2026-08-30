@@ -4,7 +4,7 @@ import { X, ListMusic, Check, Plus } from "lucide-react";
 import { toArabicDigits } from "@/lib/utils";
 
 interface AddToPlaylistModalProps {
-  poem: Poem;
+  poems: Poem[];
   playlists: Playlist[];
   onClose: () => void;
   onAddToExisting: (playlistId: string) => void;
@@ -12,12 +12,13 @@ interface AddToPlaylistModalProps {
 }
 
 export const AddToPlaylistModal: React.FC<AddToPlaylistModalProps> = ({
-  poem,
+  poems,
   playlists,
   onClose,
   onAddToExisting,
   onCreateAndAdd,
 }) => {
+  const isBulk = poems.length > 1;
   const [newName, setNewName] = useState("");
   const [isCreating, setIsCreating] = useState(playlists.length === 0);
 
@@ -43,7 +44,9 @@ export const AddToPlaylistModal: React.FC<AddToPlaylistModalProps> = ({
             <ListMusic className="w-5 h-5 text-[#D4AF37]" />
             <div>
               <h3 className="text-sm font-bold text-[#F8F9FA]">إضافة إلى قائمة تشغيل</h3>
-              <p className="text-[11px] text-[#A0AAB7] truncate max-w-[260px]">{poem.title}</p>
+              <p className="text-[11px] text-[#A0AAB7] truncate max-w-[260px]">
+                {isBulk ? `${toArabicDigits(poems.length)} قصائد محددة` : poems[0]?.title}
+              </p>
             </div>
           </div>
           <button
@@ -62,7 +65,7 @@ export const AddToPlaylistModal: React.FC<AddToPlaylistModalProps> = ({
           )}
 
           {playlists.map((playlist) => {
-            const alreadyIn = playlist.poemIds.includes(poem.id);
+            const alreadyIn = poems.every((p) => playlist.poemIds.includes(p.id));
             return (
               <button
                 key={playlist.id}

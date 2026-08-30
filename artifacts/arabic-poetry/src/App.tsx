@@ -31,7 +31,7 @@ function AppShell() {
   const [isLoading, setIsLoading] = useState(true);
   const [playlists, setPlaylists] = useState<Playlist[]>([]);
   const [activePlaylist, setActivePlaylist] = useState<Playlist | null>(null);
-  const [addToPlaylistPoem, setAddToPlaylistPoem] = useState<Poem | null>(null);
+  const [addToPlaylistPoems, setAddToPlaylistPoems] = useState<Poem[] | null>(null);
   const {
     controller,
     playerState,
@@ -373,25 +373,29 @@ function AppShell() {
     [repo, refreshPlaylists]
   );
 
-  const handleAddPoemToPlaylist = useCallback(
-    async (playlistId: string, poemId: string) => {
+  const handleAddPoemsToPlaylist = useCallback(
+    async (playlistId: string, poemIds: string[]) => {
       if (!repo) return;
-      await repo.addPoemToPlaylist(playlistId, poemId);
+      for (const poemId of poemIds) {
+        await repo.addPoemToPlaylist(playlistId, poemId);
+      }
       const updated = await refreshPlaylists();
       const refreshed = updated?.find((p) => p.id === playlistId) || null;
       if (refreshed && activePlaylist?.id === playlistId) setActivePlaylist(refreshed);
-      setAddToPlaylistPoem(null);
+      setAddToPlaylistPoems(null);
     },
     [repo, refreshPlaylists, activePlaylist]
   );
 
-  const handleCreatePlaylistAndAddPoem = useCallback(
-    async (name: string, poemId: string) => {
+  const handleCreatePlaylistAndAddPoems = useCallback(
+    async (name: string, poemIds: string[]) => {
       if (!repo) return;
       const created = await repo.createPlaylist(name);
-      await repo.addPoemToPlaylist(created.id, poemId);
+      for (const poemId of poemIds) {
+        await repo.addPoemToPlaylist(created.id, poemId);
+      }
       await refreshPlaylists();
-      setAddToPlaylistPoem(null);
+      setAddToPlaylistPoems(null);
     },
     [repo, refreshPlaylists]
   );
@@ -467,7 +471,8 @@ function AppShell() {
                   onOpenPoem={handleOpenPoem}
                   onNavigateToImport={() => setActiveTab("import")}
                   onDeletePoem={handleDeletePoem}
-                  onAddToPlaylist={setAddToPlaylistPoem}
+                  onAddToPlaylist={(poem) => setAddToPlaylistPoems([poem])}
+                  onBulkAddToPlaylist={(selectedPoems) => setAddToPlaylistPoems(selectedPoems)}
                 />
               )}
 
@@ -546,13 +551,23 @@ function AppShell() {
         )}
       </div>
 
-      {addToPlaylistPoem && (
+      {addToPlaylistPoems && addToPlaylistPoems.length > 0 && (
         <AddToPlaylistModal
-          poem={addToPlaylistPoem}
+          poems={addToPlaylistPoems}
           playlists={playlists}
-          onClose={() => setAddToPlaylistPoem(null)}
-          onAddToExisting={(playlistId) => handleAddPoemToPlaylist(playlistId, addToPlaylistPoem.id)}
-          onCreateAndAdd={(name) => handleCreatePlaylistAndAddPoem(name, addToPlaylistPoem.id)}
+          onClose={() => setAddToPlaylistPoems(null)}
+          onAddToExisting={(playlistId) =>
+            handleAddPoemsToPlaylist(
+              playlistId,
+              addToPlaylistPoems.map((p) => p.id)
+            )
+          }
+          onCreateAndAdd={(name) =>
+            handleCreatePlaylistAndAddPoems(
+              name,
+              addToPlaylistPoems.map((p) => p.id)
+            )
+          }
         />
       )}
     </div>
