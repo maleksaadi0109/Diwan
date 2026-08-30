@@ -300,7 +300,12 @@ export async function transcribeArabicAudio(
     const response = await fetch("/api-worker/transcribe", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      signal: AbortSignal.timeout(2000),
+      // Real ASR (faster-whisper) loads a model and decodes the whole
+      // recording; it can legitimately take minutes, not milliseconds. A
+      // short timeout here silently aborts real transcription and falls
+      // through to the canned browser-preview transcript below, corrupting
+      // every verse's alignment even though the backend was working fine.
+      signal: AbortSignal.timeout(10 * 60 * 1000),
       body: JSON.stringify({
         audio_path: audioPath,
         output_json_path: outputJsonPath,
@@ -405,7 +410,10 @@ export async function alignPoemAudio(
     const response = await fetch("/api-worker/align", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      signal: AbortSignal.timeout(2000),
+      // Forced alignment runs a DP over every poem token vs every ASR word;
+      // long poems can take real time. Same reasoning as transcribe above:
+      // a short timeout here silently falls back to fake alignment data.
+      signal: AbortSignal.timeout(10 * 60 * 1000),
       body: JSON.stringify({
         audio_path: audioPath,
         verses: verses.map((v) => ({
