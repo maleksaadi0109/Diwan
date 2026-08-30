@@ -38,7 +38,7 @@ export const VerseItem: React.FC<VerseItemProps> = ({
   explanationError,
   onRetryExplanation,
 }) => {
-  const [showExplanation, setShowExplanation] = useState(true);
+  const [showExplanation, setShowExplanation] = useState(false);
   const [showConfirmDelete, setShowConfirmDelete] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editFirst, setEditFirst] = useState(verse.firstHemistich);
@@ -80,7 +80,7 @@ export const VerseItem: React.FC<VerseItemProps> = ({
   const hasExplanation = Boolean(verse.explanation || items.length > 0 || explanationStatus !== "idle");
 
   useEffect(() => {
-    setShowExplanation(true);
+    setShowExplanation(false);
   }, [verse.id]);
 
   const renderWords = (text: string) => {
@@ -108,7 +108,6 @@ export const VerseItem: React.FC<VerseItemProps> = ({
       onClick={() => {
         if (onSelectVerse) onSelectVerse(verse);
         else onSeekToVerse(verse);
-        setShowExplanation(true);
       }}
       onDoubleClick={() => {
         if (onOpenExplanation) onOpenExplanation(verse);
