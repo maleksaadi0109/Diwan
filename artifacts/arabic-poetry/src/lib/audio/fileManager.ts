@@ -133,6 +133,8 @@ export function resolveAudioSrc(audioPath: string): string {
   return audioPath.startsWith("/") ? audioPath : `/${audioPath}`;
 }
 
+const blobUrlCache = new Map<string, string>();
+
 /**
  * Asynchronously resolves an audio path into a playable HTML5 Audio URL.
  * In Tauri desktop environments, it reads the audio file bytes via Tauri FS
@@ -149,6 +151,10 @@ export async function resolveAudioSrcAsync(audioPath: string): Promise<string> {
     return audioPath;
   }
 
+  if (blobUrlCache.has(audioPath)) {
+    return blobUrlCache.get(audioPath)!;
+  }
+
   const isAbsolute = audioPath.startsWith("/") || audioPath.includes(":\\") || audioPath.startsWith("\\\\");
   if (!isAbsolute) {
     return `/${audioPath.replace(/^\.?\//, '')}`;
@@ -162,7 +168,9 @@ export async function resolveAudioSrcAsync(audioPath: string): Promise<string> {
       const ext = audioPath.split('.').pop()?.toLowerCase();
       const mime = ext === 'wav' ? 'audio/wav' : ext === 'ogg' ? 'audio/ogg' : ext === 'm4a' ? 'audio/mp4' : 'audio/mpeg';
       const blob = new Blob([bytes], { type: mime });
-      return URL.createObjectURL(blob);
+      const blobUrl = URL.createObjectURL(blob);
+      blobUrlCache.set(audioPath, blobUrl);
+      return blobUrl;
     } catch (err) {
       console.warn("Could not read file via tauri-plugin-fs, falling back to resolveAudioSrc:", err);
       return resolveAudioSrc(audioPath);
