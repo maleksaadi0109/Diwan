@@ -6,12 +6,10 @@ import { AudioControlsBar } from "./AudioControlsBar";
 import { PoemMetadataDrawer } from "./PoemMetadataDrawer";
 import { DictionaryWordModal } from "./DictionaryWordModal";
 import { VerseExplanationModal } from "./VerseExplanationModal";
-import { ExportModal } from "../export/ExportModal";
 import { ImportExplanationModal } from "./ImportExplanationModal";
-import { WaveformDebugView } from "./WaveformDebugView";
 import { FocusModeView } from "./FocusModeView";
 import { usePoemPlayback } from "@/hooks/usePoemPlayback";
-import { Info, BookOpen, AlertCircle, Download, Activity, AudioWaveform, Maximize2, ClipboardPaste } from "lucide-react";
+import { Info, BookOpen, AlertCircle, Maximize2, ClipboardPaste } from "lucide-react";
 import { ParsedExplanationBlock } from "@/lib/import/pasteExplanationParser";
 import { analyzeVerseMeter } from "@/lib/arud/meterDetector";
 import { DiwanRepository } from "@/lib/db/repository";
@@ -56,10 +54,7 @@ export const PoemPlayerView: React.FC<PoemPlayerViewProps> = ({
   const [isFocusMode, setIsFocusMode] = useState(false);
   const [explanationModalVerseId, setExplanationModalVerseId] = useState<string | null>(null);
   const [showMetadata, setShowMetadata] = useState(false);
-  const [showExport, setShowExport] = useState(false);
   const [showImportExplanation, setShowImportExplanation] = useState(false);
-  const [showDebugOverlay, setShowDebugOverlay] = useState(false);
-  const [showWaveformDebug, setShowWaveformDebug] = useState(false);
   const [selectedWord, setSelectedWord] = useState<string | null>(null);
   const [wordDefinition, setWordDefinition] = useState<WordDefinition | null>(null);
   const [isLoadingWord, setIsLoadingWord] = useState(false);
@@ -80,7 +75,6 @@ export const PoemPlayerView: React.FC<PoemPlayerViewProps> = ({
     activeVerseIndex,
     activeVerse,
     errorMessage,
-    fps = 60,
     isUserScrolling,
     handleUserScroll,
     togglePlay,
@@ -214,9 +208,6 @@ export const PoemPlayerView: React.FC<PoemPlayerViewProps> = ({
     poem.bahr
   );
 
-  const activeStartMs = activeVerse?.alignment?.startMs ?? 0;
-  const activeEndMs = activeVerse?.alignment?.endMs ?? 0;
-  const activeDiffMs = currentTimeMs - activeStartMs;
   const selectedVerse =
     poem.verses.find((verse) => verse.id === selectedVerseId) ||
     activeVerse ||
@@ -251,34 +242,6 @@ export const PoemPlayerView: React.FC<PoemPlayerViewProps> = ({
             <span>وضع التركيز</span>
           </button>
 
-          {/* Waveform VAD Debug Toggle */}
-          <button
-            onClick={() => setShowWaveformDebug(!showWaveformDebug)}
-            className={`shrink-0 flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold border transition-all whitespace-nowrap cursor-pointer ${
-              showWaveformDebug
-                ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/40 shadow-sm"
-                : "bg-white/[0.04] text-[#A0AAB7] border-white/10 hover:bg-white/[0.08]"
-            }`}
-            title="مخطط فترات الصمت والكلام (VAD Waveform Map)"
-          >
-            <AudioWaveform className="w-3.5 h-3.5" />
-            <span>مخطط VAD</span>
-          </button>
-
-          {/* Debug Telemetry Toggle */}
-          <button
-            onClick={() => setShowDebugOverlay(!showDebugOverlay)}
-            className={`shrink-0 flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold border transition-all whitespace-nowrap cursor-pointer ${
-              showDebugOverlay
-                ? "bg-[#D4AF37]/20 text-[#F3E19C] border-[#D4AF37]/40 shadow-sm"
-                : "bg-white/[0.04] text-[#A0AAB7] border-white/10 hover:bg-white/[0.08]"
-            }`}
-            title="مؤشرات التزامن المباشرة (Sync Telemetry)"
-          >
-            <Activity className="w-3.5 h-3.5" />
-            <span>مؤشرات التزامن</span>
-          </button>
-
           {onImportExplanations && (
             <button
               onClick={() => setShowImportExplanation(true)}
@@ -289,15 +252,6 @@ export const PoemPlayerView: React.FC<PoemPlayerViewProps> = ({
               <span>استيراد شرح (لصق)</span>
             </button>
           )}
-
-          <button
-            onClick={() => setShowExport(true)}
-            className="shrink-0 flex items-center gap-1.5 px-4 py-1.5 rounded-xl text-xs font-bold bg-gradient-to-r from-[#D4AF37] to-[#B89225] hover:from-[#E6C265] hover:to-[#C9A233] text-[#0A0C10] shadow-[0_0_15px_rgba(212,175,55,0.3)] transition-all whitespace-nowrap cursor-pointer"
-            title="تصدير القصيدة والكلمات المتزامنة (LRC, SRT, JSON)"
-          >
-            <Download className="w-3.5 h-3.5" />
-            <span>تصدير</span>
-          </button>
 
           <button
             onClick={() => setShowMetadata(!showMetadata)}
@@ -313,40 +267,6 @@ export const PoemPlayerView: React.FC<PoemPlayerViewProps> = ({
           </button>
         </div>
       </div>
-
-      {/* Live Synchronization Debug Overlay */}
-      {showDebugOverlay && (
-        <div className="absolute top-24 left-6 z-40 bg-[#13161D]/95 border border-white/10 p-5 rounded-2xl shadow-2xl font-mono text-xs text-[#CED4DA] space-y-2 select-text pointer-events-auto max-w-sm ltr-num backdrop-blur-xl">
-          <div className="flex items-center justify-between text-xs font-bold text-[#D4AF37] border-b border-white/10 pb-2 mb-2">
-            <span>Audio-to-Verse Sync Telemetry</span>
-            <span className="px-2 py-0.5 border border-white/10 rounded-lg text-[#CED4DA]">{fps} FPS</span>
-          </div>
-          <div className="flex justify-between">
-            <span className="text-[#A0AAB7]">Audio currentTime:</span>
-            <span className="font-bold text-[#F8F9FA]">{currentTimeMs} ms ({(currentTimeMs / 1000).toFixed(3)}s)</span>
-          </div>
-          <div className="flex justify-between">
-            <span className="text-[#A0AAB7]">Active Verse Index:</span>
-            <span className="font-bold text-[#F8F9FA]">
-              {activeVerseIndex >= 0 ? `Verse ${activeVerseIndex + 1} of ${poem.verses.length}` : "None"}
-            </span>
-          </div>
-          <div className="flex justify-between">
-            <span className="text-[#A0AAB7]">Verse Boundaries:</span>
-            <span className="text-[#CED4DA]">[{activeStartMs} ms - {activeEndMs} ms]</span>
-          </div>
-          <div className="flex justify-between">
-            <span className="text-[#A0AAB7]">Offset (Current - Start):</span>
-            <span className={activeDiffMs >= 0 ? "text-emerald-400 font-bold" : "text-amber-400 font-bold"}>
-              {activeDiffMs >= 0 ? `+${activeDiffMs}` : activeDiffMs} ms
-            </span>
-          </div>
-          <div className="flex justify-between text-[11px] text-[#A0AAB7] border-t border-white/10 pt-2 mt-2">
-            <span>Clock Source:</span>
-            <span className="text-[#CED4DA] font-semibold">requestAnimationFrame</span>
-          </div>
-        </div>
-      )}
 
       {/* Error banner */}
       {errorMessage && (
@@ -432,16 +352,6 @@ export const PoemPlayerView: React.FC<PoemPlayerViewProps> = ({
         />
       </div>
 
-      {/* Waveform VAD & Boundaries Debug View */}
-      <WaveformDebugView
-        poem={poem}
-        currentTimeMs={currentTimeMs}
-        durationMs={durationMs}
-        activeVerseIndex={activeVerseIndex}
-        isOpen={showWaveformDebug}
-        onClose={() => setShowWaveformDebug(false)}
-      />
-
       {/* Audio Controls Bar */}
       <AudioControlsBar
         isPlaying={isPlaying}
@@ -479,13 +389,6 @@ export const PoemPlayerView: React.FC<PoemPlayerViewProps> = ({
           setSelectedWord(null);
           setWordDefinition(null);
         }}
-      />
-
-      {/* Export Modal */}
-      <ExportModal
-        poem={poem}
-        isOpen={showExport}
-        onClose={() => setShowExport(false)}
       />
 
       {/* Import Explanation (paste) Modal */}
