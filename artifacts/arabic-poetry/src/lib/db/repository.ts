@@ -317,6 +317,85 @@ export class DiwanRepository {
     );
   }
 
+  /**
+   * Applies a "merge_verses" segmentation suggestion: folds `removeVerseId`
+   * into `keepVerseId` (rewriting `keepVerseId`'s hemistichs to the merged
+   * text), migrates any explanations attached to the removed verse onto the
+   * kept one, then deletes the removed verse and closes the order_index gap.
+   * `keepVerseId` must be the earlier verse in poem order.
+   */
+  async mergeVerses(
+    poemId: string,
+    keepVerseId: string,
+    removeVerseId: string,
+    firstHemistich: string,
+    secondHemistich: string
+  ): Promise<void> {
+    await this.updateVerseText(keepVerseId, firstHemistich, secondHemistich);
+    const removedExplanations = await this.getVerseExplanationsByVerseId(removeVerseId);
+    if (removedExplanations.length > 0) {
+      await this.saveVerseExplanations(
+        keepVerseId,
+        removedExplanations.map((exp) => ({ ...exp, id: `${exp.id}-merged`, verseId: keepVerseId }))
+      );
+    }
+    await this.deleteVerse(poemId, removeVerseId);
+  }
+
+  /**
+   * Applies a "split_verse" segmentation suggestion: rewrites `verseId`'s
+   * hemistichs to `firstPair`, then inserts a brand-new verse right after it
+   * holding `secondPair`, shifting every later verse's order_index up by one.
+   * Any alignment/explanations on the original verse stay attached to the
+   * first half; the new second-half verse starts with no alignment (it needs
+   * re-review) and no explanations.
+   */
+  async splitVerse(
+    poemId: string,
+    verseId: string,
+    firstPair: { firstHemistich: string; secondHemistich: string },
+    secondPair: { firstHemistich: string; secondHemistich: string }
+  ): Promise<string> {
+    const rows = await this.adapter.select<VerseRow>(
+      `SELECT * FROM verses WHERE poem_id = ? ORDER BY order_index ASC;`,
+      [poemId]
+    );
+    const target = rows.find((r) => r.id === verseId);
+    if (!target) {
+      throw new Error("تعذر العثور على البيت المطلوب تقسيمه.");
+    }
+
+    await this.updateVerseText(verseId, firstPair.firstHemistich, firstPair.secondHemistich);
+
+    // Shift later verses' order_index up first (descending order) so the
+    // UNIQUE(poem_id, order_index) constraint is never briefly violated.
+    const toShift = rows
+      .filter((r) => r.order_index > target.order_index)
+      .sort((a, b) => b.order_index - a.order_index);
+    for (const row of toShift) {
+      await this.adapter.execute(`UPDATE verses SET order_index = order_index + 1 WHERE id = ?;`, [row.id]);
+    }
+
+    const newVerseId = `${verseId}-split-${Date.now()}`;
+    const newText = `${secondPair.firstHemistich} ${secondPair.secondHemistich}`.trim();
+    await this.saveVerse({
+      id: newVerseId,
+      poemId,
+      orderIndex: target.order_index + 1,
+      text: newText,
+      normalizedText: normalizeArabic(newText),
+      firstHemistich: secondPair.firstHemistich,
+      secondHemistich: secondPair.secondHemistich,
+    });
+
+    await this.adapter.execute(
+      `UPDATE poems SET verses_count = (SELECT COUNT(*) FROM verses WHERE poem_id = ?), updated_at = CURRENT_TIMESTAMP WHERE id = ?;`,
+      [poemId, poemId]
+    );
+
+    return newVerseId;
+  }
+
   async saveVerse(verse: Verse): Promise<void> {
     const sql = `
       INSERT OR REPLACE INTO verses (
