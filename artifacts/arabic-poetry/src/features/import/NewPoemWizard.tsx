@@ -423,7 +423,7 @@ export const NewPoemWizard: React.FC<NewPoemWizardProps> = ({ onFinishWizard }) 
                   value={mizanUrl}
                   onChange={(e) => setMizanUrl(e.target.value)}
                   placeholder="https://mizanalarab.com/poem/12345"
-                  className="flex-1 bg-white text-ink-900 border border-paper-500 rounded-none px-4 py-2.5 text-xs focus:border-accent-700 ltr-num"
+                  className="flex-1 bg-paper-200 text-ink-900 placeholder-ink-500 border border-paper-500 rounded-none px-4 py-2.5 text-xs focus:outline-none focus:border-accent-700 ltr-num"
                 />
                 <button
                   type="button"
@@ -447,7 +447,7 @@ export const NewPoemWizard: React.FC<NewPoemWizardProps> = ({ onFinishWizard }) 
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 placeholder="عنوان القصيدة"
-                className="w-full bg-white text-ink-900 border border-paper-500 rounded-none px-4 py-2 text-xs focus:border-accent-700"
+                className="w-full bg-paper-200 text-ink-900 placeholder-ink-500 border border-paper-500 rounded-none px-4 py-2 text-xs focus:outline-none focus:border-accent-700"
               />
             </div>
             <div>
@@ -457,7 +457,7 @@ export const NewPoemWizard: React.FC<NewPoemWizardProps> = ({ onFinishWizard }) 
                 value={poetName}
                 onChange={(e) => setPoetName(e.target.value)}
                 placeholder="اسم الشاعر"
-                className="w-full bg-white text-ink-900 border border-paper-500 rounded-none px-4 py-2 text-xs focus:border-accent-700"
+                className="w-full bg-paper-200 text-ink-900 placeholder-ink-500 border border-paper-500 rounded-none px-4 py-2 text-xs focus:outline-none focus:border-accent-700"
               />
             </div>
           </div>
@@ -472,7 +472,7 @@ export const NewPoemWizard: React.FC<NewPoemWizardProps> = ({ onFinishWizard }) 
               value={versesRaw}
               onChange={(e) => setVersesRaw(e.target.value)}
               placeholder="واحَرَّ قَلباهُ مِمَّن قَلبُهُ شَبِمُ — وَمَن بِجِسمي وَحالي عِندَهُ سَقَمُ"
-              className="w-full bg-white text-ink-900 border border-paper-500 rounded-none p-3 text-xs font-heading leading-relaxed focus:border-accent-700"
+              className="w-full bg-paper-200 text-ink-900 placeholder-ink-500 border border-paper-500 rounded-none p-3 text-xs font-heading leading-relaxed focus:outline-none focus:border-accent-700"
             />
           </div>
 
@@ -544,7 +544,7 @@ export const NewPoemWizard: React.FC<NewPoemWizardProps> = ({ onFinishWizard }) 
                   value={youtubeUrl}
                   onChange={(e) => setYoutubeUrl(e.target.value)}
                   placeholder="https://www.youtube.com/watch?v=..."
-                  className="flex-1 bg-white text-ink-900 border border-paper-500 rounded-none px-4 py-2.5 text-xs focus:border-accent-700 ltr-num"
+                  className="flex-1 bg-paper-200 text-ink-900 placeholder-ink-500 border border-paper-500 rounded-none px-4 py-2.5 text-xs focus:outline-none focus:border-accent-700 ltr-num"
                 />
                 <button
                   type="button"
