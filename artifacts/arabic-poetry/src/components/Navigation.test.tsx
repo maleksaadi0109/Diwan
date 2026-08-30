@@ -16,7 +16,6 @@ describe("Navigation component", () => {
     expect(screen.getByText("دِيـــوَان")).toBeInTheDocument();
     expect(screen.getByText("المكتبة")).toBeInTheDocument();
     expect(screen.getByText("المشغّل والمزامنة")).toBeInTheDocument();
-    expect(screen.getByText("محرر الحدود الزمنية")).toBeInTheDocument();
     expect(screen.getByText("استيراد قصيدة")).toBeInTheDocument();
     expect(screen.getByText("الإعدادات")).toBeInTheDocument();
   });

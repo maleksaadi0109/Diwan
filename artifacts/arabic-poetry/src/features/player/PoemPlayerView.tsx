@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Poem, Verse, VerseExplanationItem, WordDefinition } from "@/types";
 import { VerseExplanationStatus, VerseItem } from "./VerseItem";
-import { VerseSyncPanel } from "./VerseSyncPanel";
 import { AudioControlsBar } from "./AudioControlsBar";
 import { PoemMetadataDrawer } from "./PoemMetadataDrawer";
 import { DictionaryWordModal } from "./DictionaryWordModal";
@@ -17,19 +16,7 @@ import { MizanAlArabProvider } from "@/lib/providers/MizanAlArabProvider";
 
 interface PoemPlayerViewProps {
   poem: Poem;
-  onUpdateBoundary?: (
-    alignmentId: string,
-    startMs: number,
-    endMs: number,
-    status?: "reviewed" | "manual"
-  ) => Promise<void> | void;
-  onCreateBoundary?: (verseId: string, startMs: number, endMs: number) => Promise<void> | void;
   onSaveExplanations?: (verseId: string, items: VerseExplanationItem[]) => Promise<void>;
-  onApplyOffset?: (
-    verseId: string,
-    offsetMs: number,
-    includeFollowing: boolean
-  ) => Promise<void>;
   onDeleteVerse?: (verseId: string) => Promise<void> | void;
   onEditVerse?: (verseId: string, firstHemistich: string, secondHemistich: string) => Promise<void> | void;
   onImportExplanations?: (blocks: ParsedExplanationBlock[]) => Promise<void> | void;
@@ -43,10 +30,7 @@ interface ExplanationViewState {
 
 export const PoemPlayerView: React.FC<PoemPlayerViewProps> = ({
   poem,
-  onUpdateBoundary,
-  onCreateBoundary,
   onSaveExplanations,
-  onApplyOffset,
   onDeleteVerse,
   onEditVerse,
   onImportExplanations,
@@ -208,12 +192,6 @@ export const PoemPlayerView: React.FC<PoemPlayerViewProps> = ({
     poem.bahr
   );
 
-  const selectedVerse =
-    poem.verses.find((verse) => verse.id === selectedVerseId) ||
-    activeVerse ||
-    poem.verses[0] ||
-    null;
-
   return (
     <div className="h-full flex flex-col justify-between overflow-hidden bg-[#080A0E] text-[#F8F9FA] relative">
       {/* Header bar within Player */}
@@ -284,34 +262,6 @@ export const PoemPlayerView: React.FC<PoemPlayerViewProps> = ({
           onScroll={handleUserScroll}
           className="flex-1 overflow-y-auto px-6 md:px-12 py-8 space-y-5 max-w-4xl mx-auto w-full scroll-smooth"
         >
-          {selectedVerse && (
-            <VerseSyncPanel
-              verse={selectedVerse}
-              verses={poem.verses}
-              currentTimeMs={currentTimeMs}
-              durationMs={durationMs}
-              isPlaying={isPlaying}
-              onSeek={seekTo}
-              onTogglePlay={togglePlay}
-              onSave={async (alignmentId, startMs, endMs, status) => {
-                if (!onUpdateBoundary) {
-                  throw new Error("لا توجد صلاحية لحفظ تصحيح التوقيت.");
-                }
-                await onUpdateBoundary(alignmentId, startMs, endMs, status);
-              }}
-              onCreate={
-                onCreateBoundary
-                  ? (verseId, startMs, endMs) => onCreateBoundary(verseId, startMs, endMs)
-                  : undefined
-              }
-              onApplyOffset={
-                onApplyOffset
-                  ? (offsetMs, includeFollowing) =>
-                      onApplyOffset(selectedVerse.id, offsetMs, includeFollowing)
-                  : undefined
-              }
-            />
-          )}
           {poem.verses.map((verse, index) => (
             <VerseItem
               key={verse.id}

@@ -1,5 +1,5 @@
 import React from "react";
-import { BookOpen, PlayCircle, Sliders, PlusCircle, Settings, Feather } from "lucide-react";
+import { BookOpen, PlayCircle, PlusCircle, Settings, Feather } from "lucide-react";
 import { ActiveTab } from "@/types";
 import { cn, toArabicDigits } from "@/lib/utils";
 
@@ -27,12 +27,6 @@ export const Navigation: React.FC<NavigationProps> = ({
       id: "player" as ActiveTab,
       label: "المشغّل والمزامنة",
       icon: PlayCircle,
-      disabled: !hasActivePoem,
-    },
-    {
-      id: "editor" as ActiveTab,
-      label: "محرر الحدود الزمنية",
-      icon: Sliders,
       disabled: !hasActivePoem,
     },
     {
