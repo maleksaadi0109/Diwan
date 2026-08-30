@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Era, Bahr, Poem } from "@/types";
 import { normalizeArabic } from "@/lib/utils";
-import { Upload, CheckCircle, Music, Mic, Wand2, Globe, Edit3, Save, Sparkles, BookMarked } from "lucide-react";
+import { Upload, CheckCircle, Music, Mic, Wand2, Edit3, Save, Sparkles, BookMarked } from "lucide-react";
 import { YoutubeIcon } from "@/components/icons/YoutubeIcon";
 import { pickAudioFile, copyAudioToAppData } from "@/lib/audio/fileManager";
 import {
@@ -12,7 +12,6 @@ import {
   PoemAlignmentResponse,
 } from "@/lib/worker/workerClient";
 import { TranscriptionModal } from "./TranscriptionModal";
-import { MizanImportView } from "./MizanImportView";
 import { AdabWorldImportView } from "./AdabWorldImportView";
 import { YouTubeImportView } from "./YouTubeImportView";
 import { NewPoemWizard } from "./NewPoemWizard";
@@ -21,7 +20,7 @@ interface ImportViewProps {
   onImportPoem: (poem: Poem) => void;
 }
 
-type ImportTab = "wizard" | "mizan" | "adabworld" | "youtube" | "manual";
+type ImportTab = "wizard" | "adabworld" | "youtube" | "manual";
 
 const ERAS: Era[] = [
   "جاهلي",
@@ -283,17 +282,6 @@ export const ImportView: React.FC<ImportViewProps> = ({ onImportPoem }) => {
             <span>المعالج الشامل</span>
           </button>
           <button
-            onClick={() => setActiveTab("mizan")}
-            className={`px-4 py-2 text-[14px] font-bold font-ui transition-colors flex items-center gap-2 ${
-              activeTab === "mizan"
-                ? "bg-accent-700 text-paper-100 border border-accent-700"
-                : "bg-transparent text-ink-700 hover:bg-paper-300 hover:text-ink-900 border border-transparent"
-            }`}
-          >
-            <Globe className="w-4 h-4" />
-            <span>ميزان العرب</span>
-          </button>
-          <button
             onClick={() => setActiveTab("adabworld")}
             className={`px-4 py-2 text-[14px] font-bold font-ui transition-colors flex items-center gap-2 ${
               activeTab === "adabworld"
@@ -331,9 +319,6 @@ export const ImportView: React.FC<ImportViewProps> = ({ onImportPoem }) => {
 
       {/* Tab 1: Wizard */}
       {activeTab === "wizard" && <NewPoemWizard onFinishWizard={onImportPoem} />}
-
-      {/* Tab 2: Mizan Al-Arab */}
-      {activeTab === "mizan" && <MizanImportView onPoemImported={onImportPoem} />}
 
       {/* Tab 2b: Adab World */}
       {activeTab === "adabworld" && <AdabWorldImportView onPoemImported={onImportPoem} />}

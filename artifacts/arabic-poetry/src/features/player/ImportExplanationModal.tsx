@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Verse } from "@/types";
-import { ClipboardPaste, X, CheckCircle2, AlertTriangle, Loader2 } from "lucide-react";
+import { ClipboardPaste, X, CheckCircle2, AlertTriangle, Loader2, Clipboard } from "lucide-react";
 import { parsePasteExplanationText, ParsedExplanationBlock } from "@/lib/import/pasteExplanationParser";
 
 interface ImportExplanationModalProps {
@@ -16,6 +16,24 @@ export const ImportExplanationModal: React.FC<ImportExplanationModalProps> = ({ 
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
+  const [clipboardError, setClipboardError] = useState<string | null>(null);
+
+  const handlePasteFromClipboard = async () => {
+    setClipboardError(null);
+    try {
+      const text = await navigator.clipboard.readText();
+      if (!text || !text.trim()) {
+        setClipboardError("الحافظة فارغة — انسخ النص أولاً من الموقع.");
+        return;
+      }
+      setRawText(text);
+      setPreview(null);
+      setParseError(null);
+      setDone(false);
+    } catch {
+      setClipboardError("تعذّر الوصول إلى الحافظة تلقائيًا. الصق النص يدويًا في الصندوق أدناه (Ctrl+V).");
+    }
+  };
 
   const handlePreview = () => {
     setSaveError(null);
@@ -74,10 +92,26 @@ export const ImportExplanationModal: React.FC<ImportExplanationModalProps> = ({ 
 
         {/* Body */}
         <div className="p-6 space-y-4 overflow-y-auto select-text">
-          <p className="text-xs text-[#A0AAB7] font-sans leading-relaxed">
-            انسخ نص الشرح كاملاً من الموقع (ملخص القصيدة، الشرح العام، ثم كل بيت مع شرحه ومفرداته) والصقه هنا. سيحاول
-            التطبيق مطابقة كل بيت في النص مع أبيات هذه القصيدة تلقائيًا.
-          </p>
+          <div className="bg-black/20 border border-white/[0.06] rounded-2xl p-4 space-y-2">
+            <p className="text-xs font-bold text-[#F3E19C] font-sans">الخطوات:</p>
+            <ol className="text-xs text-[#A0AAB7] font-sans leading-relaxed list-decimal pr-4 space-y-1">
+              <li>افتح صفحة شرح القصيدة في الموقع المصدر.</li>
+              <li>حدد كل نص الصفحة (Ctrl+A) وانسخه (Ctrl+C).</li>
+              <li>ارجع هنا واضغط "لصق من الحافظة"، أو الصق يدويًا (Ctrl+V) في الصندوق أدناه.</li>
+            </ol>
+          </div>
+
+          <div className="flex items-center justify-between gap-3">
+            <button
+              type="button"
+              onClick={handlePasteFromClipboard}
+              className="shrink-0 flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold bg-white/[0.08] hover:bg-white/[0.14] text-[#F8F9FA] transition-colors"
+            >
+              <Clipboard className="w-3.5 h-3.5 text-[#D4AF37]" />
+              <span>لصق من الحافظة</span>
+            </button>
+            {clipboardError && <p className="text-[11px] text-amber-400 font-sans">{clipboardError}</p>}
+          </div>
 
           <textarea
             rows={10}

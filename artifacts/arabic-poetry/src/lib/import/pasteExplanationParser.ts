@@ -135,7 +135,7 @@ export function parsePasteExplanationText(rawText: string, verses: Verse[]): Par
         id: makeId("prose"),
         verseId: cur.verse.id,
         text: cur.prose.join("\n\n"),
-        sourceTitle: "شرح ملصوق يدويًا",
+        sourceTitle: "الشرح",
         explanationType: "manual",
         provider: "manual_paste",
       });
@@ -145,7 +145,7 @@ export function parsePasteExplanationText(rawText: string, verses: Verse[]): Par
         id: makeId("glossary"),
         verseId: cur.verse.id,
         text: `${g.term}: ${g.meaning}`,
-        sourceTitle: "معجم ملصوق يدويًا",
+        sourceTitle: "المعجم",
         explanationType: "classical",
         provider: "manual_paste",
       });
@@ -218,7 +218,7 @@ export function parsePasteExplanationText(rawText: string, verses: Verse[]): Par
       id: makeId("overview"),
       verseId: matched[0].verseId,
       text: preVerseProse.join("\n\n"),
-      sourceTitle: "ملخص ونظرة عامة على القصيدة (ملصوق يدويًا)",
+      sourceTitle: "ملخص ونظرة عامة على القصيدة",
       explanationType: "manual",
       provider: "manual_paste",
     });
