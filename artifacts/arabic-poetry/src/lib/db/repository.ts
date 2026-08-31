@@ -75,8 +75,14 @@ export class DiwanRepository {
   // --- Poet Methods ---
   async savePoet(poet: Poet): Promise<void> {
     const sql = `
-      INSERT OR REPLACE INTO poets (id, name, era, bio, birth_year, death_year)
-      VALUES (?, ?, ?, ?, ?, ?);
+      INSERT INTO poets (id, name, era, bio, birth_year, death_year)
+      VALUES (?, ?, ?, ?, ?, ?)
+      ON CONFLICT(id) DO UPDATE SET
+        name = excluded.name,
+        era = excluded.era,
+        bio = excluded.bio,
+        birth_year = excluded.birth_year,
+        death_year = excluded.death_year;
     `;
     await this.adapter.execute(sql, [
       poet.id,
@@ -132,12 +138,29 @@ export class DiwanRepository {
     }
 
     const sql = `
-      INSERT OR REPLACE INTO poems (
+      INSERT INTO poems (
         id, title, poet_id, era, bahr, rhyme, description, verses_count, tags,
         default_recording_id, external_provider, external_id, source_url, theme, verified,
         cover_image_url, updated_at
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP);
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+      ON CONFLICT(id) DO UPDATE SET
+        title = excluded.title,
+        poet_id = excluded.poet_id,
+        era = excluded.era,
+        bahr = excluded.bahr,
+        rhyme = excluded.rhyme,
+        description = excluded.description,
+        verses_count = excluded.verses_count,
+        tags = excluded.tags,
+        default_recording_id = excluded.default_recording_id,
+        external_provider = excluded.external_provider,
+        external_id = excluded.external_id,
+        source_url = excluded.source_url,
+        theme = excluded.theme,
+        verified = excluded.verified,
+        cover_image_url = excluded.cover_image_url,
+        updated_at = CURRENT_TIMESTAMP;
     `;
     await this.adapter.execute(sql, [
       poem.id,
@@ -262,6 +285,10 @@ export class DiwanRepository {
 
   async deletePoem(id: string): Promise<void> {
     await this.adapter.execute(
+      `DELETE FROM playlist_poems WHERE poem_id = ?;`,
+      [id]
+    );
+    await this.adapter.execute(
       `DELETE FROM verse_alignments WHERE verse_id IN (SELECT id FROM verses WHERE poem_id = ?);`,
       [id]
     );
@@ -272,6 +299,21 @@ export class DiwanRepository {
     await this.adapter.execute(`DELETE FROM verses WHERE poem_id = ?;`, [id]);
     await this.adapter.execute(`DELETE FROM recordings WHERE poem_id = ?;`, [id]);
     await this.adapter.execute(`DELETE FROM poems WHERE id = ?;`, [id]);
+  }
+
+  async deletePoems(ids: string[]): Promise<void> {
+    for (const id of ids) {
+      await this.deletePoem(id);
+    }
+  }
+
+  async deleteAllPoems(): Promise<void> {
+    await this.adapter.execute(`DELETE FROM playlist_poems;`);
+    await this.adapter.execute(`DELETE FROM verse_alignments;`);
+    await this.adapter.execute(`DELETE FROM verse_explanations;`);
+    await this.adapter.execute(`DELETE FROM verses;`);
+    await this.adapter.execute(`DELETE FROM recordings;`);
+    await this.adapter.execute(`DELETE FROM poems;`);
   }
 
   // --- Verse Methods ---

@@ -2,6 +2,7 @@ import React, { createContext, useCallback, useContext, useEffect, useRef, useSt
 import { Poem, RepeatMode } from "@/types";
 import { AudioController, AudioPlayerState } from "@/lib/audio/AudioController";
 import { resolveAudioSrcAsync } from "@/lib/audio/fileManager";
+import { SystemMediaSessionManager } from "@/lib/audio/mediaSession";
 
 interface AudioPlayerContextValue {
   controller: AudioController;
@@ -24,9 +25,17 @@ interface AudioPlayerContextValue {
   cycleRepeatMode: () => void;
   playNextInQueue: () => void;
   playPreviousInQueue: () => void;
+  // Background playback & Telegram-style close-to-tray
+  closeToTray: boolean;
+  setCloseToTray: (enabled: boolean) => void;
+  mediaSessionEnabled: boolean;
+  setMediaSessionEnabled: (enabled: boolean) => void;
 }
 
 const AudioPlayerContext = createContext<AudioPlayerContextValue | null>(null);
+
+const STORAGE_CLOSE_TO_TRAY = "diwan-close-to-tray";
+const STORAGE_MEDIA_SESSION = "diwan-media-session-enabled";
 
 export function AudioPlayerProvider({ children }: { children: React.ReactNode }) {
   const controllerRef = useRef<AudioController | null>(null);
@@ -43,16 +52,63 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
   const [shuffle, setShuffle] = useState(false);
   const [repeatMode, setRepeatMode] = useState<RepeatMode>("off");
 
+  // Background play settings
+  const [closeToTray, setCloseToTrayState] = useState<boolean>(() => {
+    if (typeof localStorage === "undefined") return true;
+    const stored = localStorage.getItem(STORAGE_CLOSE_TO_TRAY);
+    return stored === null ? true : stored === "true";
+  });
+
+  const [mediaSessionEnabled, setMediaSessionEnabledState] = useState<boolean>(() => {
+    if (typeof localStorage === "undefined") return true;
+    const stored = localStorage.getItem(STORAGE_MEDIA_SESSION);
+    return stored === null ? true : stored === "true";
+  });
+
+  const setCloseToTray = useCallback((enabled: boolean) => {
+    setCloseToTrayState(enabled);
+    if (typeof localStorage !== "undefined") {
+      localStorage.setItem(STORAGE_CLOSE_TO_TRAY, String(enabled));
+    }
+    // Update Tauri backend if running as desktop app
+    if (typeof window !== "undefined" && ("__TAURI_INTERNALS__" in window || "__TAURI__" in window)) {
+      import("@tauri-apps/api/core")
+        .then(({ invoke }) => {
+          invoke("set_close_to_tray", { enabled }).catch(() => {});
+        })
+        .catch(() => {});
+    }
+  }, []);
+
+  const setMediaSessionEnabled = useCallback((enabled: boolean) => {
+    setMediaSessionEnabledState(enabled);
+    if (typeof localStorage !== "undefined") {
+      localStorage.setItem(STORAGE_MEDIA_SESSION, String(enabled));
+    }
+  }, []);
+
+  // Sync initial close-to-tray setting with Tauri backend
+  useEffect(() => {
+    if (typeof window !== "undefined" && ("__TAURI_INTERNALS__" in window || "__TAURI__" in window)) {
+      import("@tauri-apps/api/core")
+        .then(({ invoke }) => {
+          invoke("set_close_to_tray", { enabled: closeToTray }).catch(() => {});
+        })
+        .catch(() => {});
+    }
+  }, [closeToTray]);
+
   const lastLoadedPoemIdRef = useRef<string | null>(null);
   const lastLoadedAudioPathRef = useRef<string | null>(null);
   const loadRequestIdRef = useRef(0);
 
-  // Mirror the latest queue state in refs so the "ended" effect below can
-  // read up-to-date values without re-subscribing on every state change.
+  // Mirror the latest queue state in refs so effects can read up-to-date values
   const queueRef = useRef<Poem[]>([]);
   const queueIndexRef = useRef(-1);
   const shuffleRef = useRef(false);
   const repeatModeRef = useRef<RepeatMode>("off");
+  const currentPoemRef = useRef<Poem | null>(null);
+
   useEffect(() => {
     queueRef.current = queue;
   }, [queue]);
@@ -65,6 +121,9 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
   useEffect(() => {
     repeatModeRef.current = repeatMode;
   }, [repeatMode]);
+  useEffect(() => {
+    currentPoemRef.current = currentPoem;
+  }, [currentPoem]);
 
   useEffect(() => {
     const unsubscribe = controller.subscribe(setPlayerState);
@@ -74,8 +133,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
   const loadPoem = useCallback(
     (poem: Poem, options?: { fromQueue?: boolean; autoplay?: boolean }) => {
       if (!options?.fromQueue) {
-        // Loading a poem outside of queue navigation (e.g. opening it
-        // directly from the library) exits any active playlist queue.
+        // Loading a poem outside of queue navigation exits any active playlist queue.
         setQueue([]);
         setQueueIndex(-1);
         setActivePlaylistId(null);
@@ -98,9 +156,6 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
         lastLoadedAudioPathRef.current !== audioPath;
 
       if (!isNewPoemOrTrack) {
-        // Same poem/track already loaded (e.g. navigating back to the
-        // player while it keeps playing) -- verses were already re-synced
-        // above, don't touch the audio element or reset playback.
         if (options?.autoplay) controller.play();
         return;
       }
@@ -108,10 +163,6 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
       const requestId = ++loadRequestIdRef.current;
 
       if (audioPath) {
-        // Stop and detach the previous track before resolving the new source.
-        // Desktop source preparation can be asynchronous (and may create a
-        // seek-stable WAV on first play); letting the old element keep playing
-        // during that work mixes the previous audio with the new poem/verses.
         controller.loadAudio("", defaultDuration);
         resolveAudioSrcAsync(audioPath).then((audioUrl) => {
           if (requestId !== loadRequestIdRef.current) return;
@@ -184,7 +235,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
       if (repeatModeRef.current === "all") {
         nextIndex = 0;
       } else {
-        return; // End of queue, nothing left to play.
+        return; // End of queue
       }
     }
     goToQueueIndex(nextIndex, true);
@@ -223,6 +274,74 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     playNextInQueue();
   }, [playerState.status, controller, playNextInQueue]);
 
+  // System MediaSession synchronization (OS Media Keys & Background playback like Telegram)
+  useEffect(() => {
+    if (!mediaSessionEnabled) return;
+
+    SystemMediaSessionManager.updateMetadata(currentPoem);
+    SystemMediaSessionManager.updatePlaybackState(playerState.isPlaying);
+    SystemMediaSessionManager.updatePositionState(
+      playerState.currentTimeMs,
+      playerState.durationMs,
+      playerState.playbackRate
+    );
+
+    const cleanupHandlers = SystemMediaSessionManager.registerHandlers({
+      onPlay: () => controller.play(),
+      onPause: () => controller.pause(),
+      onNext: () => playNextInQueue(),
+      onPrevious: () => playPreviousInQueue(),
+      onSeekTo: (timeSeconds) => controller.seekTo(timeSeconds * 1000),
+      onSeekForward: () => controller.seekTo(controller.getState().currentTimeMs + 10000),
+      onSeekBackward: () => controller.seekTo(controller.getState().currentTimeMs - 10000),
+    });
+
+    return () => {
+      cleanupHandlers();
+    };
+  }, [
+    mediaSessionEnabled,
+    currentPoem,
+    playerState.isPlaying,
+    playerState.currentTimeMs,
+    playerState.durationMs,
+    playerState.playbackRate,
+    controller,
+    playNextInQueue,
+    playPreviousInQueue,
+  ]);
+
+  // Tauri System Tray Event Listeners (Control background playback from Tray icon menu)
+  useEffect(() => {
+    if (typeof window === "undefined" || !("__TAURI_INTERNALS__" in window || "__TAURI__" in window)) {
+      return;
+    }
+
+    let unlistenList: Array<() => void> = [];
+
+    import("@tauri-apps/api/event")
+      .then(({ listen }) => {
+        Promise.all([
+          listen("tray-toggle-playback", () => {
+            controller.togglePlay();
+          }),
+          listen("tray-next-track", () => {
+            playNextInQueue();
+          }),
+          listen("tray-previous-track", () => {
+            playPreviousInQueue();
+          }),
+        ]).then((unlisteners) => {
+          unlistenList = unlisteners;
+        });
+      })
+      .catch(() => {});
+
+    return () => {
+      unlistenList.forEach((fn) => fn());
+    };
+  }, [controller, playNextInQueue, playPreviousInQueue]);
+
   const value: AudioPlayerContextValue = {
     controller,
     playerState,
@@ -240,6 +359,10 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     cycleRepeatMode,
     playNextInQueue,
     playPreviousInQueue,
+    closeToTray,
+    setCloseToTray,
+    mediaSessionEnabled,
+    setMediaSessionEnabled,
   };
 
   return <AudioPlayerContext.Provider value={value}>{children}</AudioPlayerContext.Provider>;
