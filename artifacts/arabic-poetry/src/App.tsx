@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { ActiveTab, Playlist, Poem, Verse, VerseExplanationItem, VerseSegmentationSuggestion } from "./types";
+import { ActiveTab, Playlist, Poem, Verse, VerseExplanationItem, VerseSegmentationSuggestion, WordDefinition } from "./types";
 import { Navigation } from "./components/Navigation";
 import { Header } from "./components/Header";
 import { MiniPlayer } from "./components/MiniPlayer";
@@ -95,9 +95,14 @@ function AppShell() {
   };
 
   const handleImportPoem = useCallback(
-    async (newPoem: Poem) => {
+    async (newPoem: Poem, wordDefinitions?: WordDefinition[]) => {
       if (repo) {
         await repo.savePoem(newPoem);
+        if (wordDefinitions && wordDefinitions.length > 0) {
+          for (const def of wordDefinitions) {
+            await repo.saveWordDefinition(def);
+          }
+        }
         const updatedPoems = await repo.getAllPoems();
         setPoems(updatedPoems);
         setActivePoem(newPoem);

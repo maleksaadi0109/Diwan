@@ -13,15 +13,16 @@ import {
   PoemAlignmentResponse,
 } from "@/lib/worker/workerClient";
 import { TranscriptionModal } from "./TranscriptionModal";
-import { MizanImportView } from "./MizanImportView";
+import { AldiwanImportView } from "./AldiwanImportView";
 import { YouTubeImportView } from "./YouTubeImportView";
 import { NewPoemWizard } from "./NewPoemWizard";
+import { WordDefinition } from "@/types";
 
 interface ImportViewProps {
-  onImportPoem: (poem: Poem) => void;
+  onImportPoem: (poem: Poem, wordDefinitions?: WordDefinition[]) => void;
 }
 
-type ImportTab = "wizard" | "mizan" | "youtube" | "manual";
+type ImportTab = "wizard" | "aldiwan" | "youtube" | "manual";
 
 const ERAS: Era[] = [
   "جاهلي",
@@ -285,15 +286,15 @@ export const ImportView: React.FC<ImportViewProps> = ({ onImportPoem }) => {
             <span>المعالج الذكي</span>
           </button>
           <button
-            onClick={() => setActiveTab("mizan")}
+            onClick={() => setActiveTab("aldiwan")}
             className={`px-4 py-2.5 text-xs font-bold font-sans transition-all flex items-center gap-2 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-700 ${
-              activeTab === "mizan"
+              activeTab === "aldiwan"
                 ? "bg-accent-700 text-charcoal-950 shadow-md"
                 : "bg-transparent text-ink-500 hover:bg-white/5 hover:text-parchment-100"
             }`}
           >
             <Globe className="w-4 h-4" />
-            <span>ميزان العرب</span>
+            <span>الديوان (aldiwan.net)</span>
           </button>
           <button
             onClick={() => setActiveTab("youtube")}
@@ -323,8 +324,8 @@ export const ImportView: React.FC<ImportViewProps> = ({ onImportPoem }) => {
       {/* Tab 1: Wizard */}
       {activeTab === "wizard" && <NewPoemWizard onFinishWizard={onImportPoem} />}
 
-      {/* Tab 2: Mizan Al-Arab */}
-      {activeTab === "mizan" && <MizanImportView onPoemImported={onImportPoem} />}
+      {/* Tab 2: Aldiwan.net */}
+      {activeTab === "aldiwan" && <AldiwanImportView onPoemImported={onImportPoem} />}
 
       {/* Tab 3: YouTube */}
       {activeTab === "youtube" && (
