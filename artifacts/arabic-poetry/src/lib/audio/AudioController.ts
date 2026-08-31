@@ -171,10 +171,20 @@ export class AudioController {
 
     this.audio.addEventListener("ended", () => {
       this.stopPrecisionLoop();
+      // Use the audio element's own real position/duration rather than the
+      // possibly-stale `state.durationMs` fallback (e.g. seeded from DB
+      // metadata before the real file metadata loaded). Trusting a wrong,
+      // larger `durationMs` here would make the UI display/seek past the
+      // real end of the file.
+      const realEndMs =
+        this.audio && isFinite(this.audio.duration)
+          ? Math.round(this.audio.duration * 1000)
+          : this.state.durationMs;
       this.updateState({
         isPlaying: false,
         status: "ended",
-        currentTimeMs: this.state.durationMs,
+        currentTimeMs: realEndMs,
+        durationMs: realEndMs,
       });
     });
 
