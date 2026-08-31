@@ -736,6 +736,26 @@ export class DiwanRepository {
     await this.adapter.execute(sql, [startMs, endMs, status, confidence ?? null, alignmentId]);
   }
 
+  /**
+   * Applies a batch of alignment boundary updates (used to move a shared
+   * boundary on both the verse before and the verse after it together) as a
+   * single all-or-nothing unit via `DatabaseAdapter.transaction` -- a real
+   * BEGIN/COMMIT/ROLLBACK for the SQL-backed adapters, and a full
+   * snapshot/restore for the in-memory browser fallback. If any update in
+   * the batch throws, every update already applied in this call is undone
+   * by the adapter itself before the error propagates, so a partial failure
+   * can never leave two adjacent verses with a mismatched boundary.
+   */
+  async applyAlignmentBoundaryUpdates(
+    updates: { alignmentId: string; startMs: number; endMs: number; status: AlignmentStatus; confidence?: number }[]
+  ): Promise<void> {
+    await this.adapter.transaction(async () => {
+      for (const update of updates) {
+        await this.updateAlignmentBoundary(update.alignmentId, update.startMs, update.endMs, update.status, update.confidence);
+      }
+    });
+  }
+
   async getAlignmentByVerseId(verseId: string, recordingId?: string): Promise<VerseAlignment | null> {
     const rows = recordingId
       ? await this.adapter.select<VerseAlignmentRow>(

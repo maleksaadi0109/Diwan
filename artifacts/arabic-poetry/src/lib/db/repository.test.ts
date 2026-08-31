@@ -657,4 +657,190 @@ describe("Diwan SQLite Repository", () => {
       expect(await repo.getAllPoems()).toHaveLength(0);
     });
   });
+
+  describe("applyAlignmentBoundaryUpdates", () => {
+    async function seedTwoVerseRecording(suffix: string) {
+      const poetId = `poet-${suffix}`;
+      const poemId = `poem-${suffix}`;
+      const recordingId = `rec-${suffix}`;
+      await repo.savePoet({ id: poetId, name: "شاعر", era: "عباسي" });
+      await repo.savePoem({
+        id: poemId,
+        title: "قصيدة اختبار",
+        poet: { id: poetId, name: "شاعر", era: "عباسي" },
+        era: "عباسي",
+        bahr: "البسيط",
+        rhyme: "الميم",
+        versesCount: 2,
+        tags: [],
+        recordings: [],
+        verses: [],
+      });
+      await repo.saveVerse({
+        id: `verse-a-${suffix}`,
+        poemId,
+        orderIndex: 1,
+        text: "بيت أول",
+        normalizedText: "بيت اول",
+        firstHemistich: "شطر أول",
+        secondHemistich: "شطر ثانٍ",
+      });
+      await repo.saveVerse({
+        id: `verse-b-${suffix}`,
+        poemId,
+        orderIndex: 2,
+        text: "بيت ثانٍ",
+        normalizedText: "بيت ثان",
+        firstHemistich: "شطر ثالث",
+        secondHemistich: "شطر رابع",
+      });
+      await repo.saveRecording({
+        id: recordingId,
+        poemId,
+        title: "تسجيل",
+        reciter: "قارئ",
+        audioPath: "/tmp/audio.mp3",
+        durationMs: 10000,
+      });
+      return { verseAId: `verse-a-${suffix}`, verseBId: `verse-b-${suffix}`, recordingId };
+    }
+
+    it("writes every alignment in the batch when all updates succeed", async () => {
+      const { verseAId, verseBId, recordingId } = await seedTwoVerseRecording("success");
+      await repo.saveAlignment({
+        id: "align-a",
+        verseId: verseAId,
+        recordingId,
+        startMs: 0,
+        endMs: 5000,
+        confidence: 0.9,
+        status: "auto",
+      });
+      await repo.saveAlignment({
+        id: "align-b",
+        verseId: verseBId,
+        recordingId,
+        startMs: 5000,
+        endMs: 9000,
+        confidence: 0.9,
+        status: "auto",
+      });
+
+      await repo.applyAlignmentBoundaryUpdates([
+        { alignmentId: "align-a", startMs: 0, endMs: 5500, status: "manual" },
+        { alignmentId: "align-b", startMs: 5500, endMs: 9000, status: "manual" },
+      ]);
+
+      const a = await repo.getAlignmentByVerseId(verseAId);
+      const b = await repo.getAlignmentByVerseId(verseBId);
+      expect(a).toMatchObject({ endMs: 5500, status: "manual" });
+      expect(b).toMatchObject({ startMs: 5500, status: "manual" });
+    });
+
+    it("rolls back the whole batch, via a real DB transaction, when a later update fails", async () => {
+      const { verseAId: verseCId, verseBId: verseDId, recordingId } = await seedTwoVerseRecording("failure");
+      await repo.saveAlignment({
+        id: "align-c",
+        verseId: verseCId,
+        recordingId,
+        startMs: 0,
+        endMs: 4000,
+        confidence: 0.8,
+        status: "auto",
+      });
+      await repo.saveAlignment({
+        id: "align-d",
+        verseId: verseDId,
+        recordingId,
+        startMs: 4000,
+        endMs: 8000,
+        confidence: 0.8,
+        status: "auto",
+      });
+
+      // Force the second write in the batch to fail. Because
+      // applyAlignmentBoundaryUpdates runs the whole batch inside a real
+      // adapter transaction, the first write -- already sent to the DB but
+      // never committed -- must be discarded by the ROLLBACK, not left
+      // behind by a best-effort compensating write.
+      const originalUpdate = repo.updateAlignmentBoundary.bind(repo);
+      let call = 0;
+      repo.updateAlignmentBoundary = (async (...args: Parameters<typeof originalUpdate>) => {
+        call += 1;
+        if (call === 2) throw new Error("simulated write failure");
+        return originalUpdate(...args);
+      }) as typeof originalUpdate;
+
+      await expect(
+        repo.applyAlignmentBoundaryUpdates([
+          { alignmentId: "align-c", startMs: 0, endMs: 4500, status: "manual" },
+          { alignmentId: "align-d", startMs: 4500, endMs: 8000, status: "manual" },
+        ])
+      ).rejects.toThrow("simulated write failure");
+
+      repo.updateAlignmentBoundary = originalUpdate;
+
+      const c = await repo.getAlignmentByVerseId(verseCId);
+      const d = await repo.getAlignmentByVerseId(verseDId);
+      // Neither alignment's write survives -- the DB transaction was rolled
+      // back as a whole, not compensated write-by-write.
+      expect(c).toMatchObject({ endMs: 4000, status: "auto" });
+      expect(d).toMatchObject({ startMs: 4000, status: "auto" });
+    });
+
+    it("discards the first write via a real ROLLBACK, not a second independent undo write that could itself fail", async () => {
+      // Regression guard for the specific failure mode the previous
+      // "compensating write" design had: this forces the *adapter's* raw
+      // execute() to fail on the second UPDATE (not a mocked repository
+      // method), proving the already-issued first UPDATE is undone by the
+      // real SQL transaction's ROLLBACK rather than a second, independent
+      // "undo" write that could itself fail and leave a mismatched
+      // boundary behind.
+      const { verseAId, verseBId, recordingId } = await seedTwoVerseRecording("rollback-guard");
+      await repo.saveAlignment({
+        id: "align-e",
+        verseId: verseAId,
+        recordingId,
+        startMs: 0,
+        endMs: 3000,
+        confidence: 0.7,
+        status: "auto",
+      });
+      await repo.saveAlignment({
+        id: "align-f",
+        verseId: verseBId,
+        recordingId,
+        startMs: 3000,
+        endMs: 6000,
+        confidence: 0.7,
+        status: "auto",
+      });
+
+      const originalExecute = adapter.execute.bind(adapter);
+      let updateCalls = 0;
+      adapter.execute = (async (sql: string, params: unknown[] = []) => {
+        if (sql.trim().startsWith("UPDATE verse_alignments")) {
+          updateCalls += 1;
+          if (updateCalls === 2) throw new Error("simulated adapter write failure");
+        }
+        return originalExecute(sql, params);
+      }) as typeof originalExecute;
+
+      await expect(
+        repo.applyAlignmentBoundaryUpdates([
+          { alignmentId: "align-e", startMs: 0, endMs: 3200, status: "manual" },
+          { alignmentId: "align-f", startMs: 3200, endMs: 6000, status: "manual" },
+        ])
+      ).rejects.toThrow("simulated adapter write failure");
+
+      adapter.execute = originalExecute;
+
+      const e = await repo.getAlignmentByVerseId(verseAId);
+      const f = await repo.getAlignmentByVerseId(verseBId);
+      // The first UPDATE reached the DB (uncommitted) before the second
+      // one failed; the transaction's ROLLBACK must have discarded it.
+      expect(e).toMatchObject({ endMs: 3000, status: "auto" });
+      expect(f).toMatchObject({ startMs: 3000, status: "auto" });
+    });
+  });
 });

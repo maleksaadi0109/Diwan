@@ -45,6 +45,10 @@ interface UndoHistoryContextValue {
   clearAll: () => void;
   notifications: UndoToastNotification[];
   dismissNotification: (id: string) => void;
+  /** General-purpose toast, reusing the same UI as undo/redo notifications
+   * for other transient feedback (e.g. a keyboard-shortcut action that
+   * can't complete because a precondition isn't met). */
+  notify: (kind: UndoToastKind, message: string) => void;
 }
 
 const UndoHistoryContext = createContext<UndoHistoryContextValue | null>(null);
@@ -197,8 +201,9 @@ export function UndoHistoryProvider({ children }: { children: React.ReactNode })
       clearAll,
       notifications,
       dismissNotification,
+      notify: pushNotification,
     }),
-    [undoStack, redoStack, pushEntry, undo, redo, clearScope, clearAll, notifications, dismissNotification]
+    [undoStack, redoStack, pushEntry, undo, redo, clearScope, clearAll, notifications, dismissNotification, pushNotification]
   );
 
   return <UndoHistoryContext.Provider value={value}>{children}</UndoHistoryContext.Provider>;

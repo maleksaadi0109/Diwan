@@ -104,6 +104,15 @@ export const Header: React.FC<HeaderProps> = ({
               </kbd>
               <span className="font-sans font-medium text-[11px]">تشغيل / إيقاف</span>
             </div>
+            <div
+              className="px-3.5 py-1.5 bg-black/20 text-xs ltr-num text-ink-500 flex items-center gap-2.5 rounded-xl border border-white/5"
+              title="عرض جميع الاختصارات"
+            >
+              <kbd className="font-mono font-bold text-[10px] text-accent-500 border border-white/10 bg-white/5 px-2 py-0.5 rounded-lg shadow-sm">
+                ?
+              </kbd>
+              <span className="font-sans font-medium text-[11px]">الاختصارات</span>
+            </div>
           </div>
         )}
       </div>

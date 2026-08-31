@@ -5,6 +5,16 @@ export interface DatabaseAdapter {
   execute(sql: string, params?: unknown[]): Promise<void>;
   select<T>(sql: string, params?: unknown[]): Promise<T[]>;
   close(): Promise<void>;
+  /**
+   * Runs `fn` as a single all-or-nothing unit: if it throws after some of
+   * its `execute()` calls already landed, every adapter implementation
+   * guarantees those are undone before the error propagates -- a real
+   * BEGIN/COMMIT/ROLLBACK for the SQL-backed adapters, and a full
+   * snapshot/restore of the in-memory tables for the browser fallback
+   * (which has no real SQL engine underneath it). Callers must never see a
+   * partially-applied multi-statement write.
+   */
+  transaction<T>(fn: () => Promise<T>): Promise<T>;
 }
 
 // In-Memory Database Adapter for Web browser mode and Unit Tests
@@ -767,6 +777,43 @@ export class WebMemoryAdapter implements DatabaseAdapter {
   }
 
   async close(): Promise<void> {}
+
+  /**
+   * Every UPDATE/INSERT/DELETE branch in `execute()` replaces a Map entry
+   * with a new object rather than mutating one in place, so a shallow clone
+   * of each table Map taken before `fn` runs is enough to fully restore
+   * pre-transaction state if `fn` throws -- no per-row deep cloning needed.
+   */
+  async transaction<T>(fn: () => Promise<T>): Promise<T> {
+    const snapshot = {
+      poets: new Map(this.poets),
+      poems: new Map(this.poems),
+      verses: new Map(this.verses),
+      recordings: new Map(this.recordings),
+      alignments: new Map(this.alignments),
+      definitions: new Map(this.definitions),
+      explanations: new Map(this.explanations),
+      importJobs: new Map(this.importJobs),
+      playlists: new Map(this.playlists),
+      playlistPoems: new Map(this.playlistPoems),
+    };
+    try {
+      return await fn();
+    } catch (err) {
+      this.poets = snapshot.poets;
+      this.poems = snapshot.poems;
+      this.verses = snapshot.verses;
+      this.recordings = snapshot.recordings;
+      this.alignments = snapshot.alignments;
+      this.definitions = snapshot.definitions;
+      this.explanations = snapshot.explanations;
+      this.importJobs = snapshot.importJobs;
+      this.playlists = snapshot.playlists;
+      this.playlistPoems = snapshot.playlistPoems;
+      this.persist();
+      throw err;
+    }
+  }
 }
 
 interface TauriPluginSqlDatabase {
@@ -793,6 +840,18 @@ export class TauriSqlAdapter implements DatabaseAdapter {
 
   async close(): Promise<void> {
     await this.db.close();
+  }
+
+  async transaction<T>(fn: () => Promise<T>): Promise<T> {
+    await this.db.execute("BEGIN");
+    try {
+      const result = await fn();
+      await this.db.execute("COMMIT");
+      return result;
+    } catch (err) {
+      await this.db.execute("ROLLBACK");
+      throw err;
+    }
   }
 }
 
@@ -828,6 +887,18 @@ export class BetterSqliteAdapter implements DatabaseAdapter {
 
   async close(): Promise<void> {
     this.db.close();
+  }
+
+  async transaction<T>(fn: () => Promise<T>): Promise<T> {
+    this.db.exec("BEGIN");
+    try {
+      const result = await fn();
+      this.db.exec("COMMIT");
+      return result;
+    } catch (err) {
+      this.db.exec("ROLLBACK");
+      throw err;
+    }
   }
 }
 
