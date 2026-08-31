@@ -11,6 +11,7 @@ from typing import Dict, Any, Optional, Callable, List
 from urllib.parse import urlparse, parse_qs
 from .inspector import inspect_audio
 from .vad import analyze_audio_vad
+from ..bin_paths import ffmpeg_path, ffmpeg_dir
 
 # Structured Error Codes & Arabic Messages (Section 7)
 ERROR_MESSAGES_AR: Dict[str, str] = {
@@ -153,7 +154,7 @@ def _trim_file_from_ms(
     capped at 10s, the extra decode cost is negligible.
     """
     command = [
-        "ffmpeg",
+        ffmpeg_path(),
         "-y",
         "-i",
         str(input_path),
@@ -316,6 +317,8 @@ def fetch_youtube_video_info(
         "quiet": True,
         "socket_timeout": 30,
     }
+    if ffmpeg_dir():
+        ydl_opts["ffmpeg_location"] = ffmpeg_dir()
 
     cookiefile_path = _write_temp_cookiefile(cookies_content)
     if cookiefile_path:
@@ -450,6 +453,8 @@ def download_youtube_audio(
         "no_warnings": False,
         "progress_hooks": [progress_hook],
     }
+    if ffmpeg_dir():
+        ydl_opts["ffmpeg_location"] = ffmpeg_dir()
 
     cookiefile_path = _write_temp_cookiefile(cookies_content)
     if cookiefile_path:
@@ -499,7 +504,7 @@ def download_youtube_audio(
     playback_mp3_path = final_dir / "playback.mp3"
     bitrate = "192k" if "192" in audio_quality else "128k"
     cmd_mp3 = [
-        "ffmpeg",
+        ffmpeg_path(),
         "-y",
         "-i", str(raw_audio_path),
         "-vn",
@@ -527,7 +532,7 @@ def download_youtube_audio(
 
     processing_wav_path = final_dir / "processing.wav"
     cmd_wav = [
-        "ffmpeg",
+        ffmpeg_path(),
         "-y",
         "-i", str(raw_audio_path),
         "-vn",

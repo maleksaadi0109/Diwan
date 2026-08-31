@@ -10,11 +10,17 @@ readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
     "faster-whisper>=1.2.1",
+    "yt-dlp>=2024.1.1",
 ]
 
 [project.optional-dependencies]
 test = [
     "pytest>=8.0.0",
+]
+# Only needed on the machine that freezes the Windows worker executable
+# (see WINDOWS_PACKAGING.md) -- not required for normal dev/runtime use.
+build = [
+    "pyinstaller>=6.3.0",
 ]
 
 [tool.setuptools.packages.find]

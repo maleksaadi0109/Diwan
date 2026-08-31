@@ -14,6 +14,7 @@ from .schemas.protocol import (
 from .audio.inspector import inspect_audio
 from .audio.converter import convert_to_playback_wav, convert_to_wav_16k_mono
 from .audio.vad import detect_speech_regions
+from .bin_paths import ffmpeg_path, ffprobe_path
 
 def log(msg: str) -> None:
     """All logging goes strictly to stderr to preserve stdout for JSON protocol."""
@@ -36,14 +37,14 @@ def handle_health(req: WorkerRequest) -> None:
     ytdlp_path = None
 
     try:
-        res = subprocess.run(["ffmpeg", "-version"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, timeout=5)
+        res = subprocess.run([ffmpeg_path(), "-version"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, timeout=5)
         if res.returncode == 0:
             ffmpeg_version = res.stdout.split("\n")[0]
     except Exception:
         pass
 
     try:
-        res = subprocess.run(["ffprobe", "-version"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, timeout=5)
+        res = subprocess.run([ffprobe_path(), "-version"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, timeout=5)
         if res.returncode == 0:
             ffprobe_version = res.stdout.split("\n")[0]
     except Exception:

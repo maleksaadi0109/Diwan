@@ -4,6 +4,7 @@ import os
 import subprocess
 from dataclasses import dataclass
 from typing import Optional, Dict, Any
+from ..bin_paths import ffprobe_path
 
 MAX_FILE_SIZE_BYTES = 500 * 1024 * 1024  # 500 MB limit
 
@@ -43,7 +44,7 @@ def inspect_audio(file_path: str) -> AudioMetadata:
         raise ValueError(f"Audio file exceeds maximum size limit of {MAX_FILE_SIZE_BYTES} bytes")
 
     cmd = [
-        "ffprobe",
+        ffprobe_path(),
         "-v", "error",
         "-show_entries", "format=duration,size,bit_rate,format_name:stream=codec_name,sample_rate,channels",
         "-of", "json",
