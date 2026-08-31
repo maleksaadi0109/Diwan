@@ -70,6 +70,41 @@ export const PlaylistDetailView: React.FC<PlaylistDetailViewProps> = ({
     setDragOverIndex(null);
   };
 
+  // Pointer-based reordering. Native HTML5 drag-and-drop (draggable +
+  // onDragStart/onDragOver/onDrop) is unreliable inside Tauri's WebKitGTK
+  // desktop webview, so the grip handle drives a manual drag using the
+  // Pointer Events API instead (works identically for mouse and touch).
+  const handleGripPointerDown = (index: number) => (e: React.PointerEvent<HTMLElement>) => {
+    if (e.button !== undefined && e.button !== 0) return;
+    e.preventDefault();
+    e.currentTarget.setPointerCapture(e.pointerId);
+    setDragIndex(index);
+    setDragOverIndex(index);
+  };
+
+  const handleGripPointerMove = (e: React.PointerEvent<HTMLElement>) => {
+    if (dragIndex === null) return;
+    const target = document.elementFromPoint(e.clientX, e.clientY) as HTMLElement | null;
+    const row = target?.closest<HTMLElement>("[data-playlist-row]");
+    if (row) {
+      const idx = Number(row.dataset.playlistRow);
+      if (!Number.isNaN(idx)) setDragOverIndex(idx);
+    }
+  };
+
+  const endGripDrag = (e: React.PointerEvent<HTMLElement>) => {
+    if (dragIndex === null) return;
+    if (e.currentTarget.hasPointerCapture(e.pointerId)) {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    }
+    if (dragOverIndex !== null) {
+      handleDrop(dragOverIndex);
+    } else {
+      setDragIndex(null);
+      setDragOverIndex(null);
+    }
+  };
+
   const commitRename = () => {
     const trimmed = renameValue.trim();
     if (trimmed && trimmed !== playlist.name) {
@@ -189,28 +224,19 @@ export const PlaylistDetailView: React.FC<PlaylistDetailViewProps> = ({
             return (
               <div
                 key={poem.id}
-                draggable
-                onDragStart={() => setDragIndex(index)}
-                onDragOver={(e) => {
-                  e.preventDefault();
-                  setDragOverIndex(index);
-                }}
-                onDragEnd={() => {
-                  setDragIndex(null);
-                  setDragOverIndex(null);
-                }}
-                onDrop={(e) => {
-                  e.preventDefault();
-                  handleDrop(index);
-                }}
+                data-playlist-row={index}
                 className={`group flex items-center gap-3 px-3 py-2.5 md:px-4 md:py-3 rounded-2xl border transition-all ${
                   isCurrent
                     ? "bg-accent-700/10 border-accent-700/40 shadow-sm"
                     : "bg-charcoal-850/80 border-white/5 hover:border-white/10 hover:bg-charcoal-800"
-                } ${dragOverIndex === index && dragIndex !== null && dragIndex !== index ? "border-dashed border-accent-700/60 bg-accent-700/5" : ""}`}
+                } ${dragIndex === index ? "opacity-60" : ""} ${dragOverIndex === index && dragIndex !== null && dragIndex !== index ? "border-dashed border-accent-700/60 bg-accent-700/5" : ""}`}
               >
                 <span
-                  className="cursor-grab active:cursor-grabbing text-ink-600 hover:text-ink-400 p-1 shrink-0 opacity-50 group-hover:opacity-100 transition-opacity hidden md:block"
+                  onPointerDown={handleGripPointerDown(index)}
+                  onPointerMove={handleGripPointerMove}
+                  onPointerUp={endGripDrag}
+                  onPointerCancel={endGripDrag}
+                  className="touch-none cursor-grab active:cursor-grabbing text-ink-600 hover:text-ink-400 p-1.5 -m-1.5 shrink-0 opacity-60 group-hover:opacity-100 transition-opacity"
                   title="اسحب لإعادة الترتيب"
                 >
                   <GripVertical className="w-4 h-4" />
