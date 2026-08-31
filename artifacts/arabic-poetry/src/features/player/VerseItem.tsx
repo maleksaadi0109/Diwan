@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Verse, VerseExplanationItem } from "@/types";
 import { cn, formatTime, toArabicDigits } from "@/lib/utils";
-import { Info, CheckCircle2, Volume2, Sparkles, Trash2, AlertTriangle, X, BookOpenText, Pencil, Save, Loader2 } from "lucide-react";
+import { Info, CheckCircle2, Volume2, Sparkles, Trash2, AlertTriangle, X, BookOpenText, Pencil, Save, Loader2, Share2 } from "lucide-react";
 
 export type VerseExplanationStatus = "idle" | "loading" | "loaded" | "empty" | "error";
 
@@ -14,6 +14,7 @@ interface VerseItemProps {
   onDeleteVerse?: (verse: Verse) => void;
   onOpenExplanation?: (verse: Verse) => void;
   onEditVerse?: (verseId: string, firstHemistich: string, secondHemistich: string) => Promise<void> | void;
+  onShareVerse?: (verse: Verse) => void;
   explanationItems?: VerseExplanationItem[];
   explanationStatus?: VerseExplanationStatus;
   explanationError?: string | null;
@@ -31,6 +32,7 @@ export const VerseItem: React.FC<VerseItemProps> = ({
   onDeleteVerse,
   onOpenExplanation,
   onEditVerse,
+  onShareVerse,
   onWordClick,
   verseRef,
   explanationItems,
@@ -233,6 +235,20 @@ export const VerseItem: React.FC<VerseItemProps> = ({
               title="فتح شرح البيت في نافذة مستقلة"
             >
               <BookOpenText className="w-3.5 h-3.5" />
+            </button>
+          )}
+
+          {onShareVerse && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onShareVerse(verse);
+              }}
+              className="p-1.5 rounded-lg text-ink-600 hover:text-accent-500 hover:bg-white/5 border border-transparent hover:border-white/10 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-all cursor-pointer focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-accent-700"
+              title="مشاركة هذا البيت كصورة"
+            >
+              <Share2 className="w-3.5 h-3.5" />
             </button>
           )}
 
