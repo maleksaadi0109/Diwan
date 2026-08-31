@@ -6,3 +6,4 @@
 - [Async audio load race & browser duration-probe seek](arabic-poetry-audio-load-race.md) — never play() before async src resolves; also guard against browsers' probe-seek to a bogus timestamp when duration is uncertain (causes "jump to end then back to start").
 - [Verse merge/split heuristic thresholds](arabic-poetry-verse-boundary-heuristics.md) — merge/split suggestion detection is sensitive to word-count balance between adjacent verses; test data must be crafted carefully.
 - [Tauri WebKitGTK native drag-and-drop](tauri-webkitgtk-native-dnd.md) — HTML5 draggable/onDrag* can silently fail in Tauri desktop; use Pointer Events + elementFromPoint instead.
+- [Verse-card PNG export font CORS](arabic-poetry-verse-card-export.md) — html-to-image throws a SecurityError inlining cross-origin Google Fonts CSS; pass `skipFonts: true`.
