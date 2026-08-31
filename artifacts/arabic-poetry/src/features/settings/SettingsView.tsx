@@ -1,8 +1,8 @@
 import React, { useState } from "react";
-import { Type, Cpu, ShieldCheck, Activity, CheckCircle2, AlertCircle, Database, Trash2, AlertTriangle, Headphones, Radio } from "lucide-react";
-import { checkWorkerHealth, WorkerHealthData } from "@/lib/worker/workerClient";
+import { Type, Cpu, ShieldCheck, Database, Trash2, AlertTriangle, Headphones, Radio } from "lucide-react";
 import { toArabicDigits } from "@/lib/utils";
 import { useAudioPlayerContext } from "@/contexts/AudioPlayerContext";
+import { DiagnosticsPanel } from "./DiagnosticsPanel";
 
 interface SettingsViewProps {
   poemsCount?: number;
@@ -25,26 +25,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [computeDevice, setComputeDevice] = useState("cpu");
   const [autoScroll, setAutoScroll] = useState(true);
 
-  const [healthStatus, setHealthStatus] = useState<WorkerHealthData | null>(null);
-  const [isCheckingHealth, setIsCheckingHealth] = useState(false);
-  const [healthError, setHealthError] = useState<string | null>(null);
-
   const [showConfirmDeleteAll, setShowConfirmDeleteAll] = useState(false);
   const [isDeletingAll, setIsDeletingAll] = useState(false);
-
-  const handleCheckHealth = async () => {
-    setIsCheckingHealth(true);
-    setHealthError(null);
-    try {
-      const data = await checkWorkerHealth();
-      setHealthStatus(data);
-    } catch (err: unknown) {
-      const error = err as Error;
-      setHealthError(error.message || "فشل الاتصال بمعالج الصوت");
-    } finally {
-      setIsCheckingHealth(false);
-    }
-  };
 
   const handleExecuteDeleteAll = async () => {
     if (!onDeleteAllPoems) return;
@@ -262,45 +244,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         </div>
       </section>
 
-      {/* Python Worker Diagnostics */}
-      <section className="bg-charcoal-850 border border-white/5 rounded-3xl p-6 md:p-8 space-y-6 shadow-md">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="flex items-center gap-3 text-accent-700 font-bold font-sans text-lg">
-            <Activity className="w-5 h-5" />
-            <span>فحص صحة معالج الصوتيات</span>
-          </div>
-          <button
-            onClick={handleCheckHealth}
-            disabled={isCheckingHealth}
-            className="px-6 py-2.5 bg-white/5 hover:bg-white/10 text-parchment-100 border border-white/10 text-[14px] font-bold transition-colors flex items-center justify-center gap-2 font-sans shadow-sm rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-700"
-          >
-            <span>{isCheckingHealth ? "جاري الفحص..." : "تشغيل فحص الصحة"}</span>
-          </button>
-        </div>
-
-        {healthStatus && (
-          <div className="p-6 bg-emerald-500/10 border border-emerald-500/20 text-[14px] space-y-4 select-text font-sans shadow-sm rounded-2xl">
-            <div className="flex items-center gap-3 text-emerald-400 font-bold">
-              <CheckCircle2 className="w-5 h-5" strokeWidth={2.5} />
-              <span>معالج بايثون متصل وجاهز للعمل</span>
-            </div>
-            <div className="grid grid-cols-2 gap-4 text-emerald-400/80 pt-4 border-t border-emerald-500/20 font-mono text-xs md:text-[13px] font-bold">
-              <div>إصدار المعالج: <span className="text-emerald-300">{healthStatus.worker_version}</span></div>
-              <div>إصدار بايثون: <span className="text-emerald-300">{healthStatus.python_version}</span></div>
-              <div className="col-span-2 truncate">
-                FFmpeg: <span className="text-emerald-300">{healthStatus.ffmpeg}</span>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {healthError && (
-          <div className="p-5 bg-crimson-500/10 border border-crimson-500/20 text-crimson-400 text-[14px] flex items-center gap-3 font-sans font-bold shadow-sm rounded-2xl">
-            <AlertCircle className="w-5 h-5 shrink-0" />
-            <span>{healthError}</span>
-          </div>
-        )}
-      </section>
+      {/* Desktop Diagnostics */}
+      <DiagnosticsPanel />
 
       {/* System diagnostics & privacy */}
       <section className="bg-charcoal-850 border border-white/5 rounded-3xl p-6 md:p-8 space-y-5 shadow-md">

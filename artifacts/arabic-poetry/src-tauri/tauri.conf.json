@@ -35,6 +35,9 @@
     "shortDescription": "Diwan - Arabic Poetry and Speech Alignment Desktop Application",
     "longDescription": "منصة ديوان للشعر العربي: الاستماع التفاعلي، المحاذاة الصوتية الدقيقة، تدقيق الحدود الزمنية، وبحور الشعر العربي والمعاجم التراثية.",
     "category": "Education",
+    "resources": {
+      "../public/recordings/mutanabbi_waharra_16k.wav": "samples/diagnostic-sample.wav"
+    },
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",

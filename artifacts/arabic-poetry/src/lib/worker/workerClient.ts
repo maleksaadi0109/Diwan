@@ -1,8 +1,14 @@
 export interface WorkerHealthData {
   worker_version: string;
   python_version: string;
+  /** Resolved path to the Python interpreter actually running the worker (`sys.executable`). */
+  python_executable?: string;
   ffmpeg: string;
   ffprobe: string;
+  /** yt-dlp's reported version string, or `null`/absent if it isn't importable. */
+  ytdlp_version?: string | null;
+  /** Filesystem path of the imported yt-dlp module, or `null`/absent if it isn't importable. */
+  ytdlp_path?: string | null;
   status: string;
 }
 
@@ -125,33 +131,55 @@ export async function checkWorkerHealth(): Promise<WorkerHealthData> {
   const isTauri = typeof window !== "undefined" && ("__TAURI_INTERNALS__" in window || "__TAURI__" in window);
 
   if (isTauri) {
-    try {
-      const { invoke } = await import("@tauri-apps/api/core");
-      const resp = await invoke<WorkerResponse<WorkerHealthData>>("execute_worker_command", {
-        request: {
-          id: `req-health-${Date.now()}`,
-          command: "health",
-          payload: {},
-        },
-      });
+    // On desktop this IS the diagnostic: a broken worker, a missing
+    // interpreter, or a failed invoke must surface as a failure, not get
+    // silently replaced by the "everything is healthy" browser-preview
+    // simulation below -- that would make the diagnostics page lie about a
+    // genuinely broken installation.
+    const { invoke } = await import("@tauri-apps/api/core");
+    const resp = await invoke<WorkerResponse<WorkerHealthData>>("execute_worker_command", {
+      request: {
+        id: `req-health-${Date.now()}`,
+        command: "health",
+        payload: {},
+      },
+    });
 
-      if (resp.success && resp.data) {
-        return resp.data;
-      }
-      throw new Error(resp.error_message || "Health check failed");
-    } catch (err) {
-      console.warn("Tauri worker health check error:", err);
+    if (resp.success && resp.data) {
+      return resp.data;
     }
+    throw new Error(resp.error_message || "Health check failed");
   }
 
   // Web fallback simulation
   return {
     worker_version: "0.1.0",
     python_version: "3.14 (Simulated)",
+    python_executable: "/usr/bin/python3 (محاكاة المتصفح)",
     ffmpeg: "ffmpeg 8.1 (Local System)",
     ffprobe: "ffprobe 8.1 (Local System)",
+    ytdlp_version: "simulated",
+    ytdlp_path: null,
     status: "ready",
   };
+}
+
+/**
+ * Runs a real decode/inspect pass through the worker bridge against a
+ * sample or user-picked audio file, for the diagnostics screen's "test
+ * audio decoding" action. Never throws -- failures are reported in the
+ * returned result so the UI can show a clear pass/fail state.
+ */
+export async function testAudioDecoding(
+  filePath: string
+): Promise<{ success: true; filePath: string; metadata: WorkerAudioMetadata } | { success: false; filePath: string; error: string }> {
+  try {
+    const metadata = await inspectAudioFile(filePath);
+    return { success: true, filePath, metadata };
+  } catch (err) {
+    const error = err as Error;
+    return { success: false, filePath, error: error.message || "فشل فك ترميز الملف الصوتي" };
+  }
 }
 
 export async function inspectAudioFile(filePath: string): Promise<WorkerAudioMetadata> {
