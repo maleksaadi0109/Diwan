@@ -435,13 +435,24 @@ export class WebMemoryAdapter implements DatabaseAdapter {
         id,
         status: String(params[1]),
         job_type: String(params[2]),
-        input_path: params[3] ? String(params[3]) : null,
-        output_path: params[4] ? String(params[4]) : null,
-        progress: Number(params[5] || 0),
-        error_message: params[6] ? String(params[6]) : null,
-        created_at: new Date().toISOString(),
+        title: params[3] ? String(params[3]) : "",
+        stage: params[4] ? String(params[4]) : "queued",
+        stage_label: params[5] ? String(params[5]) : "",
+        input_path: params[6] ? String(params[6]) : null,
+        output_path: params[7] ? String(params[7]) : null,
+        progress: Number(params[8] || 0),
+        error_message: params[9] ? String(params[9]) : null,
+        retry_count: Number(params[10] || 0),
+        max_retries: Number(params[11] || 3),
+        cancel_requested: params[12] ? 1 : 0,
+        payload: params[13] ? String(params[13]) : "{}",
+        result_json: params[14] ? String(params[14]) : null,
+        notified: params[15] ? 1 : 0,
+        created_at: params[16] ? String(params[16]) : new Date().toISOString(),
         updated_at: new Date().toISOString(),
       });
+    } else if (trimmed.startsWith("DELETE FROM import_jobs WHERE id = ?")) {
+      this.importJobs.delete(String(params[0]));
     } else if (trimmed.startsWith("UPDATE verses SET text = ?, normalized_text = ?, first_hemistich = ?, second_hemistich = ?")) {
       const id = String(params[4]);
       const existing = this.verses.get(id);
@@ -703,6 +714,13 @@ export class WebMemoryAdapter implements DatabaseAdapter {
       const id = String(params[0]);
       const job = this.importJobs.get(id);
       return job ? ([job] as unknown as T[]) : [];
+    }
+
+    if (trimmed.includes("FROM import_jobs")) {
+      const list = Array.from(this.importJobs.values()).sort((a, b) =>
+        (a.created_at || "").localeCompare(b.created_at || "")
+      );
+      return list as unknown as T[];
     }
 
     if (trimmed.includes("FROM playlist_poems WHERE playlist_id = ? AND poem_id = ?")) {

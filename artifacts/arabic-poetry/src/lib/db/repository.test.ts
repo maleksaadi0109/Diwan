@@ -141,8 +141,16 @@ describe("Diwan SQLite Repository", () => {
       id: "job-1",
       status: "pending",
       jobType: "audio_transcription",
+      title: "استيراد تجريبي",
+      stage: "queued",
+      stageLabel: "بانتظار المعالجة",
       inputPath: "/tmp/sample.mp3",
       progress: 0.0,
+      retryCount: 0,
+      maxRetries: 3,
+      cancelRequested: false,
+      payload: "{}",
+      notified: false,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
@@ -150,11 +158,37 @@ describe("Diwan SQLite Repository", () => {
     await repo.createImportJob(job);
     const fetched = await repo.getImportJob("job-1");
     expect(fetched?.status).toBe("pending");
+    expect(fetched?.title).toBe("استيراد تجريبي");
 
     await repo.updateImportJobProgress("job-1", 0.55, "processing");
     const updated = await repo.getImportJob("job-1");
     expect(updated?.progress).toBe(0.55);
     expect(updated?.status).toBe("processing");
+
+    // created_at must survive an update-in-place (regression: an earlier
+    // INSERT OR REPLACE omitted created_at from its column list, silently
+    // resetting job creation timestamps on every save).
+    expect(updated?.createdAt).toBe(job.createdAt);
+
+    // List all jobs
+    const all = await repo.getAllImportJobs();
+    expect(all.some((j) => j.id === "job-1")).toBe(true);
+
+    // Patch arbitrary fields
+    await repo.patchImportJob("job-1", { stage: "download", stageLabel: "تنزيل الصوت", progress: 0.2 });
+    const patched = await repo.getImportJobById("job-1");
+    expect(patched?.stage).toBe("download");
+    expect(patched?.progress).toBe(0.2);
+
+    // Cooperative cancellation flag
+    await repo.requestCancelImportJob("job-1");
+    const cancelRequested = await repo.getImportJobById("job-1");
+    expect(cancelRequested?.cancelRequested).toBe(true);
+
+    // Delete
+    await repo.deleteImportJob("job-1");
+    const deleted = await repo.getImportJobById("job-1");
+    expect(deleted).toBeNull();
   });
 
   describe("segmentation corrections (merge_verses / split_verse)", () => {

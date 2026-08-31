@@ -57,6 +57,26 @@ export class DiwanRepository {
       // Existing databases already have this migration, or the adapter handles
       // schema creation without SQL column migrations.
     }
+    // Background processing queue: extend older import_jobs tables in-place.
+    const importJobMigrations = [
+      "ALTER TABLE import_jobs ADD COLUMN title TEXT NOT NULL DEFAULT '';",
+      "ALTER TABLE import_jobs ADD COLUMN stage TEXT NOT NULL DEFAULT 'queued';",
+      "ALTER TABLE import_jobs ADD COLUMN stage_label TEXT NOT NULL DEFAULT '';",
+      "ALTER TABLE import_jobs ADD COLUMN retry_count INTEGER NOT NULL DEFAULT 0;",
+      "ALTER TABLE import_jobs ADD COLUMN max_retries INTEGER NOT NULL DEFAULT 3;",
+      "ALTER TABLE import_jobs ADD COLUMN cancel_requested INTEGER NOT NULL DEFAULT 0;",
+      "ALTER TABLE import_jobs ADD COLUMN payload TEXT NOT NULL DEFAULT '{}';",
+      "ALTER TABLE import_jobs ADD COLUMN result_json TEXT;",
+      "ALTER TABLE import_jobs ADD COLUMN notified INTEGER NOT NULL DEFAULT 0;",
+    ];
+    for (const migration of importJobMigrations) {
+      try {
+        await this.adapter.execute(migration);
+      } catch {
+        // Existing databases already have this migration, or the adapter handles
+        // schema creation without SQL column migrations.
+      }
+    }
   }
 
   // --- Seeding ---
@@ -683,25 +703,77 @@ export class DiwanRepository {
     return this.getWordDefinition(word);
   }
 
-  // --- Import Job Tracking ---
+  // --- Import Job Tracking (background processing queue) ---
+
+  /** Fills in defaults for the newer queue fields so older call sites that
+   * build a partial ImportJob (e.g. existing tests) keep working. */
+  private normalizeImportJob(job: ImportJob): ImportJob {
+    return {
+      ...job,
+      title: job.title || "",
+      stage: job.stage || (job.status === "pending" ? "queued" : job.status),
+      stageLabel: job.stageLabel || "",
+      retryCount: job.retryCount ?? 0,
+      maxRetries: job.maxRetries ?? 3,
+      cancelRequested: job.cancelRequested ?? false,
+      payload: job.payload ?? "{}",
+      notified: job.notified ?? false,
+    };
+  }
+
   async saveImportJob(job: ImportJob): Promise<void> {
+    const j = this.normalizeImportJob(job);
     const sql = `
-      INSERT OR REPLACE INTO import_jobs (id, status, job_type, input_path, output_path, progress, error_message, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP);
+      INSERT OR REPLACE INTO import_jobs
+        (id, status, job_type, title, stage, stage_label, input_path, output_path, progress, error_message, retry_count, max_retries, cancel_requested, payload, result_json, notified, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP);
     `;
     await this.adapter.execute(sql, [
-      job.id,
-      job.status,
-      job.jobType,
-      job.inputPath || null,
-      job.outputPath || null,
-      job.progress,
-      job.errorMessage || null,
+      j.id,
+      j.status,
+      j.jobType,
+      j.title,
+      j.stage,
+      j.stageLabel,
+      j.inputPath || null,
+      j.outputPath || null,
+      j.progress,
+      j.errorMessage || null,
+      j.retryCount,
+      j.maxRetries,
+      j.cancelRequested ? 1 : 0,
+      j.payload,
+      j.resultJson || null,
+      j.notified ? 1 : 0,
+      j.createdAt || new Date().toISOString(),
     ]);
   }
 
   async createImportJob(job: ImportJob): Promise<void> {
     return this.saveImportJob(job);
+  }
+
+  private mapImportJobRow(r: ImportJobRow): ImportJob {
+    return {
+      id: r.id,
+      status: r.status as ImportJob["status"],
+      jobType: r.job_type as ImportJob["jobType"],
+      title: r.title || "",
+      stage: r.stage || "queued",
+      stageLabel: r.stage_label || "",
+      inputPath: r.input_path || undefined,
+      outputPath: r.output_path || undefined,
+      progress: r.progress,
+      errorMessage: r.error_message || undefined,
+      retryCount: r.retry_count ?? 0,
+      maxRetries: r.max_retries ?? 3,
+      cancelRequested: Boolean(r.cancel_requested),
+      payload: r.payload || "{}",
+      resultJson: r.result_json || undefined,
+      notified: Boolean(r.notified),
+      createdAt: r.created_at,
+      updatedAt: r.updated_at,
+    };
   }
 
   async getImportJobById(id: string): Promise<ImportJob | null> {
@@ -710,22 +782,19 @@ export class DiwanRepository {
       [id]
     );
     if (rows.length === 0) return null;
-    const r = rows[0];
-    return {
-      id: r.id,
-      status: r.status as ImportJob["status"],
-      jobType: r.job_type as ImportJob["jobType"],
-      inputPath: r.input_path || undefined,
-      outputPath: r.output_path || undefined,
-      progress: r.progress,
-      errorMessage: r.error_message || undefined,
-      createdAt: r.created_at,
-      updatedAt: r.updated_at,
-    };
+    return this.mapImportJobRow(rows[0]);
   }
 
   async getImportJob(id: string): Promise<ImportJob | null> {
     return this.getImportJobById(id);
+  }
+
+  /** All jobs, oldest first, for the queue UI and startup recovery. */
+  async getAllImportJobs(): Promise<ImportJob[]> {
+    const rows = await this.adapter.select<ImportJobRow>(
+      `SELECT * FROM import_jobs ORDER BY created_at ASC;`
+    );
+    return rows.map((r) => this.mapImportJobRow(r));
   }
 
   async updateImportJobProgress(
@@ -742,6 +811,23 @@ export class DiwanRepository {
       status: status || existing.status,
       errorMessage: error !== undefined ? error : existing.errorMessage,
     });
+  }
+
+  /** Partial patch helper used by the queue processor to persist stage/progress/result updates. */
+  async patchImportJob(id: string, patch: Partial<ImportJob>): Promise<ImportJob | null> {
+    const existing = await this.getImportJobById(id);
+    if (!existing) return null;
+    const updated: ImportJob = { ...existing, ...patch };
+    await this.saveImportJob(updated);
+    return updated;
+  }
+
+  async requestCancelImportJob(id: string): Promise<void> {
+    await this.patchImportJob(id, { cancelRequested: true });
+  }
+
+  async deleteImportJob(id: string): Promise<void> {
+    await this.adapter.execute(`DELETE FROM import_jobs WHERE id = ?;`, [id]);
   }
 
   // --- Playlist Methods ---

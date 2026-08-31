@@ -14,11 +14,15 @@ import { DiwanRepository } from "./lib/db/repository";
 import { normalizeArabic } from "./lib/utils";
 import { ParsedExplanationBlock } from "./lib/import/pasteExplanationParser";
 import { AudioPlayerProvider, useAudioPlayerContext } from "./contexts/AudioPlayerContext";
+import { ImportQueueProvider, useImportQueueContext } from "./contexts/ImportQueueContext";
+import { ImportQueueTray } from "./components/ImportQueueTray";
 
 export function App() {
   return (
     <AudioPlayerProvider>
-      <AppShell />
+      <ImportQueueProvider>
+        <AppShell />
+      </ImportQueueProvider>
     </AudioPlayerProvider>
   );
 }
@@ -48,6 +52,7 @@ function AppShell() {
     playNextInQueue,
     playPreviousInQueue,
   } = useAudioPlayerContext();
+  const { subscribeToCompletion } = useImportQueueContext();
 
   // Initialize DB and load initial data
   useEffect(() => {
@@ -93,6 +98,25 @@ function AppShell() {
       isMounted = false;
     };
   }, []);
+
+  // A background queue job (started from the import wizard) can finish
+  // while the wizard itself is no longer mounted, so refresh the poems list
+  // here at the app root whenever a poem_import job completes. The queue
+  // context saves the poem through its own repository instance (the
+  // WebMemoryAdapter's browser fallback only reflects writes it made itself
+  // in-memory, only syncing through localStorage), so re-fetch through a
+  // freshly created repository rather than AppShell's own possibly-stale
+  // `repo` instance.
+  useEffect(() => {
+    const unsubscribe = subscribeToCompletion((job) => {
+      if (job.jobType !== "poem_import" || job.status !== "completed") return;
+      DiwanRepository.create().then(async (freshRepo) => {
+        const updatedPoems = await freshRepo.getAllPoems();
+        setPoems(updatedPoems);
+      });
+    });
+    return unsubscribe;
+  }, [subscribeToCompletion]);
 
   const handleOpenPoem = (poem: Poem) => {
     setActivePoem(poem);
@@ -628,6 +652,8 @@ function AppShell() {
           }
         />
       )}
+
+      <ImportQueueTray />
     </div>
   );
 }
