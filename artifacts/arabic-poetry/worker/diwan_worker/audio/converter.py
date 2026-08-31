@@ -3,6 +3,7 @@ import os
 import subprocess
 from typing import Callable, Optional
 from .inspector import inspect_audio, AudioMetadata
+from ..bin_paths import ffmpeg_path
 
 ProgressCallback = Callable[[float, str], None]
 
@@ -24,7 +25,7 @@ def convert_to_wav_16k_mono(
 
     # Build safe command array - never invoke shell
     cmd = [
-        "ffmpeg",
+        ffmpeg_path(),
         "-y",
         "-i", input_path,
         "-vn",                   # No video stream
@@ -88,7 +89,7 @@ def convert_to_playback_wav(
         on_progress(0.1, "جاري إنشاء نسخة WAV مستقرة للتشغيل المحلي...")
 
     cmd = [
-        "ffmpeg",
+        ffmpeg_path(),
         "-y",
         "-i", input_path,
         "-vn",

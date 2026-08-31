@@ -2,6 +2,7 @@ from __future__ import annotations
 import os
 import subprocess
 from typing import List, Dict, Any, Callable, Optional
+from ..bin_paths import ffmpeg_path
 
 ProgressCallback = Callable[[float, str], None]
 
@@ -40,7 +41,7 @@ def segment_audio_clips(
 
         # Safe ffmpeg command array
         cmd = [
-            "ffmpeg",
+            ffmpeg_path(),
             "-y",
             "-ss", start_sec,
             "-t", duration_sec,

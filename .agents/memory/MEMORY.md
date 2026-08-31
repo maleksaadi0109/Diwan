@@ -7,4 +7,6 @@
 - [Verse merge/split heuristic thresholds](arabic-poetry-verse-boundary-heuristics.md) — merge/split suggestion detection is sensitive to word-count balance between adjacent verses; test data must be crafted carefully.
 - [Tauri WebKitGTK native drag-and-drop](tauri-webkitgtk-native-dnd.md) — HTML5 draggable/onDrag* can silently fail in Tauri desktop; use Pointer Events + elementFromPoint instead.
 - [Verse-card PNG export font CORS](arabic-poetry-verse-card-export.md) — html-to-image throws a SecurityError inlining cross-origin Google Fonts CSS; pass `skipFonts: true`.
-- [DB adapter transactions](arabic-poetry-db-transactions.md) — use `adapter.transaction()` for atomic multi-row writes, not compensating-write rollback (code review rejected that twice).
+- [DB adapter transactions](arabic-poetry-db-transactions.md) — use `adapter.transaction()` for atomic multi-row writes, not compensating-write rollback.
+- [Tauri v2 fs capability scoping](tauri-fs-capability-scoping.md) — scope destructive fs:allow-* permissions (e.g. remove) to a narrow path even when a broader fs:scope wildcard exists.
+- [Tauri Windows self-contained packaging](tauri-windows-packaging.md) — per-platform `tauri.<platform>.conf.json` merges over the base config for bundling platform-only resources like a frozen worker + FFmpeg.

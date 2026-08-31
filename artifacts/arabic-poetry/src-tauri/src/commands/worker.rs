@@ -3,7 +3,7 @@ use std::io::{BufRead, BufReader, Write};
 use std::path::PathBuf;
 use std::process::{Command, Stdio};
 use std::sync::Mutex;
-use tauri::{AppHandle, Emitter};
+use tauri::{path::BaseDirectory, AppHandle, Emitter, Manager};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct WorkerRequestPayload {
@@ -113,22 +113,95 @@ fn python_command_candidates() -> Vec<(&'static str, Vec<&'static str>)> {
     }
 }
 
-fn spawn_worker_process(worker_dir: &PathBuf) -> Result<std::process::Child, String> {
+/// Resolves the frozen, self-contained Windows worker executable bundled as
+/// a Tauri resource (see `tauri.windows.conf.json` and
+/// `WINDOWS_PACKAGING.md`), if the packaged app actually includes one. Dev
+/// builds and platforms other than Windows always return `None` and fall
+/// back to invoking a system Python interpreter (`spawn_worker_process`'s
+/// existing behavior), so nothing changes for Linux/macOS or for Windows
+/// dev machines that haven't run the freeze step.
+#[cfg(target_os = "windows")]
+fn resolve_frozen_worker_exe(app: &AppHandle) -> Option<PathBuf> {
+    app.path()
+        .resolve("worker-dist/diwan_worker.exe", BaseDirectory::Resource)
+        .ok()
+        .filter(|p| p.exists())
+}
+
+#[cfg(not(target_os = "windows"))]
+fn resolve_frozen_worker_exe(_app: &AppHandle) -> Option<PathBuf> {
+    None
+}
+
+/// Resolves a bundled binary (ffmpeg.exe/ffprobe.exe) under the app's
+/// resource directory on Windows. Returns `None` when running in dev, on a
+/// non-Windows platform, or when the resource simply isn't bundled, in
+/// which case callers fall back to letting the worker resolve the bare
+/// command name via PATH exactly as before.
+#[cfg(target_os = "windows")]
+fn resolve_bundled_bin(app: &AppHandle, filename: &str) -> Option<PathBuf> {
+    app.path()
+        .resolve(format!("bin/win/{}", filename), BaseDirectory::Resource)
+        .ok()
+        .filter(|p| p.exists())
+}
+
+#[cfg(not(target_os = "windows"))]
+fn resolve_bundled_bin(_app: &AppHandle, _filename: &str) -> Option<PathBuf> {
+    None
+}
+
+fn spawn_worker_process(app: &AppHandle, worker_dir: &PathBuf) -> Result<std::process::Child, String> {
+    let ffmpeg_path = resolve_bundled_bin(app, "ffmpeg.exe");
+    let ffprobe_path = resolve_bundled_bin(app, "ffprobe.exe");
+
+    // On Windows, prefer a frozen, self-contained worker executable (built
+    // via PyInstaller, see WINDOWS_PACKAGING.md) so no system Python
+    // install is required at all. It still needs the bundled ffmpeg/
+    // ffprobe paths passed through env vars, exactly like the Python
+    // source path below.
+    if let Some(frozen_exe) = resolve_frozen_worker_exe(app) {
+        let mut command = Command::new(&frozen_exe);
+        command
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::inherit());
+        if let Some(p) = &ffmpeg_path {
+            command.env("DIWAN_FFMPEG_PATH", p);
+        }
+        if let Some(p) = &ffprobe_path {
+            command.env("DIWAN_FFPROBE_PATH", p);
+        }
+        return command.spawn().map_err(|e| {
+            format!(
+                "Failed to start bundled worker executable {:?}: {}",
+                frozen_exe, e
+            )
+        });
+    }
+
     let mut last_err: Option<String> = None;
 
     for (cmd, extra_args) in python_command_candidates() {
         let mut args: Vec<&str> = extra_args;
         args.extend(["-m", "diwan_worker.cli"]);
 
-        match Command::new(cmd)
+        let mut command = Command::new(cmd);
+        command
             .args(&args)
             .env("PYTHONPATH", worker_dir)
             .current_dir(worker_dir)
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
-            .stderr(Stdio::inherit())
-            .spawn()
-        {
+            .stderr(Stdio::inherit());
+        if let Some(p) = &ffmpeg_path {
+            command.env("DIWAN_FFMPEG_PATH", p);
+        }
+        if let Some(p) = &ffprobe_path {
+            command.env("DIWAN_FFPROBE_PATH", p);
+        }
+
+        match command.spawn() {
             Ok(child) => return Ok(child),
             Err(e) => last_err = Some(format!("{}: {}", cmd, e)),
         }
@@ -151,7 +224,7 @@ pub async fn execute_worker_command(
 
     let worker_dir = resolve_worker_dir();
 
-    let mut child = spawn_worker_process(&worker_dir)?;
+    let mut child = spawn_worker_process(&app, &worker_dir)?;
 
     let mut stdin = child
         .stdin
