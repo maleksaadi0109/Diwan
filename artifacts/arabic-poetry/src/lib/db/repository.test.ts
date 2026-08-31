@@ -31,15 +31,18 @@ describe("Diwan SQLite Repository", () => {
     expect(tableNames).toContain("import_jobs");
   });
 
-  it("seeds database idempotently", async () => {
+  it("seeds database idempotently without default poems", async () => {
     await repo.seed();
-    const firstCount = (await repo.getAllPoems()).length;
-    expect(firstCount).toBeGreaterThan(0);
+    const count = (await repo.getAllPoems()).length;
+    expect(count).toBe(0);
 
-    // Re-running seed must not throw and must keep same count
+    const poets = await repo.getAllPoets();
+    expect(poets.length).toBeGreaterThan(0);
+
+    // Re-running seed must not throw and must keep same state
     await repo.seed();
     const secondCount = (await repo.getAllPoems()).length;
-    expect(secondCount).toBe(firstCount);
+    expect(secondCount).toBe(0);
   });
 
   it("performs full CRUD for Poet and Poem with Verses and Alignments", async () => {
@@ -378,6 +381,105 @@ describe("Diwan SQLite Repository", () => {
 
       const poem = await repo.getPoemById("poem-seg");
       expect(poem?.versesCount).toBe(3);
+    });
+
+    it("supports bulk deletion of multiple poems (deletePoems)", async () => {
+      const poet: Poet = { id: "bulk-poet", name: "شاعر تجريبي", era: "عباسي" };
+      await repo.savePoet(poet);
+
+      const poem1: Poem = {
+        id: "bulk-poem-1",
+        title: "قصيدة تجريبية 1",
+        poet,
+        era: "عباسي",
+        bahr: "البسيط",
+        rhyme: "الميم",
+        versesCount: 1,
+        tags: [],
+        recordings: [],
+        verses: [
+          {
+            id: "bv-1",
+            poemId: "bulk-poem-1",
+            orderIndex: 1,
+            text: "شطر أول ... شطر ثان",
+            normalizedText: "شطر اول شطر ثان",
+            firstHemistich: "شطر أول",
+            secondHemistich: "شطر ثان",
+          },
+        ],
+      };
+
+      const poem2: Poem = {
+        id: "bulk-poem-2",
+        title: "قصيدة تجريبية 2",
+        poet,
+        era: "عباسي",
+        bahr: "الطويل",
+        rhyme: "الراء",
+        versesCount: 1,
+        tags: [],
+        recordings: [],
+        verses: [
+          {
+            id: "bv-2",
+            poemId: "bulk-poem-2",
+            orderIndex: 1,
+            text: "صدر ... عجز",
+            normalizedText: "صدر عجز",
+            firstHemistich: "صدر",
+            secondHemistich: "عجز",
+          },
+        ],
+      };
+
+      await repo.savePoem(poem1);
+      await repo.savePoem(poem2);
+
+      let all = await repo.getAllPoems();
+      expect(all.map((p) => p.id)).toContain("bulk-poem-1");
+      expect(all.map((p) => p.id)).toContain("bulk-poem-2");
+
+      // Delete both poems in bulk
+      await repo.deletePoems(["bulk-poem-1", "bulk-poem-2"]);
+
+      all = await repo.getAllPoems();
+      expect(all.map((p) => p.id)).not.toContain("bulk-poem-1");
+      expect(all.map((p) => p.id)).not.toContain("bulk-poem-2");
+    });
+
+    it("supports deleting all poems from repository (deleteAllPoems)", async () => {
+      const poet: Poet = { id: "all-poet", name: "شاعر", era: "جاهلي" };
+      await repo.savePoet(poet);
+
+      const poem: Poem = {
+        id: "clear-poem-1",
+        title: "قصيدة للمسح",
+        poet,
+        era: "جاهلي",
+        bahr: "الوافر",
+        rhyme: "النون",
+        versesCount: 1,
+        tags: [],
+        recordings: [],
+        verses: [
+          {
+            id: "cv-1",
+            poemId: "clear-poem-1",
+            orderIndex: 1,
+            text: "بيت للمسح ... شطر ثان",
+            normalizedText: "بيت للمسح شطر ثان",
+            firstHemistich: "بيت للمسح",
+            secondHemistich: "شطر ثان",
+          },
+        ],
+      };
+
+      await repo.savePoem(poem);
+      expect((await repo.getAllPoems()).length).toBeGreaterThan(0);
+
+      await repo.deleteAllPoems();
+      expect(await repo.getAllPoems()).toHaveLength(0);
     });
   });
 });

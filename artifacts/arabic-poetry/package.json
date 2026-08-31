@@ -10,7 +10,9 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
     "tauri": "tauri",
-    "tauri:dev": "WEBKIT_DISABLE_DMABUF_RENDERER=1 tauri dev"
+    "tauri:dev": "WEBKIT_DISABLE_DMABUF_RENDERER=1 tauri dev",
+    "tauri:build": "tauri build",
+    "tauri:build:windows": "tauri build --target x86_64-pc-windows-msvc"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.2.0",

@@ -492,11 +492,79 @@ export class WebMemoryAdapter implements DatabaseAdapter {
           updated_at: new Date().toISOString(),
         });
       }
+    } else if (trimmed.startsWith("DELETE FROM playlist_poems WHERE poem_id = ?")) {
+      const poemId = String(params[0]);
+      for (const [key, row] of this.playlistPoems.entries()) {
+        if (row.poem_id === poemId) this.playlistPoems.delete(key);
+      }
+    } else if (trimmed.startsWith("DELETE FROM verse_alignments WHERE verse_id IN (SELECT id FROM verses WHERE poem_id = ?)")) {
+      const poemId = String(params[0]);
+      const verseIds = new Set(
+        Array.from(this.verses.values())
+          .filter((v) => v.poem_id === poemId)
+          .map((v) => v.id)
+      );
+      for (const [aid, a] of this.alignments.entries()) {
+        if (verseIds.has(a.verse_id)) this.alignments.delete(aid);
+      }
+    } else if (trimmed.startsWith("DELETE FROM verse_explanations WHERE verse_id IN (SELECT id FROM verses WHERE poem_id = ?)")) {
+      const poemId = String(params[0]);
+      const verseIds = new Set(
+        Array.from(this.verses.values())
+          .filter((v) => v.poem_id === poemId)
+          .map((v) => v.id)
+      );
+      for (const [eid, e] of this.explanations.entries()) {
+        if (verseIds.has(e.verse_id)) this.explanations.delete(eid);
+      }
+    } else if (trimmed.startsWith("DELETE FROM verses WHERE poem_id = ?")) {
+      const poemId = String(params[0]);
+      for (const [vid, v] of this.verses.entries()) {
+        if (v.poem_id === poemId) this.verses.delete(vid);
+      }
+    } else if (trimmed.startsWith("DELETE FROM recordings WHERE poem_id = ?")) {
+      const poemId = String(params[0]);
+      for (const [rid, r] of this.recordings.entries()) {
+        if (r.poem_id === poemId) this.recordings.delete(rid);
+      }
+    } else if (trimmed === "DELETE FROM playlist_poems;" || trimmed === "DELETE FROM playlist_poems") {
+      this.playlistPoems.clear();
+    } else if (trimmed === "DELETE FROM verse_alignments;" || trimmed === "DELETE FROM verse_alignments") {
+      this.alignments.clear();
+    } else if (trimmed === "DELETE FROM verse_explanations;" || trimmed === "DELETE FROM verse_explanations") {
+      this.explanations.clear();
+    } else if (trimmed === "DELETE FROM verses;" || trimmed === "DELETE FROM verses") {
+      this.verses.clear();
+    } else if (trimmed === "DELETE FROM recordings;" || trimmed === "DELETE FROM recordings") {
+      this.recordings.clear();
+    } else if (trimmed === "DELETE FROM poems;" || trimmed === "DELETE FROM poems") {
+      this.poems.clear();
+      this.verses.clear();
+      this.recordings.clear();
+      this.alignments.clear();
+      this.explanations.clear();
+      this.playlistPoems.clear();
     } else if (trimmed.startsWith("DELETE FROM poems WHERE id = ?")) {
       const id = String(params[0]);
       this.poems.delete(id);
+      const verseIds = new Set<string>();
       for (const [vid, v] of this.verses.entries()) {
-        if (v.poem_id === id) this.verses.delete(vid);
+        if (v.poem_id === id) {
+          verseIds.add(vid);
+          this.verses.delete(vid);
+        }
+      }
+      for (const [aid, a] of this.alignments.entries()) {
+        if (verseIds.has(a.verse_id)) this.alignments.delete(aid);
+      }
+      for (const [eid, e] of this.explanations.entries()) {
+        if (verseIds.has(e.verse_id)) this.explanations.delete(eid);
+      }
+      for (const [rid, r] of this.recordings.entries()) {
+        if (r.poem_id === id) this.recordings.delete(rid);
+      }
+      for (const [key, pp] of this.playlistPoems.entries()) {
+        if (pp.poem_id === id) this.playlistPoems.delete(key);
       }
     } else if (trimmed.startsWith("INSERT INTO playlists")) {
       const id = String(params[0]);

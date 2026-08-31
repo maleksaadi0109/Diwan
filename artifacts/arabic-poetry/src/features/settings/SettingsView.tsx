@@ -1,8 +1,25 @@
 import React, { useState } from "react";
-import { Type, Cpu, ShieldCheck, Activity, CheckCircle2, AlertCircle } from "lucide-react";
+import { Type, Cpu, ShieldCheck, Activity, CheckCircle2, AlertCircle, Database, Trash2, AlertTriangle, Headphones, Radio } from "lucide-react";
 import { checkWorkerHealth, WorkerHealthData } from "@/lib/worker/workerClient";
+import { toArabicDigits } from "@/lib/utils";
+import { useAudioPlayerContext } from "@/contexts/AudioPlayerContext";
 
-export const SettingsView: React.FC = () => {
+interface SettingsViewProps {
+  poemsCount?: number;
+  onDeleteAllPoems?: () => Promise<void>;
+}
+
+export const SettingsView: React.FC<SettingsViewProps> = ({
+  poemsCount = 0,
+  onDeleteAllPoems,
+}) => {
+  const {
+    closeToTray,
+    setCloseToTray,
+    mediaSessionEnabled,
+    setMediaSessionEnabled,
+  } = useAudioPlayerContext();
+
   const [poetryFontSize, setPoetryFontSize] = useState("24px");
   const [asrModel, setAsrModel] = useState("small");
   const [computeDevice, setComputeDevice] = useState("cpu");
@@ -11,6 +28,9 @@ export const SettingsView: React.FC = () => {
   const [healthStatus, setHealthStatus] = useState<WorkerHealthData | null>(null);
   const [isCheckingHealth, setIsCheckingHealth] = useState(false);
   const [healthError, setHealthError] = useState<string | null>(null);
+
+  const [showConfirmDeleteAll, setShowConfirmDeleteAll] = useState(false);
+  const [isDeletingAll, setIsDeletingAll] = useState(false);
 
   const handleCheckHealth = async () => {
     setIsCheckingHealth(true);
@@ -26,6 +46,17 @@ export const SettingsView: React.FC = () => {
     }
   };
 
+  const handleExecuteDeleteAll = async () => {
+    if (!onDeleteAllPoems) return;
+    setIsDeletingAll(true);
+    try {
+      await onDeleteAllPoems();
+      setShowConfirmDeleteAll(false);
+    } finally {
+      setIsDeletingAll(false);
+    }
+  };
+
   return (
     <div className="h-full overflow-y-auto px-4 md:px-12 py-8 md:py-10 max-w-4xl mx-auto w-full select-none space-y-10 animate-fade-in scroll-smooth pb-24 md:pb-12">
       <div className="border-b border-white/5 pb-6">
@@ -33,9 +64,70 @@ export const SettingsView: React.FC = () => {
           إعدادات ديوان
         </h2>
         <p className="text-sm text-ink-500 mt-3 font-sans">
-          تخصيص الخطوط والتشغيل ومعالج الصوتيات والذكاء الاصطناعي
+          تخصيص الخطوط والتشغيل في الخلفية ومعالج الصوتيات وإدارة بيانات المكتبة
         </p>
       </div>
+
+      {/* Background Playback & System Tray (Like Telegram) */}
+      <section className="bg-charcoal-850 border border-white/5 rounded-3xl p-6 md:p-8 space-y-6 shadow-md">
+        <div className="flex items-center gap-3 text-accent-700 font-bold font-sans text-lg">
+          <Headphones className="w-5 h-5" />
+          <span>التشغيل في الخلفية وشريط النظام (مثل تيليجرام)</span>
+        </div>
+
+        <div className="space-y-4 font-sans">
+          {/* Close to Tray Toggle */}
+          <div className="p-5 bg-charcoal-900 border border-white/5 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <div className="flex items-center gap-2">
+                <Radio className="w-4 h-4 text-accent-500" />
+                <h4 className="text-sm font-bold text-parchment-100">
+                  التشغيل في الخلفية عند إغلاق النافذة (Close to Tray)
+                </h4>
+              </div>
+              <p className="text-xs text-ink-500 mt-1.5 leading-relaxed">
+                عند النقر على زر الإغلاق (✕)، يستمر الصوت في العمل ويتم تصغير التطبيق إلى شريط النظام (System Tray) بدلاً من إيقافه.
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setCloseToTray(!closeToTray)}
+              className={`px-5 py-2.5 rounded-xl border text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer shrink-0 ${
+                closeToTray
+                  ? "bg-accent-700 text-charcoal-950 border-accent-700 shadow-md shadow-accent-700/20"
+                  : "bg-white/5 text-ink-500 border-white/10 hover:text-parchment-100 hover:bg-white/10"
+              }`}
+            >
+              <span>{closeToTray ? "مفعل (في الخلفية)" : "معطل (إغلاق كلي)"}</span>
+            </button>
+          </div>
+
+          {/* Media Session API Toggle */}
+          <div className="p-5 bg-charcoal-900 border border-white/5 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <h4 className="text-sm font-bold text-parchment-100">
+                التكامل مع أزرار وسائط النظام (Media Session)
+              </h4>
+              <p className="text-xs text-ink-500 mt-1.5 leading-relaxed">
+                إظهار عنوان القصيدة والشاعر والتحكم بالتشغيل من شاشة القفل وإشعارات النظام وأزرار لوحة المفاتيح.
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setMediaSessionEnabled(!mediaSessionEnabled)}
+              className={`px-5 py-2.5 rounded-xl border text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer shrink-0 ${
+                mediaSessionEnabled
+                  ? "bg-accent-700 text-charcoal-950 border-accent-700 shadow-md shadow-accent-700/20"
+                  : "bg-white/5 text-ink-500 border-white/10 hover:text-parchment-100 hover:bg-white/10"
+              }`}
+            >
+              <span>{mediaSessionEnabled ? "مفعل" : "معطل"}</span>
+            </button>
+          </div>
+        </div>
+      </section>
 
       {/* Typography settings */}
       <section className="bg-charcoal-850 border border-white/5 rounded-3xl p-6 md:p-8 space-y-6 shadow-md">
@@ -139,6 +231,37 @@ export const SettingsView: React.FC = () => {
         </div>
       </section>
 
+      {/* Library Data Management */}
+      <section className="bg-charcoal-850 border border-white/5 rounded-3xl p-6 md:p-8 space-y-6 shadow-md">
+        <div className="flex items-center gap-3 text-accent-700 font-bold font-sans text-lg">
+          <Database className="w-5 h-5" />
+          <span>إدارة بيانات المكتبة</span>
+        </div>
+
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 bg-charcoal-900 border border-white/5 rounded-2xl font-sans">
+          <div>
+            <h4 className="text-sm font-bold text-parchment-100">
+              إجمالي القصائد المحفوظة
+            </h4>
+            <p className="text-xs text-ink-500 mt-1">
+              يحتوي ديوانك حالياً على <strong className="text-accent-500">{toArabicDigits(poemsCount)}</strong> قصيدة
+            </p>
+          </div>
+
+          {onDeleteAllPoems && (
+            <button
+              type="button"
+              onClick={() => setShowConfirmDeleteAll(true)}
+              disabled={poemsCount === 0}
+              className="px-5 py-2.5 bg-crimson-600/15 hover:bg-crimson-600 text-crimson-400 hover:text-white border border-crimson-500/30 text-xs font-bold transition-all flex items-center justify-center gap-2 rounded-xl disabled:opacity-30 disabled:pointer-events-none cursor-pointer shadow-sm"
+            >
+              <Trash2 className="w-4 h-4" />
+              <span>حذف جميع القصائد</span>
+            </button>
+          )}
+        </div>
+      </section>
+
       {/* Python Worker Diagnostics */}
       <section className="bg-charcoal-850 border border-white/5 rounded-3xl p-6 md:p-8 space-y-6 shadow-md">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -195,6 +318,51 @@ export const SettingsView: React.FC = () => {
           <span className="font-mono ltr-num text-ink-700">Tauri v2.x | React 18</span>
         </div>
       </section>
+
+      {/* Delete All Poems Confirmation Modal */}
+      {showConfirmDeleteAll && (
+        <div className="fixed inset-0 z-50 bg-charcoal-950/80 backdrop-blur-md flex items-center justify-center p-4 animate-fade-in">
+          <div className="bg-charcoal-900 border border-crimson-500/30 rounded-3xl p-6 md:p-8 max-w-md w-full shadow-2xl space-y-6">
+            <div className="flex items-center gap-3 text-crimson-500">
+              <div className="p-3 bg-crimson-500/10 rounded-2xl border border-crimson-500/20">
+                <AlertTriangle className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="text-xl font-bold text-parchment-100 font-heading">
+                  حذف جميع القصائد
+                </h3>
+                <p className="text-xs text-crimson-400 font-sans mt-0.5">
+                  إجراء حاسم ومسح شامل للمكتبة
+                </p>
+              </div>
+            </div>
+
+            <p className="text-sm text-ink-400 font-sans leading-relaxed">
+              هل أنت متأكد من رغبتك في حذف <strong className="text-crimson-400 font-bold">جميع القصائد ({toArabicDigits(poemsCount)})</strong> من التطبيق؟ سيتم مسح كافة الأبيات والتسجيلات والمحاذاة الصوتية نهائياً.
+            </p>
+
+            <div className="flex items-center justify-end gap-3 pt-4 border-t border-white/10 font-sans">
+              <button
+                type="button"
+                disabled={isDeletingAll}
+                onClick={() => setShowConfirmDeleteAll(false)}
+                className="px-5 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-xs font-semibold text-ink-500 hover:text-parchment-100 transition-colors"
+              >
+                إلغاء
+              </button>
+              <button
+                type="button"
+                disabled={isDeletingAll}
+                onClick={handleExecuteDeleteAll}
+                className="px-6 py-2.5 rounded-xl bg-crimson-600 hover:bg-crimson-500 text-white text-xs font-bold transition-all flex items-center gap-2 shadow-lg shadow-crimson-600/20 disabled:opacity-50"
+              >
+                <Trash2 className="w-4 h-4" />
+                <span>{isDeletingAll ? "جاري الحذف..." : "تأكيد حذف كل القصائد"}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

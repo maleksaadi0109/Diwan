@@ -1,19 +1,43 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { PoemCard } from "./PoemCard";
-import { MOCK_POEMS } from "@/data/mockData";
+import { Poem } from "@/types";
+
+const testPoem: Poem = {
+  id: "test-card-poem",
+  title: "واحَرَّ قَلباهُ مِمَّن قَلبُهُ شَبِمُ",
+  poet: {
+    id: "mutanabbi",
+    name: "أبو الطيب المتنبي",
+    era: "عباسي",
+  },
+  era: "عباسي",
+  bahr: "البسيط",
+  rhyme: "الميم المضمومة (ـمُ)",
+  versesCount: 1,
+  tags: ["عتاب", "فخر"],
+  recordings: [],
+  verses: [
+    {
+      id: "v-1",
+      poemId: "test-card-poem",
+      orderIndex: 1,
+      text: "واحَرَّ قَلباهُ مِمَّن قَلبُهُ شَبِمُ ... وَمَن بِجِسمي وَحالي عِندَهُ سَقَمُ",
+      normalizedText: "واحر قلباه ممن قلبه شبم ومن بجسمي وحالي عنده سقم",
+      firstHemistich: "واحَرَّ قَلباهُ مِمَّن قَلبُهُ شَبِمُ",
+      secondHemistich: "وَمَن بِجِسمي وَحالي عِندَهُ سَقَمُ",
+    },
+  ],
+};
 
 describe("PoemCard component", () => {
   it("opens the poem when the card button is activated", () => {
-    // The card's open/select control is now a native <button>, so browsers
-    // handle Enter/Space activation for us; simulate that native behavior
-    // via a click event (jsdom does not synthesize click from keyDown).
     const handleOpenPoem = vi.fn();
-    render(<PoemCard poem={MOCK_POEMS[0]} onOpenPoem={handleOpenPoem} />);
+    render(<PoemCard poem={testPoem} onOpenPoem={handleOpenPoem} />);
 
-    const card = screen.getByRole("button", { name: new RegExp(MOCK_POEMS[0].title) });
+    const card = screen.getByRole("button", { name: new RegExp(testPoem.title) });
     fireEvent.click(card);
-    expect(handleOpenPoem).toHaveBeenCalledWith(MOCK_POEMS[0]);
+    expect(handleOpenPoem).toHaveBeenCalledWith(testPoem);
   });
 
   it("does not open the poem when Enter/Space is pressed on a nested action button", () => {
@@ -23,7 +47,7 @@ describe("PoemCard component", () => {
 
     render(
       <PoemCard
-        poem={MOCK_POEMS[0]}
+        poem={testPoem}
         onOpenPoem={handleOpenPoem}
         onAddToPlaylist={handleAddToPlaylist}
         onDeletePoem={handleDeletePoem}
@@ -45,7 +69,7 @@ describe("PoemCard component", () => {
 
     render(
       <PoemCard
-        poem={MOCK_POEMS[0]}
+        poem={testPoem}
         onOpenPoem={handleOpenPoem}
         selectionMode
         isSelected={false}
@@ -53,8 +77,8 @@ describe("PoemCard component", () => {
       />
     );
 
-    const card = screen.getByRole("button", { name: new RegExp(MOCK_POEMS[0].title) });
+    const card = screen.getByRole("button", { name: new RegExp(testPoem.title) });
     fireEvent.click(card);
-    expect(handleToggleSelect).toHaveBeenCalledWith(MOCK_POEMS[0].id);
+    expect(handleToggleSelect).toHaveBeenCalledWith(testPoem.id);
   });
 });
