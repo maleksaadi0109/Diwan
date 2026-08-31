@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Poem, Era, Bahr } from "@/types";
-import { MizanAlArabProvider } from "@/lib/providers/MizanAlArabProvider";
+import { AldewanProvider } from "@/lib/providers/AldewanProvider";
 import type { ParsedPoemPayload, ParsedVersePayload } from "@/lib/providers/types";
 import {
   fetchYoutubeVideoInfo,
@@ -79,13 +79,12 @@ export const NewPoemWizard: React.FC<NewPoemWizardProps> = ({ onFinishWizard }) 
   const [currentStep, setCurrentStep] = useState<WizardStep>(1);
 
   // Step 1: Poem Data
-  const [poemSourceMode, setPoemSourceMode] = useState<"mizan" | "manual" | "json">("mizan");
-  const [mizanUrl, setMizanUrl] = useState("");
-  const [mizanLoading, setMizanLoading] = useState(false);
-  const [mizanError, setMizanError] = useState<string | null>(null);
-  const [mizanPayload, setMizanPayload] = useState<ParsedPoemPayload | null>(null);
-  const [mizanSourceText, setMizanSourceText] = useState("");
-  const [mizanPoemId, setMizanPoemId] = useState<string | null>(null);
+  const [poemSourceMode, setPoemSourceMode] = useState<"aldiwan" | "manual" | "json">("aldiwan");
+  const [aldiwanUrl, setAldiwanUrl] = useState("");
+  const [aldiwanLoading, setAldiwanLoading] = useState(false);
+  const [aldiwanError, setAldiwanError] = useState<string | null>(null);
+  const [aldiwanPayload, setAldiwanPayload] = useState<ParsedPoemPayload | null>(null);
+  const [aldiwanSourceText, setAldiwanSourceText] = useState("");
 
   const [title, setTitle] = useState("");
   const [poetName, setPoetName] = useState("");
@@ -118,11 +117,11 @@ export const NewPoemWizard: React.FC<NewPoemWizardProps> = ({ onFinishWizard }) 
 
   // Parse raw verses
   const getParsedVerses = (): ParsedVersePayload[] => {
-    if (poemSourceMode === "mizan" && mizanPayload && versesRaw === mizanSourceText) {
-      return mizanPayload.verses;
+    if (poemSourceMode === "aldiwan" && aldiwanPayload && versesRaw === aldiwanSourceText) {
+      return aldiwanPayload.verses;
     }
 
-    const provider = new MizanAlArabProvider();
+    const provider = new AldewanProvider();
     const lines = versesRaw.split("\n").map((l) => l.trim()).filter((l) => l.length > 0);
     return lines.map((line, idx) => {
       const { first, second } = provider.splitHemistichs(line);
@@ -135,16 +134,14 @@ export const NewPoemWizard: React.FC<NewPoemWizardProps> = ({ onFinishWizard }) 
     });
   };
 
-  // Mizan Fetch Action
-  const handleFetchMizan = async () => {
-    if (!mizanUrl.trim()) return;
-    setMizanLoading(true);
-    setMizanError(null);
+  // Aldiwan.net Fetch Action
+  const handleFetchAldiwan = async () => {
+    if (!aldiwanUrl.trim()) return;
+    setAldiwanLoading(true);
+    setAldiwanError(null);
     try {
-      const provider = new MizanAlArabProvider();
-      const poemId = provider.extractPoemIdFromUrl(mizanUrl.trim());
-      const data = await provider.fetchPoemById(poemId);
-      const parsed = provider.mapApiResponseToPayload(data);
+      const provider = new AldewanProvider();
+      const parsed = await provider.fetchByUrl(aldiwanUrl.trim());
       const sourceText = parsed.verses
         .map((v) => `${v.firstHemistich} — ${v.secondHemistich}`)
         .join("\n");
@@ -155,13 +152,12 @@ export const NewPoemWizard: React.FC<NewPoemWizardProps> = ({ onFinishWizard }) 
       setBahr(parsed.bahr);
       setRhyme(parsed.rhyme);
       setVersesRaw(sourceText);
-      setMizanPayload(parsed);
-      setMizanSourceText(sourceText);
-      setMizanPoemId(String(data.id));
+      setAldiwanPayload(parsed);
+      setAldiwanSourceText(sourceText);
     } catch (err: unknown) {
-      setMizanError((err as Error).message || "تعذر جلب القصيدة من ميزان العرب");
+      setAldiwanError((err as Error).message || "تعذر جلب القصيدة من aldiwan.net");
     } finally {
-      setMizanLoading(false);
+      setAldiwanLoading(false);
     }
   };
 
@@ -206,10 +202,9 @@ export const NewPoemWizard: React.FC<NewPoemWizardProps> = ({ onFinishWizard }) 
     };
 
     const parsedVerses = getParsedVerses();
-    const importedFromMizan = poemSourceMode === "mizan"
-      && mizanPayload !== null
-      && mizanPoemId !== null
-      && versesRaw === mizanSourceText;
+    const importedFromAldiwan = poemSourceMode === "aldiwan"
+      && aldiwanPayload !== null
+      && versesRaw === aldiwanSourceText;
     const poemId = `poem-wiz-${Date.now()}`;
     const recId = `rec-wiz-${Date.now()}`;
 
@@ -322,9 +317,8 @@ export const NewPoemWizard: React.FC<NewPoemWizardProps> = ({ onFinishWizard }) 
         rhyme: rhyme || "الميم",
         versesCount: parsedVerses.length,
         tags: ["مستورد عبر المعالج", `بحر ${bahr}`],
-        externalProvider: importedFromMizan ? "mizan_al_arab" : undefined,
-        externalId: importedFromMizan ? mizanPoemId : undefined,
-        sourceUrl: importedFromMizan ? mizanUrl.trim() : undefined,
+        externalProvider: importedFromAldiwan ? "aldewan" : undefined,
+        sourceUrl: importedFromAldiwan ? aldiwanUrl.trim() : undefined,
         coverImageUrl: resolvedCoverImage || resolvedYoutubeInfo?.thumbnail || undefined,
         verses: parsedVerses.map((v) => {
           const alignmentItem = alignRes.alignments.find((a) => a.order_index === v.orderIndex);
@@ -336,7 +330,7 @@ export const NewPoemWizard: React.FC<NewPoemWizardProps> = ({ onFinishWizard }) 
             normalizedText: normalizeArabic(v.text),
             firstHemistich: v.firstHemistich,
             secondHemistich: v.secondHemistich,
-            externalId: importedFromMizan ? v.externalId : undefined,
+            externalId: v.externalId,
             alignment: alignmentItem
               ? {
                   id: `align-${poemId}-${v.orderIndex}`,
@@ -424,7 +418,7 @@ export const NewPoemWizard: React.FC<NewPoemWizardProps> = ({ onFinishWizard }) 
                 الخطوة الأولى: مصدر نص القصيدة وبياناتها
               </h3>
               <p className="text-xs text-ink-600">
-                اختر استيراد القصيدة من ميزان العرب أو كتابتها ولصقها يدوياً
+                اختر استيراد القصيدة من الديوان (aldiwan.net) أو كتابتها ولصقها يدوياً
               </p>
             </div>
           </div>
@@ -432,13 +426,13 @@ export const NewPoemWizard: React.FC<NewPoemWizardProps> = ({ onFinishWizard }) 
           {/* Mode Selector */}
           <div className="flex gap-2 p-1 bg-charcoal-900 rounded-2xl border border-white/5">
             <button
-              onClick={() => setPoemSourceMode("mizan")}
+              onClick={() => setPoemSourceMode("aldiwan")}
               className={`flex-1 py-2 rounded-2xl text-xs font-bold transition-colors flex items-center justify-center gap-2 ${
-                poemSourceMode === "mizan" ? "bg-accent-700 text-parchment-100" : "text-ink-600 hover:text-parchment-100"
+                poemSourceMode === "aldiwan" ? "bg-accent-700 text-parchment-100" : "text-ink-600 hover:text-parchment-100"
               }`}
             >
               <Globe className="w-3.5 h-3.5" />
-              <span>ميزان العرب (Mizan Al-Arab)</span>
+              <span>الديوان (aldiwan.net)</span>
             </button>
             <button
               onClick={() => setPoemSourceMode("manual")}
@@ -451,30 +445,30 @@ export const NewPoemWizard: React.FC<NewPoemWizardProps> = ({ onFinishWizard }) 
             </button>
           </div>
 
-          {/* Mizan URL Input */}
-          {poemSourceMode === "mizan" && (
+          {/* Aldiwan.net URL Input */}
+          {poemSourceMode === "aldiwan" && (
             <div className="space-y-3">
               <label className="block text-xs font-semibold text-ink-400">
-                رابط القصيدة في موقع ميزان العرب:
+                رابط القصيدة في موقع الديوان (aldiwan.net):
               </label>
               <div className="flex gap-2">
                 <input
                   type="url"
-                  value={mizanUrl}
-                  onChange={(e) => setMizanUrl(e.target.value)}
-                  placeholder="https://mizanalarab.com/poem/12345"
+                  value={aldiwanUrl}
+                  onChange={(e) => setAldiwanUrl(e.target.value)}
+                  placeholder="https://www.aldiwan.net/poem81.html"
                   className="flex-1 bg-charcoal-900 text-parchment-100 placeholder-ink-500 border border-white/10 rounded-2xl px-4 py-2.5 text-xs focus:outline-none focus:border-accent-700 ltr-num"
                 />
                 <button
                   type="button"
-                  onClick={handleFetchMizan}
-                  disabled={!mizanUrl.trim() || mizanLoading}
+                  onClick={handleFetchAldiwan}
+                  disabled={!aldiwanUrl.trim() || aldiwanLoading}
                   className="px-4 py-2.5 rounded-2xl bg-accent-700 hover:bg-accent-700 disabled:opacity-50 text-parchment-100 font-bold text-xs"
                 >
-                  {mizanLoading ? "جاري الجلب..." : "جلب النص"}
+                  {aldiwanLoading ? "جاري الجلب..." : "جلب النص"}
                 </button>
               </div>
-              {mizanError && <p className="text-xs text-crimson-400">{mizanError}</p>}
+              {aldiwanError && <p className="text-xs text-crimson-400">{aldiwanError}</p>}
             </div>
           )}
 

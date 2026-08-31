@@ -12,7 +12,6 @@ import { Info, BookOpen, AlertCircle, Maximize2, ClipboardPaste } from "lucide-r
 import { ParsedExplanationBlock } from "@/lib/import/pasteExplanationParser";
 import { analyzeVerseMeter } from "@/lib/arud/meterDetector";
 import { DiwanRepository } from "@/lib/db/repository";
-import { MizanAlArabProvider } from "@/lib/providers/MizanAlArabProvider";
 
 interface PoemPlayerViewProps {
   poem: Poem;
@@ -51,8 +50,6 @@ export const PoemPlayerView: React.FC<PoemPlayerViewProps> = ({
 
   const verseElementsRef = useRef<Map<string, HTMLDivElement>>(new Map());
   const containerRef = useRef<HTMLDivElement | null>(null);
-  const explanationRequestRef = useRef(0);
-  const mizanProviderRef = useRef<MizanAlArabProvider | null>(null);
 
   const {
     isPlaying,
@@ -76,66 +73,17 @@ export const PoemPlayerView: React.FC<PoemPlayerViewProps> = ({
 
   const lastScrolledVerseIdRef = useRef<string | null>(null);
 
-  const getMizanProvider = () => {
-    if (!mizanProviderRef.current) mizanProviderRef.current = new MizanAlArabProvider();
-    return mizanProviderRef.current;
-  };
-
   const loadExplanation = useCallback(async (verse: Verse) => {
     const cached = verse.explanations || [];
-    if (cached.length > 0) {
-      setExplanationStates((previous) => ({
-        ...previous,
-        [verse.id]: { status: "loaded", items: cached, error: null },
-      }));
-      return;
-    }
-
-    if (!verse.externalId || poem.externalProvider !== "mizan_al_arab") {
-      setExplanationStates((previous) => ({
-        ...previous,
-        [verse.id]: {
-          status: verse.explanation ? "loaded" : "empty",
-          items: [],
-          error: null,
-        },
-      }));
-      return;
-    }
-
-    const requestId = ++explanationRequestRef.current;
     setExplanationStates((previous) => ({
       ...previous,
-      [verse.id]: { status: "loading", items: [], error: null },
+      [verse.id]: {
+        status: cached.length > 0 || verse.explanation ? "loaded" : "empty",
+        items: cached,
+        error: null,
+      },
     }));
-
-    try {
-      const items = await getMizanProvider().fetchExplanations(verse.externalId);
-      if (requestId !== explanationRequestRef.current) return;
-      setExplanationStates((previous) => ({
-        ...previous,
-        [verse.id]: {
-          status: items.length > 0 ? "loaded" : "empty",
-          items,
-          error: null,
-        },
-      }));
-      if (onSaveExplanations && items.length > 0) {
-        await onSaveExplanations(verse.id, items);
-      }
-    } catch (err: unknown) {
-      if (requestId !== explanationRequestRef.current) return;
-      const error = err as Error;
-      setExplanationStates((previous) => ({
-        ...previous,
-        [verse.id]: {
-          status: "error",
-          items: [],
-          error: error.message || "تعذر جلب الشرح من ميزان العرب",
-        },
-      }));
-    }
-  }, [poem.externalProvider, onSaveExplanations]);
+  }, []);
 
   useEffect(() => {
     if (!isUserScrolling && activeVerse && containerRef.current) {

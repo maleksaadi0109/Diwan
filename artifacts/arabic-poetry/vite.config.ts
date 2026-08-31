@@ -57,14 +57,14 @@ export default defineConfig({
     host: '0.0.0.0',
     allowedHosts: true,
     proxy: {
-      '/api-mizan': {
-        target: 'https://mizanalarab.com',
+      '/api-aldiwan': {
+        target: 'https://www.aldiwan.net',
         changeOrigin: true,
         secure: false,
-        rewrite: (path) => path.replace(/^\/api-mizan/, ''),
+        rewrite: (path) => path.replace(/^\/api-aldiwan/, ''),
         headers: {
-          'User-Agent': 'DiwanDesktop/1.0 (Arabic Poetic Audio Sync)',
-          'Accept': 'application/json',
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
         },
       },
       '/api-adabworld': {
