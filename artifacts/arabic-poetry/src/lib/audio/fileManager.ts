@@ -135,6 +135,35 @@ export function resolveAudioSrc(audioPath: string): string {
 
 const blobUrlCache = new Map<string, string>();
 
+async function resolveDesktopPlaybackPath(audioPath: string): Promise<string> {
+  if (!/\.mp3$/i.test(audioPath)) return audioPath;
+
+  const desktopWavPath = audioPath.replace(/\.mp3$/i, ".desktop.wav");
+
+  try {
+    const { exists, remove } = await import("@tauri-apps/plugin-fs");
+    if (!(await exists(desktopWavPath))) {
+      const { convertAudioFile } = await import("@/lib/worker/workerClient");
+      try {
+        await convertAudioFile(audioPath, desktopWavPath, "playback");
+      } catch (conversionError) {
+        // A failed/interrupted conversion can leave a partial WAV. Remove it
+        // so the next playback attempt can retry cleanly.
+        if (await exists(desktopWavPath)) {
+          await remove(desktopWavPath);
+        }
+        throw conversionError;
+      }
+    }
+    return desktopWavPath;
+  } catch (err) {
+    // Keep MP3 as a fallback rather than making an existing recording
+    // completely unplayable if ffmpeg or the worker is unavailable.
+    console.warn("Could not prepare seek-stable desktop WAV; using original audio:", err);
+    return audioPath;
+  }
+}
+
 /**
  * Asynchronously resolves an audio path into a playable HTML5 Audio URL.
  * In Tauri desktop environments, it reads the audio file bytes via Tauri FS
@@ -163,9 +192,10 @@ export async function resolveAudioSrcAsync(audioPath: string): Promise<string> {
   const isTauri = typeof window !== "undefined" && ("__TAURI_INTERNALS__" in window || "__TAURI__" in window);
   if (isTauri) {
     try {
+      const playbackPath = await resolveDesktopPlaybackPath(audioPath);
       const { readFile } = await import("@tauri-apps/plugin-fs");
-      const bytes = await readFile(audioPath);
-      const ext = audioPath.split('.').pop()?.toLowerCase();
+      const bytes = await readFile(playbackPath);
+      const ext = playbackPath.split('.').pop()?.toLowerCase();
       const mime = ext === 'wav' ? 'audio/wav' : ext === 'ogg' ? 'audio/ogg' : ext === 'm4a' ? 'audio/mp4' : 'audio/mpeg';
       const blob = new Blob([bytes], { type: mime });
       const blobUrl = URL.createObjectURL(blob);
