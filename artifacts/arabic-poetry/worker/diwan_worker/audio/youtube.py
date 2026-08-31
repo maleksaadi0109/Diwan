@@ -142,14 +142,23 @@ def _trim_file_from_ms(
     Re-encoding instead of stream-copying is intentional: MP3 stream-copy
     seeks can land on a preceding encoder frame, which would make the
     playback file and the alignment WAV start at different positions.
+
+    `-ss` is placed AFTER `-i` (output seeking) rather than before it. Input
+    seeking on MP3 estimates a byte offset from the file's average bitrate,
+    which is wrong whenever the encoder used ABR/VBR (libmp3lame's `-b:a`
+    is ABR, not strict CBR) -- on some files this lands the "trimmed" start
+    far from the intended timestamp (observed as playback that starts near
+    the end of the recording, then jumps back to the actual beginning).
+    Output seeking decodes frame-accurately instead; since trims here are
+    capped at 10s, the extra decode cost is negligible.
     """
     command = [
         "ffmpeg",
         "-y",
-        "-ss",
-        f"{trim_ms / 1000:.3f}",
         "-i",
         str(input_path),
+        "-ss",
+        f"{trim_ms / 1000:.3f}",
         "-vn",
     ]
     if playback:

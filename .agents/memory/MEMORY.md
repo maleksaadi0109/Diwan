@@ -3,5 +3,5 @@
 - [GitHub pull authentication](github-pull-auth.md) — the Git CLI remote may reject credentials even when the connected GitHub workflow and remote-tracking refs work.
 - [Global audio player context](arabic-poetry-global-audio-context.md) — audio playback state must live above per-view hooks for a persistent mini-player to work.
 - [Poem import flows](arabic-poetry-import-flows.md) — 4 independent import tabs each build their own Poem object; a feature added to one (e.g. cover image) doesn't apply to the others.
-- [Async audio load/play race](arabic-poetry-audio-load-race.md) — never call controller.play() right after loadPoem(); pass autoplay so it plays once the async src resolves.
+- [Async audio load race & browser duration-probe seek](arabic-poetry-audio-load-race.md) — never play() before async src resolves; also guard against browsers' probe-seek to a bogus timestamp when duration is uncertain (causes "jump to end then back to start").
 - [Verse merge/split heuristic thresholds](arabic-poetry-verse-boundary-heuristics.md) — merge/split suggestion detection is sensitive to word-count balance between adjacent verses; test data must be crafted carefully.
