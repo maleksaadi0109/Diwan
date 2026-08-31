@@ -1,12 +1,38 @@
 import { describe, it, expect } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { PoemPlayerView } from "./PoemPlayerView";
-import { MOCK_POEMS } from "@/data/mockData";
+import { Poem } from "@/types";
 import { AudioPlayerProvider } from "@/contexts/AudioPlayerContext";
+
+const samplePoem: Poem = {
+  id: "test-poem-1",
+  title: "واحَرَّ قَلباهُ مِمَّن قَلبُهُ شَبِمُ",
+  poet: {
+    id: "mutanabbi",
+    name: "أبو الطيب المتنبي",
+    era: "عباسي",
+  },
+  era: "عباسي",
+  bahr: "البسيط",
+  rhyme: "الميم المضمومة (ـمُ)",
+  versesCount: 1,
+  tags: ["عتاب", "فخر"],
+  recordings: [],
+  verses: [
+    {
+      id: "v-1",
+      poemId: "test-poem-1",
+      orderIndex: 1,
+      text: "واحَرَّ قَلباهُ مِمَّن قَلبُهُ شَبِمُ ... وَمَن بِجِسمي وَحالي عِندَهُ سَقَمُ",
+      normalizedText: "واحر قلباه ممن قلبه شبم ومن بجسمي وحالي عنده سقم",
+      firstHemistich: "واحَرَّ قَلباهُ مِمَّن قَلبُهُ شَبِمُ",
+      secondHemistich: "وَمَن بِجِسمي وَحالي عِندَهُ سَقَمُ",
+    },
+  ],
+};
 
 describe("PoemPlayerView component", () => {
   it("renders the poem title and verses", () => {
-    const samplePoem = MOCK_POEMS[0];
     render(
       <AudioPlayerProvider>
         <PoemPlayerView poem={samplePoem} />

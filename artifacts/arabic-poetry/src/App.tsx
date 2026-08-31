@@ -60,9 +60,14 @@ function AppShell() {
         setRepo(repository);
 
         let loadedPoems = await repository.getAllPoems();
-        if (loadedPoems.length === 0) {
-          // Idempotent seed if database is empty on first run
-          await repository.seed();
+        // If legacy demo poems (poem-1, poem-2, poem-3) are present in the local database,
+        // purge them so the user starts with a clean empty state as requested.
+        const legacyDemoIds = ["poem-1", "poem-2", "poem-3"];
+        const hasLegacyDemos = loadedPoems.some((p) => legacyDemoIds.includes(p.id));
+        if (hasLegacyDemos) {
+          for (const demoId of legacyDemoIds) {
+            await repository.deletePoem(demoId);
+          }
           loadedPoems = await repository.getAllPoems();
         }
 
@@ -307,6 +312,13 @@ function AppShell() {
     [repo, activePoem]
   );
 
+  const refreshPlaylists = useCallback(async () => {
+    if (!repo) return;
+    const updated = await repo.getAllPlaylists();
+    setPlaylists(updated);
+    return updated;
+  }, [repo]);
+
   const handleDeletePoem = useCallback(
     async (poemId: string) => {
       if (repo) {
@@ -315,7 +327,9 @@ function AppShell() {
         setPoems(updatedPoems);
         if (activePoem?.id === poemId) {
           setActivePoem(updatedPoems[0] || null);
-          setActiveTab("library");
+          if (updatedPoems.length === 0) {
+            setActiveTab("library");
+          }
         }
       } else {
         setPoems((prev) => prev.filter((p) => p.id !== poemId));
@@ -324,16 +338,54 @@ function AppShell() {
           setActiveTab("library");
         }
       }
+      if (currentPoem?.id === poemId) {
+        clearPoem();
+      }
+      await refreshPlaylists();
     },
-    [repo, activePoem]
+    [repo, activePoem, currentPoem, clearPoem, refreshPlaylists]
   );
 
-  const refreshPlaylists = useCallback(async () => {
-    if (!repo) return;
-    const updated = await repo.getAllPlaylists();
-    setPlaylists(updated);
-    return updated;
-  }, [repo]);
+  const handleBulkDeletePoems = useCallback(
+    async (poemIds: string[]) => {
+      if (repo) {
+        await repo.deletePoems(poemIds);
+        const updatedPoems = await repo.getAllPoems();
+        setPoems(updatedPoems);
+        if (activePoem && poemIds.includes(activePoem.id)) {
+          setActivePoem(updatedPoems[0] || null);
+          if (updatedPoems.length === 0) {
+            setActiveTab("library");
+          }
+        }
+      } else {
+        setPoems((prev) => prev.filter((p) => !poemIds.includes(p.id)));
+        if (activePoem && poemIds.includes(activePoem.id)) {
+          setActivePoem(null);
+          setActiveTab("library");
+        }
+      }
+      if (currentPoem && poemIds.includes(currentPoem.id)) {
+        clearPoem();
+      }
+      await refreshPlaylists();
+    },
+    [repo, activePoem, currentPoem, clearPoem, refreshPlaylists]
+  );
+
+  const handleDeleteAllPoems = useCallback(async () => {
+    if (repo) {
+      await repo.deleteAllPoems();
+      const updatedPoems = await repo.getAllPoems();
+      setPoems(updatedPoems);
+    } else {
+      setPoems([]);
+    }
+    setActivePoem(null);
+    clearPoem();
+    setActiveTab("library");
+    await refreshPlaylists();
+  }, [repo, clearPoem, refreshPlaylists]);
 
   const handleOpenPlaylist = useCallback(
     (playlist: Playlist) => {
@@ -471,6 +523,7 @@ function AppShell() {
                   onOpenPoem={handleOpenPoem}
                   onNavigateToImport={() => setActiveTab("import")}
                   onDeletePoem={handleDeletePoem}
+                  onBulkDeletePoems={handleBulkDeletePoems}
                   onAddToPlaylist={(poem) => setAddToPlaylistPoems([poem])}
                   onBulkAddToPlaylist={(selectedPoems) => setAddToPlaylistPoems(selectedPoems)}
                 />
@@ -521,7 +574,12 @@ function AppShell() {
                 />
               )}
 
-              {activeTab === "settings" && <SettingsView />}
+              {activeTab === "settings" && (
+                <SettingsView
+                  poemsCount={poems.length}
+                  onDeleteAllPoems={handleDeleteAllPoems}
+                />
+              )}
             </>
           )}
         </main>
