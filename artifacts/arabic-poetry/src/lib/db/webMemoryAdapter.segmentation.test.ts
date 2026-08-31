@@ -185,4 +185,86 @@ describe("DiwanRepository segmentation corrections on WebMemoryAdapter", () => {
     expect(firstHalf?.alignment?.id).toBe("align-w-2");
     expect(firstHalf?.explanations?.some((e) => e.id === "exp-w-2")).toBe(true);
   });
+
+  it("snapshotPoemVerses/replacePoemVerses on WebMemoryAdapter preserve alignments across every recording through an undo round trip", async () => {
+    const poet: Poet = { id: "poet-web-multi-rec", name: "شاعر متعدد التسجيلات", era: "أموي" };
+    const poem: Poem = {
+      id: "poem-web-multi-rec",
+      title: "قصيدة بتسجيلين على المحول الذاكري",
+      poet,
+      era: "أموي",
+      bahr: "الطويل",
+      rhyme: "اللام",
+      versesCount: 1,
+      tags: [],
+      recordings: [
+        {
+          id: "web-rec-a",
+          poemId: "poem-web-multi-rec",
+          title: "التسجيل الافتراضي",
+          reciter: "قارئ أ",
+          audioPath: "recordings/web-a.mp3",
+          durationMs: 20000,
+          createdAt: "2026-01-01",
+        },
+        {
+          id: "web-rec-b",
+          poemId: "poem-web-multi-rec",
+          title: "تسجيل ثانٍ",
+          reciter: "قارئ ب",
+          audioPath: "recordings/web-b.mp3",
+          durationMs: 22000,
+          createdAt: "2026-01-02",
+        },
+      ],
+      defaultRecordingId: "web-rec-a",
+      verses: [
+        {
+          id: "w-multi-1",
+          poemId: "poem-web-multi-rec",
+          orderIndex: 1,
+          text: "بيت له تسجيلان",
+          normalizedText: normalizeArabic("بيت له تسجيلان"),
+          firstHemistich: "بيت له",
+          secondHemistich: "تسجيلان",
+        },
+      ],
+    };
+    await repo.savePoem(poem);
+    // Every verse has alignments against *both* recordings -- getPoemById
+    // only surfaces the default recording's alignment via `Verse.alignment`,
+    // but a snapshot/restore round trip must not silently drop the other.
+    await repo.saveAlignment({
+      id: "web-align-a",
+      verseId: "w-multi-1",
+      recordingId: "web-rec-a",
+      startMs: 0,
+      endMs: 4000,
+      confidence: 0.9,
+      status: "reviewed",
+    });
+    await repo.saveAlignment({
+      id: "web-align-b",
+      verseId: "w-multi-1",
+      recordingId: "web-rec-b",
+      startMs: 0,
+      endMs: 4300,
+      confidence: 0.85,
+      status: "auto",
+    });
+
+    const snapshot = await repo.snapshotPoemVerses("poem-web-multi-rec");
+    expect(snapshot).toHaveLength(1);
+    expect(snapshot[0].alignments).toHaveLength(2);
+
+    // Simulate an undo/redo round trip: delete the verse, then restore.
+    await repo.deleteVerse("poem-web-multi-rec", "w-multi-1");
+    expect(await repo.getVersesByPoemId("poem-web-multi-rec")).toHaveLength(0);
+
+    await repo.replacePoemVerses("poem-web-multi-rec", snapshot);
+
+    const restoredAlignments = await repo.getAlignmentsByVerseId("w-multi-1");
+    expect(restoredAlignments.map((a) => a.id).sort()).toEqual(["web-align-a", "web-align-b"]);
+    expect(restoredAlignments.find((a) => a.recordingId === "web-rec-b")?.endMs).toBe(4300);
+  });
 });

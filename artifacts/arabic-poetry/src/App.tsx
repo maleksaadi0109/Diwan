@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { ActiveTab, Playlist, Poem, Verse, VerseExplanationItem, VerseSegmentationSuggestion } from "./types";
 import { Navigation } from "./components/Navigation";
 import { Header } from "./components/Header";
@@ -16,16 +16,26 @@ import { ParsedExplanationBlock } from "./lib/import/pasteExplanationParser";
 import { AudioPlayerProvider, useAudioPlayerContext } from "./contexts/AudioPlayerContext";
 import { ImportQueueProvider, useImportQueueContext } from "./contexts/ImportQueueContext";
 import { ImportQueueTray } from "./components/ImportQueueTray";
+import { UndoHistoryProvider, useUndoHistory } from "./contexts/UndoHistoryContext";
+import { UndoToastStack } from "./components/UndoToastStack";
 
 export function App() {
   return (
     <AudioPlayerProvider>
       <ImportQueueProvider>
-        <AppShell />
+        <UndoHistoryProvider>
+          <AppShell />
+        </UndoHistoryProvider>
       </ImportQueueProvider>
     </AudioPlayerProvider>
   );
 }
+
+const SUGGESTION_KIND_LABEL: Record<VerseSegmentationSuggestion["kind"], string> = {
+  hemistich_split: "تصحيح تجزئة شطر",
+  merge_verses: "دمج بيتين",
+  split_verse: "تقسيم بيت",
+};
 
 function AppShell() {
   const [repo, setRepo] = useState<DiwanRepository | null>(null);
@@ -53,6 +63,7 @@ function AppShell() {
     playPreviousInQueue,
   } = useAudioPlayerContext();
   const { subscribeToCompletion } = useImportQueueContext();
+  const { pushEntry, undo, redo, canUndo, canRedo, undoLabel, redoLabel, clearScope } = useUndoHistory();
 
   // Initialize DB and load initial data
   useEffect(() => {
@@ -122,6 +133,43 @@ function AppShell() {
     setActivePoem(poem);
     setActiveTab("player");
   };
+
+  // Undo/redo history is scoped to the poem/playlist being edited -- once
+  // the user navigates to a different one, that entry can no longer be
+  // undone visibly, so it's evicted rather than left to silently resurface
+  // on an unrelated screen later.
+  const prevActivePoemIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    const prevId = prevActivePoemIdRef.current;
+    if (prevId && prevId !== activePoem?.id) {
+      clearScope({ type: "poem", id: prevId });
+    }
+    prevActivePoemIdRef.current = activePoem?.id ?? null;
+  }, [activePoem?.id, clearScope]);
+
+  const prevActivePlaylistIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    const prevId = prevActivePlaylistIdRef.current;
+    if (prevId && prevId !== activePlaylist?.id) {
+      clearScope({ type: "playlist", id: prevId });
+    }
+    prevActivePlaylistIdRef.current = activePlaylist?.id ?? null;
+  }, [activePlaylist?.id, clearScope]);
+
+  // Re-fetches a poem by id and updates it in both `activePoem` (if it's
+  // still the one being viewed) and the `poems` list -- shared by every
+  // undo/redo closure below so an undo/redo triggered from a different tab
+  // still lands correctly.
+  const refreshPoemState = useCallback(
+    async (poemId: string) => {
+      if (!repo) return;
+      const refreshed = await repo.getPoemById(poemId);
+      if (!refreshed) return;
+      setActivePoem((prev) => (prev && prev.id === poemId ? refreshed : prev));
+      setPoems((prev) => prev.map((p) => (p.id === poemId ? refreshed : p)));
+    },
+    [repo]
+  );
 
   const handleImportPoem = useCallback(
     async (newPoem: Poem) => {
@@ -198,6 +246,8 @@ function AppShell() {
       if (!activePoem || accepted.length === 0) return;
 
       if (repo) {
+        const poemId = activePoem.id;
+        const beforeSnapshot = await repo.snapshotPoemVerses(poemId);
         for (const suggestion of accepted) {
           if (suggestion.kind === "hemistich_split") {
             const [verseId] = suggestion.verseIds;
@@ -213,10 +263,28 @@ function AppShell() {
             await repo.splitVerse(activePoem.id, verseId, first, second);
           }
         }
-        const refreshed = await repo.getPoemById(activePoem.id);
+        const refreshed = await repo.getPoemById(poemId);
         if (refreshed) {
           setActivePoem(refreshed);
           setPoems((prev) => prev.map((p) => (p.id === refreshed.id ? refreshed : p)));
+
+          const afterSnapshot = await repo.snapshotPoemVerses(poemId);
+          const label =
+            accepted.length === 1
+              ? SUGGESTION_KIND_LABEL[accepted[0].kind]
+              : `تطبيق ${accepted.length} تصحيحات في تجزئة الأبيات`;
+          pushEntry({
+            label,
+            scope: { type: "poem", id: poemId },
+            undo: async () => {
+              await repo.replacePoemVerses(poemId, beforeSnapshot);
+              await refreshPoemState(poemId);
+            },
+            redo: async () => {
+              await repo.replacePoemVerses(poemId, afterSnapshot);
+              await refreshPoemState(poemId);
+            },
+          });
         }
         return;
       }
@@ -279,18 +347,32 @@ function AppShell() {
       setActivePoem(updated);
       setPoems((prev) => prev.map((p) => (p.id === updated.id ? updated : p)));
     },
-    [repo, activePoem]
+    [repo, activePoem, pushEntry, refreshPoemState]
   );
 
   const handleDeleteVerse = useCallback(
     async (verseId: string) => {
       if (!activePoem) return;
       if (repo) {
-        await repo.deleteVerse(activePoem.id, verseId);
-        const refreshed = await repo.getPoemById(activePoem.id);
+        const poemId = activePoem.id;
+        const beforeSnapshot = await repo.snapshotPoemVerses(poemId);
+        await repo.deleteVerse(poemId, verseId);
+        const refreshed = await repo.getPoemById(poemId);
         if (refreshed) {
           setActivePoem(refreshed);
           setPoems((prev) => prev.map((p) => (p.id === refreshed.id ? refreshed : p)));
+          pushEntry({
+            label: "حذف بيت",
+            scope: { type: "poem", id: poemId },
+            undo: async () => {
+              await repo.replacePoemVerses(poemId, beforeSnapshot);
+              await refreshPoemState(poemId);
+            },
+            redo: async () => {
+              await repo.deleteVerse(poemId, verseId);
+              await refreshPoemState(poemId);
+            },
+          });
         }
       } else {
         const remaining = activePoem.verses
@@ -301,7 +383,7 @@ function AppShell() {
         setPoems((prev) => prev.map((p) => (p.id === updated.id ? updated : p)));
       }
     },
-    [repo, activePoem]
+    [repo, activePoem, pushEntry, refreshPoemState]
   );
 
   const handleEditVerse = useCallback(
@@ -313,11 +395,27 @@ function AppShell() {
         throw new Error("لا يمكن ترك شطر البيت فارغًا.");
       }
       if (repo) {
+        const poemId = activePoem.id;
+        const prevVerse = activePoem.verses.find((v) => v.id === verseId);
         await repo.updateVerseText(verseId, trimmedFirst, trimmedSecond);
-        const refreshed = await repo.getPoemById(activePoem.id);
+        const refreshed = await repo.getPoemById(poemId);
         if (refreshed) {
           setActivePoem(refreshed);
           setPoems((prev) => prev.map((p) => (p.id === refreshed.id ? refreshed : p)));
+          if (prevVerse) {
+            pushEntry({
+              label: "تعديل نص بيت",
+              scope: { type: "poem", id: poemId },
+              undo: async () => {
+                await repo.updateVerseText(verseId, prevVerse.firstHemistich, prevVerse.secondHemistich);
+                await refreshPoemState(poemId);
+              },
+              redo: async () => {
+                await repo.updateVerseText(verseId, trimmedFirst, trimmedSecond);
+                await refreshPoemState(poemId);
+              },
+            });
+          }
         }
       } else {
         const text = `${trimmedFirst} ${trimmedSecond}`.trim();
@@ -333,7 +431,7 @@ function AppShell() {
         setPoems((prev) => prev.map((p) => (p.id === updated.id ? updated : p)));
       }
     },
-    [repo, activePoem]
+    [repo, activePoem, pushEntry, refreshPoemState]
   );
 
   const refreshPlaylists = useCallback(async () => {
@@ -487,15 +585,40 @@ function AppShell() {
     [repo, refreshPlaylists]
   );
 
+  const refreshPlaylistState = useCallback(
+    async (playlistId: string) => {
+      const updated = await refreshPlaylists();
+      const refreshed = updated?.find((p) => p.id === playlistId) || null;
+      setActivePlaylist((prev) => (prev && prev.id === playlistId ? refreshed : prev));
+    },
+    [refreshPlaylists]
+  );
+
   const handleReorderPlaylist = useCallback(
     async (playlistId: string, orderedPoemIds: string[]) => {
       if (!repo) return;
+      const currentPlaylist = playlists.find((p) => p.id === playlistId);
+      const prevOrder = currentPlaylist?.poemIds;
       await repo.reorderPlaylistPoems(playlistId, orderedPoemIds);
       const updated = await refreshPlaylists();
       const refreshed = updated?.find((p) => p.id === playlistId) || null;
       if (refreshed) setActivePlaylist(refreshed);
+      if (prevOrder) {
+        pushEntry({
+          label: "إعادة ترتيب قائمة التشغيل",
+          scope: { type: "playlist", id: playlistId },
+          undo: async () => {
+            await repo.reorderPlaylistPoems(playlistId, prevOrder);
+            await refreshPlaylistState(playlistId);
+          },
+          redo: async () => {
+            await repo.reorderPlaylistPoems(playlistId, orderedPoemIds);
+            await refreshPlaylistState(playlistId);
+          },
+        });
+      }
     },
-    [repo, refreshPlaylists]
+    [repo, playlists, refreshPlaylists, refreshPlaylistState, pushEntry]
   );
 
   const getPlaylistPoems = useCallback(
@@ -532,6 +655,12 @@ function AppShell() {
           activeTab={activeTab}
           activePoem={activePoem}
           onBackToLibrary={() => setActiveTab("library")}
+          canUndo={canUndo}
+          canRedo={canRedo}
+          undoLabel={undoLabel}
+          redoLabel={redoLabel}
+          onUndo={undo}
+          onRedo={redo}
         />
 
         <main className="flex-1 overflow-hidden relative pb-[calc(var(--mobile-nav-h)+env(safe-area-inset-bottom))] md:pb-0">
@@ -654,6 +783,7 @@ function AppShell() {
       )}
 
       <ImportQueueTray />
+      <UndoToastStack />
     </div>
   );
 }
