@@ -211,6 +211,104 @@ export async function resolveAudioSrcAsync(audioPath: string): Promise<string> {
 }
 
 /**
+ * Resolves a filesystem path to the small bundled sample recording used by
+ * the diagnostics screen's "test audio decoding" action, so it always has
+ * something to decode without requiring the user to pick a file first.
+ *
+ * On desktop this is bundled as a Tauri resource (see `bundle.resources` in
+ * `src-tauri/tauri.conf.json`) and resolved to its real on-disk path, since
+ * the Python worker needs an actual filesystem path, not a webview URL. On
+ * the web it reuses the same public asset already used elsewhere as a
+ * playback fallback.
+ */
+export async function getDiagnosticSampleAudioPath(): Promise<string> {
+  const isTauri = typeof window !== "undefined" && ("__TAURI_INTERNALS__" in window || "__TAURI__" in window);
+
+  if (isTauri) {
+    try {
+      const { resolveResource } = await import("@tauri-apps/api/path");
+      return await resolveResource("samples/diagnostic-sample.wav");
+    } catch (err) {
+      console.warn("Could not resolve bundled diagnostic sample resource:", err);
+    }
+  }
+
+  return "/recordings/mutanabbi_waharra_16k.wav";
+}
+
+/**
+ * Verifies the app can create, write, read back, and delete a file under
+ * its own app-data directory (desktop) or its equivalent persistent store
+ * (the browser's localStorage, which is what `WebMemoryAdapter` itself
+ * relies on in web preview mode). Never throws -- failures are reported in
+ * the returned result for the diagnostics screen.
+ */
+export async function testStoragePermissions(): Promise<
+  { success: true; path: string } | { success: false; path: string; error: string }
+> {
+  const isTauri = typeof window !== "undefined" && ("__TAURI_INTERNALS__" in window || "__TAURI__" in window);
+  const marker = `diwan-diagnostics-${Date.now()}`;
+
+  if (isTauri) {
+    let testFilePath = "";
+    try {
+      const { appDataDir, join } = await import("@tauri-apps/api/path");
+      const { writeTextFile, readTextFile, remove, mkdir, exists } = await import("@tauri-apps/plugin-fs");
+
+      const baseDir = await appDataDir();
+      const diagnosticsDir = await join(baseDir, "diagnostics");
+      if (!(await exists(diagnosticsDir))) {
+        await mkdir(diagnosticsDir, { recursive: true });
+      }
+
+      testFilePath = await join(diagnosticsDir, `${marker}.tmp`);
+      await writeTextFile(testFilePath, marker);
+      const readBack = await readTextFile(testFilePath);
+      if (readBack !== marker) {
+        throw new Error("محتوى الملف المقروء لا يطابق ما تمت كتابته");
+      }
+      await remove(testFilePath);
+      return { success: true, path: testFilePath };
+    } catch (err) {
+      const error = err as Error;
+      // Best-effort cleanup: if writing succeeded but a later step in the
+      // test failed, don't leave the temp file behind under the user's
+      // app-data directory.
+      if (testFilePath) {
+        try {
+          const { remove, exists } = await import("@tauri-apps/plugin-fs");
+          if (await exists(testFilePath)) {
+            await remove(testFilePath);
+          }
+        } catch {
+          // Cleanup is best-effort; the original error is what matters.
+        }
+      }
+      return { success: false, path: testFilePath, error: error.message || "فشل اختبار صلاحيات التخزين" };
+    }
+  }
+
+  // Web fallback: localStorage is the persistent store the browser preview
+  // mode actually depends on (see WebMemoryAdapter), so exercising it here
+  // is the equivalent read/write/delete cycle for that environment.
+  try {
+    if (typeof localStorage === "undefined") {
+      throw new Error("التخزين المحلي (localStorage) غير متاح في هذه البيئة");
+    }
+    localStorage.setItem(marker, marker);
+    const readBack = localStorage.getItem(marker);
+    if (readBack !== marker) {
+      throw new Error("محتوى القيمة المقروءة لا يطابق ما تمت كتابته");
+    }
+    localStorage.removeItem(marker);
+    return { success: true, path: `localStorage["${marker}"]` };
+  } catch (err) {
+    const error = err as Error;
+    return { success: false, path: `localStorage["${marker}"]`, error: error.message || "فشل اختبار صلاحيات التخزين" };
+  }
+}
+
+/**
  * Resolves and creates canonical directories for a poem recording:
  * appDataDir/poems/{poemUuid}/recordings/{recordingUuid}/
  */
