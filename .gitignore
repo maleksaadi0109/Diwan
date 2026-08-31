@@ -8,6 +8,12 @@ out-tsc
 .expo
 .expo-shared
 
+# Windows desktop packaging (large, regeneratable, platform-specific binaries -- see WINDOWS_PACKAGING.md)
+artifacts/arabic-poetry/src-tauri/windows-dist/
+artifacts/arabic-poetry/worker/dist/
+artifacts/arabic-poetry/worker/build/
+artifacts/arabic-poetry/worker/*.egg-info/
+
 # dependencies
 node_modules
 
