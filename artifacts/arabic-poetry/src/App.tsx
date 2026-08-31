@@ -18,6 +18,8 @@ import { ImportQueueProvider, useImportQueueContext } from "./contexts/ImportQue
 import { ImportQueueTray } from "./components/ImportQueueTray";
 import { UndoHistoryProvider, useUndoHistory } from "./contexts/UndoHistoryContext";
 import { UndoToastStack } from "./components/UndoToastStack";
+import { ShortcutsReferenceModal } from "./components/ShortcutsReferenceModal";
+import { markVerseBoundary } from "./lib/verseBoundary";
 
 export function App() {
   return (
@@ -63,7 +65,30 @@ function AppShell() {
     playPreviousInQueue,
   } = useAudioPlayerContext();
   const { subscribeToCompletion } = useImportQueueContext();
-  const { pushEntry, undo, redo, canUndo, canRedo, undoLabel, redoLabel, clearScope } = useUndoHistory();
+  const { pushEntry, undo, redo, canUndo, canRedo, undoLabel, redoLabel, clearScope, notify } = useUndoHistory();
+  const [showShortcutsHelp, setShowShortcutsHelp] = useState(false);
+
+  // Global "?" opens the shortcuts reference from anywhere in the app,
+  // ignored while typing in a text field the same way every other
+  // single-letter shortcut is (Shift+/ would otherwise insert "?" itself).
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (
+        e.target instanceof HTMLInputElement ||
+        e.target instanceof HTMLTextAreaElement ||
+        e.target instanceof HTMLSelectElement ||
+        (e.target instanceof HTMLElement && e.target.isContentEditable)
+      ) {
+        return;
+      }
+      if (e.key === "?") {
+        e.preventDefault();
+        setShowShortcutsHelp((prev) => !prev);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
 
   // Initialize DB and load initial data
   useEffect(() => {
@@ -434,6 +459,32 @@ function AppShell() {
     [repo, activePoem, pushEntry, refreshPoemState]
   );
 
+  // Marks a verse boundary at `boundaryMs` (typically the current playback
+  // position, triggered by the "B" shortcut while listening). See
+  // `lib/verseBoundary.ts` for the full behavior/atomicity contract. The
+  // lock ref is intentionally a stable ref (not part of the callback's
+  // dependency array) so it keeps guarding across re-renders -- e.g. OS
+  // keyboard auto-repeat firing several keydown events before the first
+  // mutation and its state refresh complete are dropped rather than racing
+  // on the same pre-edit snapshot.
+  const markBoundaryLockRef = useRef({ current: false });
+  const handleMarkVerseBoundary = useCallback(
+    async (verseId: string, boundaryMs: number) => {
+      if (!repo || !activePoem) return;
+      await markVerseBoundary({
+        repo,
+        poem: activePoem,
+        verseId,
+        boundaryMs,
+        lock: markBoundaryLockRef.current,
+        pushEntry,
+        refreshPoemState,
+        notify,
+      });
+    },
+    [repo, activePoem, pushEntry, refreshPoemState, notify]
+  );
+
   const refreshPlaylists = useCallback(async () => {
     if (!repo) return;
     const updated = await repo.getAllPlaylists();
@@ -647,6 +698,7 @@ function AppShell() {
         onSelectTab={setActiveTab}
         hasActivePoem={activePoem !== null}
         poemsCount={poems.length}
+        onOpenShortcutsHelp={() => setShowShortcutsHelp(true)}
       />
 
       {/* Main Content Area */}
@@ -691,6 +743,8 @@ function AppShell() {
                   onEditVerse={handleEditVerse}
                   onImportExplanations={handleImportExplanations}
                   onApplySegmentationSuggestions={handleApplySegmentationSuggestions}
+                  onMarkVerseBoundary={handleMarkVerseBoundary}
+                  onOpenShortcutsHelp={() => setShowShortcutsHelp(true)}
                 />
               )}
 
@@ -784,6 +838,7 @@ function AppShell() {
 
       <ImportQueueTray />
       <UndoToastStack />
+      <ShortcutsReferenceModal open={showShortcutsHelp} onClose={() => setShowShortcutsHelp(false)} />
     </div>
   );
 }

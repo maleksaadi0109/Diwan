@@ -9,7 +9,7 @@ import { ImportExplanationModal } from "./ImportExplanationModal";
 import { FocusModeView } from "./FocusModeView";
 import { VerseShareModal } from "./VerseShareModal";
 import { usePoemPlayback } from "@/hooks/usePoemPlayback";
-import { Info, BookOpen, AlertCircle, Maximize2, ClipboardPaste } from "lucide-react";
+import { Info, BookOpen, AlertCircle, Maximize2, ClipboardPaste, Keyboard } from "lucide-react";
 import { ParsedExplanationBlock } from "@/lib/import/pasteExplanationParser";
 import { analyzeVerseMeter } from "@/lib/arud/meterDetector";
 import { DiwanRepository } from "@/lib/db/repository";
@@ -23,6 +23,8 @@ interface PoemPlayerViewProps {
   onEditVerse?: (verseId: string, firstHemistich: string, secondHemistich: string) => Promise<void> | void;
   onImportExplanations?: (blocks: ParsedExplanationBlock[]) => Promise<void> | void;
   onApplySegmentationSuggestions?: (accepted: VerseSegmentationSuggestion[]) => Promise<void> | void;
+  onMarkVerseBoundary?: (verseId: string, boundaryMs: number) => Promise<void> | void;
+  onOpenShortcutsHelp?: () => void;
 }
 
 interface ExplanationViewState {
@@ -39,6 +41,8 @@ export const PoemPlayerView: React.FC<PoemPlayerViewProps> = ({
   onEditVerse,
   onImportExplanations,
   onApplySegmentationSuggestions,
+  onMarkVerseBoundary,
+  onOpenShortcutsHelp,
 }) => {
   const [isFocusMode, setIsFocusMode] = useState(false);
   const [explanationModalVerseId, setExplanationModalVerseId] = useState<string | null>(null);
@@ -161,6 +165,56 @@ export const PoemPlayerView: React.FC<PoemPlayerViewProps> = ({
     loadExplanation(verse);
   };
 
+  // Row navigation (Up/Down) moves which verse row is *selected* for
+  // editing/inspection, distinct from the Left/Right shortcuts in
+  // usePoemPlayback which seek playback to the previous/next verse. Save an
+  // in-progress edit (Ctrl+Enter) and cancel it (Esc) are handled locally
+  // inside VerseItem, next to the state they act on. Marking a boundary (B)
+  // needs the current playback time, so it's handled here.
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (
+        e.target instanceof HTMLInputElement ||
+        e.target instanceof HTMLTextAreaElement ||
+        e.target instanceof HTMLSelectElement ||
+        (e.target instanceof HTMLElement && e.target.isContentEditable)
+      ) {
+        return;
+      }
+
+      if (e.code === "ArrowDown" || e.code === "ArrowUp") {
+        if (poem.verses.length === 0) return;
+        e.preventDefault();
+        const currentIndex = selectedVerseId
+          ? poem.verses.findIndex((v) => v.id === selectedVerseId)
+          : -1;
+        let nextIndex: number;
+        if (e.code === "ArrowDown") {
+          nextIndex = currentIndex < 0 ? 0 : Math.min(currentIndex + 1, poem.verses.length - 1);
+        } else {
+          nextIndex = currentIndex < 0 ? poem.verses.length - 1 : Math.max(currentIndex - 1, 0);
+        }
+        const nextVerseRow = poem.verses[nextIndex];
+        handleVerseSelect(nextVerseRow);
+        const el = verseElementsRef.current.get(nextVerseRow.id);
+        if (el && typeof el.scrollIntoView === "function") {
+          el.scrollIntoView({ behavior: "smooth", block: "center" });
+        }
+        return;
+      }
+
+      if (e.code === "KeyB") {
+        if (!onMarkVerseBoundary || !activeVerse) return;
+        e.preventDefault();
+        onMarkVerseBoundary(activeVerse.id, currentTimeMs);
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [poem.verses, selectedVerseId, activeVerse, currentTimeMs, onMarkVerseBoundary]);
+
   const handleRetryExplanation = (verse: Verse) => {
     loadExplanation(verse);
   };
@@ -216,6 +270,18 @@ export const PoemPlayerView: React.FC<PoemPlayerViewProps> = ({
         </div>
 
         <div className="flex flex-wrap items-center gap-2 shrink-0 font-sans">
+          {onOpenShortcutsHelp && (
+            <button
+              onClick={onOpenShortcutsHelp}
+              className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 md:px-3.5 md:py-2 rounded-xl text-xs font-bold border transition-all whitespace-nowrap cursor-pointer bg-white/5 text-ink-500 border-white/5 hover:bg-white/10 hover:text-parchment-100 focus-visible:ring-2 focus-visible:ring-accent-700"
+              title="اختصارات لوحة المفاتيح (؟)"
+              aria-label="عرض اختصارات لوحة المفاتيح"
+            >
+              <Keyboard className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">الاختصارات</span>
+            </button>
+          )}
+
           {/* Presentation Mode Toggle */}
           <button
             onClick={() => setIsFocusMode(true)}

@@ -1,5 +1,5 @@
 import React from "react";
-import { BookOpen, PlayCircle, PlusCircle, Settings, Feather, ListMusic } from "lucide-react";
+import { BookOpen, PlayCircle, PlusCircle, Settings, Feather, ListMusic, Keyboard } from "lucide-react";
 import { ActiveTab } from "@/types";
 import { cn, toArabicDigits } from "@/lib/utils";
 
@@ -8,6 +8,7 @@ interface NavigationProps {
   onSelectTab: (tab: ActiveTab) => void;
   hasActivePoem: boolean;
   poemsCount?: number;
+  onOpenShortcutsHelp?: () => void;
 }
 
 export const Navigation: React.FC<NavigationProps> = ({
@@ -15,6 +16,7 @@ export const Navigation: React.FC<NavigationProps> = ({
   onSelectTab,
   hasActivePoem,
   poemsCount = 0,
+  onOpenShortcutsHelp,
 }) => {
   const navItems = [
     {
@@ -107,7 +109,17 @@ export const Navigation: React.FC<NavigationProps> = ({
         </div>
 
         {/* Footer info & offline badge */}
-        <div className="p-6">
+        <div className="p-6 flex flex-col gap-3">
+          {onOpenShortcutsHelp && (
+            <button
+              onClick={onOpenShortcutsHelp}
+              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-2xl bg-charcoal-800 border border-white/5 text-ink-500 hover:text-parchment-100 hover:bg-white/5 transition-colors text-xs font-ui font-medium cursor-pointer focus-visible:ring-2 focus-visible:ring-accent-700"
+              title="اختصارات لوحة المفاتيح (؟)"
+            >
+              <Keyboard className="w-4 h-4 text-accent-700" />
+              <span>اختصارات لوحة المفاتيح</span>
+            </button>
+          )}
           <div className="flex items-center justify-between px-4 py-3 rounded-2xl bg-charcoal-800 border border-white/5 relative">
             <div className="flex items-center gap-2.5">
               <span className="relative flex h-2 w-2">
