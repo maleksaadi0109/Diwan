@@ -7,6 +7,7 @@ import { DictionaryWordModal } from "./DictionaryWordModal";
 import { VerseExplanationModal } from "./VerseExplanationModal";
 import { ImportExplanationModal } from "./ImportExplanationModal";
 import { FocusModeView } from "./FocusModeView";
+import { VerseShareModal } from "./VerseShareModal";
 import { usePoemPlayback } from "@/hooks/usePoemPlayback";
 import { Info, BookOpen, AlertCircle, Maximize2, ClipboardPaste } from "lucide-react";
 import { ParsedExplanationBlock } from "@/lib/import/pasteExplanationParser";
@@ -47,6 +48,7 @@ export const PoemPlayerView: React.FC<PoemPlayerViewProps> = ({
   const [wordDefinition, setWordDefinition] = useState<WordDefinition | null>(null);
   const [isLoadingWord, setIsLoadingWord] = useState(false);
   const [selectedVerseId, setSelectedVerseId] = useState<string | null>(null);
+  const [shareVerseIndex, setShareVerseIndex] = useState<number | null>(null);
   const [explanationStates, setExplanationStates] = useState<Record<string, ExplanationViewState>>({});
 
   const verseElementsRef = useRef<Map<string, HTMLDivElement>>(new Map());
@@ -214,15 +216,15 @@ export const PoemPlayerView: React.FC<PoemPlayerViewProps> = ({
         </div>
 
         <div className="flex flex-wrap items-center gap-2 shrink-0 font-sans">
-          {/* Focus Mode Toggle */}
+          {/* Presentation Mode Toggle */}
           <button
             onClick={() => setIsFocusMode(true)}
             className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 md:px-3.5 md:py-2 rounded-xl text-xs font-bold border transition-all whitespace-nowrap cursor-pointer bg-white/5 text-ink-500 border-white/5 hover:bg-white/10 hover:text-parchment-100 focus-visible:ring-2 focus-visible:ring-accent-700"
-            title="وضع التركيز"
-            aria-label="وضع التركيز ملء الشاشة"
+            title="وضع العرض"
+            aria-label="وضع العرض ملء الشاشة"
           >
             <Maximize2 className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">وضع التركيز</span>
+            <span className="hidden sm:inline">وضع العرض</span>
           </button>
 
           {onImportExplanations && (
@@ -279,6 +281,7 @@ export const PoemPlayerView: React.FC<PoemPlayerViewProps> = ({
               onOpenExplanation={handleOpenExplanation}
               onDeleteVerse={onDeleteVerse ? handleDeleteVerse : undefined}
               onEditVerse={onEditVerse}
+              onShareVerse={() => setShareVerseIndex(index)}
               explanationItems={explanationStates[verse.id]?.items}
               explanationStatus={explanationStates[verse.id]?.status}
               explanationError={explanationStates[verse.id]?.error}
@@ -369,6 +372,15 @@ export const PoemPlayerView: React.FC<PoemPlayerViewProps> = ({
               return next;
             });
           }}
+        />
+      )}
+
+      {/* Verse Share Modal: generate a shareable PNG card for a verse or range */}
+      {shareVerseIndex !== null && (
+        <VerseShareModal
+          poem={poem}
+          initialVerseIndex={shareVerseIndex}
+          onClose={() => setShareVerseIndex(null)}
         />
       )}
 
