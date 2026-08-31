@@ -274,6 +274,19 @@ export const VerseItem: React.FC<VerseItemProps> = ({
           <div
             onClick={(e) => e.stopPropagation()}
             onDoubleClick={(e) => e.stopPropagation()}
+            onKeyDown={(e) => {
+              // Ctrl/Cmd+Enter saves without leaving the text inputs (a bare
+              // Enter is left alone since it's meaningful inside a text
+              // field); Escape cancels. Both work while an input has focus,
+              // unlike the global letter shortcuts which are suppressed there.
+              if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+                e.preventDefault();
+                if (!isSavingEdit) saveEditing();
+              } else if (e.key === "Escape") {
+                e.preventDefault();
+                if (!isSavingEdit) cancelEditing();
+              }
+            }}
             className="space-y-3"
           >
             <div className="flex flex-col md:flex-row items-stretch gap-3 w-full min-w-0">
@@ -283,6 +296,7 @@ export const VerseItem: React.FC<VerseItemProps> = ({
                 onChange={(e) => setEditFirst(e.target.value)}
                 placeholder="الصدر"
                 dir="rtl"
+                autoFocus
                 className="flex-1 min-w-0 w-full bg-charcoal-950/50 text-parchment-100 placeholder-ink-600 border border-white/10 focus:border-accent-700 focus:outline-none rounded-2xl px-4 py-3 text-lg md:text-xl font-poetry text-center transition-colors"
               />
               <input
@@ -300,6 +314,7 @@ export const VerseItem: React.FC<VerseItemProps> = ({
                 type="button"
                 onClick={cancelEditing}
                 disabled={isSavingEdit}
+                title="إلغاء (Esc)"
                 className="px-4 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-xs font-semibold text-ink-600 transition-colors disabled:opacity-50"
               >
                 إلغاء
@@ -308,12 +323,16 @@ export const VerseItem: React.FC<VerseItemProps> = ({
                 type="button"
                 onClick={saveEditing}
                 disabled={isSavingEdit}
+                title="حفظ التعديل (Ctrl+Enter)"
                 className="px-4 py-1.5 rounded-xl bg-accent-700 hover:bg-accent-600 text-charcoal-950 text-xs font-bold transition-all flex items-center gap-1.5 disabled:opacity-60"
               >
                 {isSavingEdit ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
                 <span>حفظ التعديل</span>
               </button>
             </div>
+            <p className="text-[10px] text-ink-600 font-sans text-center">
+              Ctrl+Enter للحفظ &nbsp;•&nbsp; Esc للإلغاء
+            </p>
           </div>
         ) : (
           <div className="flex flex-col md:flex-row items-center justify-between gap-4 md:gap-8 px-2 py-2 relative">
