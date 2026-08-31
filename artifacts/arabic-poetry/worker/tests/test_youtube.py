@@ -238,7 +238,22 @@ def test_trim_leading_silence_uses_same_offset_for_playback_and_alignment(tmp_pa
         calls.append((input_path, output_path, trim_ms, kwargs["playback"]))
         shutil.copyfile(input_path, output_path)
 
-    with patch.object(youtube, "_trim_file_from_ms", side_effect=fake_trim):
+    # The playback file is a placeholder (not real audio), so ffprobe can't
+    # read its duration. Mock inspect_audio for the sanity check added to
+    # trim_leading_silence: report a duration consistent with the expected
+    # 1920ms trim so the check passes and doesn't mask the real assertion
+    # this test is after (offset propagation to both outputs).
+    from diwan_worker.audio.inspector import AudioMetadata
+
+    def fake_inspect(path):
+        common = dict(channels=1, sample_rate=44100, codec="mp3", format_name="mp3", size_bytes=1000)
+        if "trimmed" in str(path):
+            return AudioMetadata(duration_ms=1080, duration_seconds=1.08, **common)
+        return AudioMetadata(duration_ms=3000, duration_seconds=3.0, **common)
+
+    with patch.object(youtube, "_trim_file_from_ms", side_effect=fake_trim), patch.object(
+        youtube, "inspect_audio", side_effect=fake_inspect
+    ):
         removed_ms = trim_leading_silence(playback, processing, temp_dir)
 
     # VAD frames begin speech at 2000ms; the configured 80ms safety margin is
