@@ -93,6 +93,54 @@ fn resolve_worker_dir() -> PathBuf {
     PathBuf::from("worker")
 }
 
+/// Candidate Python launcher commands, tried in order. Windows Python
+/// installs typically only provide `python.exe`/`py.exe`, not
+/// `python3.exe`, while Linux/macOS conventionally provide `python3`.
+/// Trying a short list keeps one binary working across all desktop
+/// platforms without requiring the user to alias anything.
+fn python_command_candidates() -> Vec<(&'static str, Vec<&'static str>)> {
+    #[cfg(target_os = "windows")]
+    {
+        vec![
+            ("python.exe", vec![]),
+            ("python3.exe", vec![]),
+            ("py.exe", vec!["-3"]),
+        ]
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        vec![("python3", vec![]), ("python", vec![])]
+    }
+}
+
+fn spawn_worker_process(worker_dir: &PathBuf) -> Result<std::process::Child, String> {
+    let mut last_err: Option<String> = None;
+
+    for (cmd, extra_args) in python_command_candidates() {
+        let mut args: Vec<&str> = extra_args;
+        args.extend(["-m", "diwan_worker.cli"]);
+
+        match Command::new(cmd)
+            .args(&args)
+            .env("PYTHONPATH", worker_dir)
+            .current_dir(worker_dir)
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::inherit())
+            .spawn()
+        {
+            Ok(child) => return Ok(child),
+            Err(e) => last_err = Some(format!("{}: {}", cmd, e)),
+        }
+    }
+
+    Err(format!(
+        "Failed to start python worker at {:?} -- tried: {}",
+        worker_dir,
+        last_err.unwrap_or_else(|| "no candidates".to_string())
+    ))
+}
+
 #[tauri::command]
 pub async fn execute_worker_command(
     app: AppHandle,
@@ -103,21 +151,7 @@ pub async fn execute_worker_command(
 
     let worker_dir = resolve_worker_dir();
 
-    // Spawn python worker process with resolved PYTHONPATH
-    let mut child = Command::new("python3")
-        .args(["-m", "diwan_worker.cli"])
-        .env("PYTHONPATH", &worker_dir)
-        .current_dir(&worker_dir)
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::inherit())
-        .spawn()
-        .map_err(|e| {
-            format!(
-                "Failed to start python worker at {:?}: {}",
-                worker_dir, e
-            )
-        })?;
+    let mut child = spawn_worker_process(&worker_dir)?;
 
     let mut stdin = child
         .stdin
