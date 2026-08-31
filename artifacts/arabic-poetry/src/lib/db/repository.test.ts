@@ -191,6 +191,147 @@ describe("Diwan SQLite Repository", () => {
     expect(deleted).toBeNull();
   });
 
+  describe("undo/redo snapshot restoration (snapshotPoemVerses / replacePoemVerses)", () => {
+    it("preserves alignments across every recording, not just the default one, through a delete-then-undo cycle", async () => {
+      const poet: Poet = { id: "poet-multi-rec", name: "شاعر متعدد التسجيلات", era: "أموي" };
+      const poem: Poem = {
+        id: "poem-multi-rec",
+        title: "قصيدة بتسجيلين",
+        poet,
+        era: "أموي",
+        bahr: "الطويل",
+        rhyme: "اللام",
+        versesCount: 2,
+        tags: [],
+        recordings: [
+          {
+            id: "rec-a",
+            poemId: "poem-multi-rec",
+            title: "التسجيل الافتراضي",
+            reciter: "قارئ أ",
+            audioPath: "recordings/a.mp3",
+            durationMs: 20000,
+            createdAt: "2026-01-01",
+          },
+          {
+            id: "rec-b",
+            poemId: "poem-multi-rec",
+            title: "تسجيل ثانٍ",
+            reciter: "قارئ ب",
+            audioPath: "recordings/b.mp3",
+            durationMs: 22000,
+            createdAt: "2026-01-02",
+          },
+        ],
+        defaultRecordingId: "rec-a",
+        verses: [
+          {
+            id: "v-multi-1",
+            poemId: "poem-multi-rec",
+            orderIndex: 1,
+            text: "بيت أول في القصيدة",
+            normalizedText: normalizeArabic("بيت أول في القصيدة"),
+            firstHemistich: "بيت أول",
+            secondHemistich: "في القصيدة",
+          },
+          {
+            id: "v-multi-2",
+            poemId: "poem-multi-rec",
+            orderIndex: 2,
+            text: "بيت ثانٍ سيُحذف",
+            normalizedText: normalizeArabic("بيت ثان سيحذف"),
+            firstHemistich: "بيت ثانٍ",
+            secondHemistich: "سيُحذف",
+          },
+        ],
+      };
+      await repo.savePoem(poem);
+      // Each verse has an alignment against *both* recordings -- getPoemById
+      // only surfaces the default recording's alignment via `Verse.alignment`,
+      // but the non-default one must still be preserved by undo/redo.
+      await repo.saveAlignment({ id: "align-1-a", verseId: "v-multi-1", recordingId: "rec-a", startMs: 0, endMs: 4000, confidence: 0.9, status: "reviewed" });
+      await repo.saveAlignment({ id: "align-1-b", verseId: "v-multi-1", recordingId: "rec-b", startMs: 0, endMs: 4200, confidence: 0.85, status: "auto" });
+      await repo.saveAlignment({ id: "align-2-a", verseId: "v-multi-2", recordingId: "rec-a", startMs: 4000, endMs: 8000, confidence: 0.9, status: "reviewed" });
+      await repo.saveAlignment({ id: "align-2-b", verseId: "v-multi-2", recordingId: "rec-b", startMs: 4200, endMs: 8500, confidence: 0.85, status: "auto" });
+
+      // Sanity check: the default-recording view only sees one alignment per verse.
+      const before = await repo.getPoemById("poem-multi-rec");
+      expect(before?.verses.find((v) => v.id === "v-multi-1")?.alignment?.id).toBe("align-1-a");
+
+      const snapshot = await repo.snapshotPoemVerses("poem-multi-rec");
+      expect(snapshot.find((v) => v.id === "v-multi-1")?.alignments).toHaveLength(2);
+      expect(snapshot.find((v) => v.id === "v-multi-2")?.alignments).toHaveLength(2);
+
+      // Simulate the undo/redo flow: delete a verse, then restore the snapshot.
+      await repo.deleteVerse("poem-multi-rec", "v-multi-2");
+      const afterDelete = await repo.getVersesByPoemId("poem-multi-rec");
+      expect(afterDelete).toHaveLength(1);
+
+      await repo.replacePoemVerses("poem-multi-rec", snapshot);
+
+      const restored = await repo.getVersesByPoemId("poem-multi-rec");
+      expect(restored).toHaveLength(2);
+
+      // Both recordings' alignments for both verses must have survived the
+      // round trip -- this is the regression the reviewer flagged: a naive
+      // restore that only knew about the default-recording alignment would
+      // silently drop rec-b's timing data here.
+      const alignmentsV1 = await repo.getAlignmentsByVerseId("v-multi-1");
+      const alignmentsV2 = await repo.getAlignmentsByVerseId("v-multi-2");
+      expect(alignmentsV1.map((a) => a.id).sort()).toEqual(["align-1-a", "align-1-b"]);
+      expect(alignmentsV2.map((a) => a.id).sort()).toEqual(["align-2-a", "align-2-b"]);
+      expect(alignmentsV1.find((a) => a.recordingId === "rec-b")?.endMs).toBe(4200);
+      expect(alignmentsV2.find((a) => a.recordingId === "rec-b")?.endMs).toBe(8500);
+    });
+
+    it("removes rows created after the snapshot (e.g. a split's new verse) when restoring an earlier snapshot", async () => {
+      const poet: Poet = { id: "poet-prune", name: "شاعر الاختبار الثاني", era: "أموي" };
+      const poem: Poem = {
+        id: "poem-prune",
+        title: "قصيدة اختبار الحذف الانتقائي",
+        poet,
+        era: "أموي",
+        bahr: "الطويل",
+        rhyme: "النون",
+        versesCount: 1,
+        tags: [],
+        recordings: [],
+        verses: [
+          {
+            id: "v-prune-1",
+            poemId: "poem-prune",
+            orderIndex: 1,
+            text: "بيت واحد قبل التقسيم",
+            normalizedText: normalizeArabic("بيت واحد قبل التقسيم"),
+            firstHemistich: "بيت واحد",
+            secondHemistich: "قبل التقسيم",
+          },
+        ],
+      };
+      await repo.savePoem(poem);
+
+      const beforeSplit = await repo.snapshotPoemVerses("poem-prune");
+      const newVerseId = await repo.splitVerse(
+        "poem-prune",
+        "v-prune-1",
+        { firstHemistich: "بيت واحد", secondHemistich: "قبل التقسيم" },
+        { firstHemistich: "بيت جديد", secondHemistich: "نتج عن التقسيم" }
+      );
+      expect((await repo.getVersesByPoemId("poem-prune")).map((v) => v.id).sort()).toEqual(
+        ["v-prune-1", newVerseId].sort()
+      );
+
+      // Undo the split by restoring the pre-split snapshot -- the newly
+      // created verse must be gone, not just orphaned.
+      await repo.replacePoemVerses("poem-prune", beforeSplit);
+      const restored = await repo.getVersesByPoemId("poem-prune");
+      expect(restored.map((v) => v.id)).toEqual(["v-prune-1"]);
+
+      const poemAfterUndo = await repo.getPoemById("poem-prune");
+      expect(poemAfterUndo?.versesCount).toBe(1);
+    });
+  });
+
   describe("segmentation corrections (merge_verses / split_verse)", () => {
     async function seedThreeVerseTestPoem(): Promise<Poem> {
       const poet: Poet = { id: "poet-seg", name: "شاعر الاختبار", era: "جاهلي" };

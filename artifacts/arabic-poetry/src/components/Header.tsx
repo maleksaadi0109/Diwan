@@ -1,17 +1,29 @@
 import React from "react";
 import { ActiveTab, Poem } from "@/types";
-import { ChevronRight, Feather, Sparkles } from "lucide-react";
+import { ChevronRight, Feather, Sparkles, Undo2, Redo2 } from "lucide-react";
 
 interface HeaderProps {
   activeTab: ActiveTab;
   activePoem: Poem | null;
   onBackToLibrary: () => void;
+  canUndo?: boolean;
+  canRedo?: boolean;
+  undoLabel?: string | null;
+  redoLabel?: string | null;
+  onUndo?: () => void;
+  onRedo?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
   activeTab,
   activePoem,
   onBackToLibrary,
+  canUndo,
+  canRedo,
+  undoLabel,
+  redoLabel,
+  onUndo,
+  onRedo,
 }) => {
   const getTitle = () => {
     switch (activeTab) {
@@ -61,16 +73,40 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
       </div>
 
-      {activeTab === "player" && activePoem && (
-        <div className="hidden md:flex items-center gap-3 shrink-0">
-          <div className="px-3.5 py-1.5 bg-black/20 text-xs ltr-num text-ink-500 flex items-center gap-2.5 rounded-xl border border-white/5">
-            <kbd className="font-mono font-bold text-[10px] text-accent-500 border border-white/10 bg-white/5 px-2 py-0.5 rounded-lg shadow-sm">
-              SPACE
-            </kbd>
-            <span className="font-sans font-medium text-[11px]">تشغيل / إيقاف</span>
+      <div className="flex items-center gap-3 shrink-0">
+        {(canUndo || canRedo) && (
+          <div className="flex items-center gap-1 bg-black/20 border border-white/5 rounded-xl p-1">
+            <button
+              onClick={onUndo}
+              disabled={!canUndo}
+              className="p-1.5 md:p-2 rounded-lg text-ink-400 hover:text-parchment-100 hover:bg-white/10 disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-ink-400 transition-colors cursor-pointer disabled:cursor-default"
+              title={canUndo ? `تراجع: ${undoLabel} (Ctrl+Z)` : "لا يوجد ما يمكن التراجع عنه"}
+              aria-label="تراجع"
+            >
+              <Undo2 className="w-4 h-4" />
+            </button>
+            <button
+              onClick={onRedo}
+              disabled={!canRedo}
+              className="p-1.5 md:p-2 rounded-lg text-ink-400 hover:text-parchment-100 hover:bg-white/10 disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-ink-400 transition-colors cursor-pointer disabled:cursor-default"
+              title={canRedo ? `إعادة: ${redoLabel} (Ctrl+Shift+Z)` : "لا يوجد ما يمكن إعادته"}
+              aria-label="إعادة"
+            >
+              <Redo2 className="w-4 h-4" />
+            </button>
           </div>
-        </div>
-      )}
+        )}
+        {activeTab === "player" && activePoem && (
+          <div className="hidden md:flex items-center gap-3 shrink-0">
+            <div className="px-3.5 py-1.5 bg-black/20 text-xs ltr-num text-ink-500 flex items-center gap-2.5 rounded-xl border border-white/5">
+              <kbd className="font-mono font-bold text-[10px] text-accent-500 border border-white/10 bg-white/5 px-2 py-0.5 rounded-lg shadow-sm">
+                SPACE
+              </kbd>
+              <span className="font-sans font-medium text-[11px]">تشغيل / إيقاف</span>
+            </div>
+          </div>
+        )}
+      </div>
     </header>
   );
 };
