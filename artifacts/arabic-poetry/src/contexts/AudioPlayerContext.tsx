@@ -108,6 +108,11 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
       const requestId = ++loadRequestIdRef.current;
 
       if (audioPath) {
+        // Stop and detach the previous track before resolving the new source.
+        // Desktop source preparation can be asynchronous (and may create a
+        // seek-stable WAV on first play); letting the old element keep playing
+        // during that work mixes the previous audio with the new poem/verses.
+        controller.loadAudio("", defaultDuration);
         resolveAudioSrcAsync(audioPath).then((audioUrl) => {
           if (requestId !== loadRequestIdRef.current) return;
           lastLoadedPoemIdRef.current = poem.id;
