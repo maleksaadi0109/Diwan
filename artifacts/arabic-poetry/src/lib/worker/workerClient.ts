@@ -186,7 +186,8 @@ export async function inspectAudioFile(filePath: string): Promise<WorkerAudioMet
 
 export async function convertAudioFile(
   inputPath: string,
-  outputPath: string
+  outputPath: string,
+  profile: "processing" | "playback" = "processing"
 ): Promise<{ outputPath: string; metadata: WorkerAudioMetadata }> {
   const isTauri = typeof window !== "undefined" && ("__TAURI_INTERNALS__" in window || "__TAURI__" in window);
 
@@ -198,7 +199,7 @@ export async function convertAudioFile(
         request: {
           id: `req-convert-${Date.now()}`,
           command: "convert_audio",
-          payload: { input_path: inputPath, output_path: outputPath },
+          payload: { input_path: inputPath, output_path: outputPath, profile },
         },
       }
     );

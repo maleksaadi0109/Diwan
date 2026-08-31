@@ -12,7 +12,7 @@ from .schemas.protocol import (
     ErrorCode,
 )
 from .audio.inspector import inspect_audio
-from .audio.converter import convert_to_wav_16k_mono
+from .audio.converter import convert_to_playback_wav, convert_to_wav_16k_mono
 from .audio.vad import detect_speech_regions
 
 def log(msg: str) -> None:
@@ -138,6 +138,7 @@ def handle_inspect_audio(req: WorkerRequest) -> None:
 def handle_convert_audio(req: WorkerRequest) -> None:
     input_path = req.payload.get("input_path")
     output_path = req.payload.get("output_path")
+    profile = req.payload.get("profile", "processing")
 
     if not input_path or not output_path:
         emit_response(
@@ -154,7 +155,10 @@ def handle_convert_audio(req: WorkerRequest) -> None:
         emit_event(WorkerProgressEvent(id=req.id, stage="converting", progress=pct, message=msg))
 
     try:
-        meta = convert_to_wav_16k_mono(input_path, output_path, on_progress=on_prog)
+        if profile == "playback":
+            meta = convert_to_playback_wav(input_path, output_path, on_progress=on_prog)
+        else:
+            meta = convert_to_wav_16k_mono(input_path, output_path, on_progress=on_prog)
         emit_response(
             WorkerResponse(
                 id=req.id,
