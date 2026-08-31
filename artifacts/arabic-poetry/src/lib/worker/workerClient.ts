@@ -454,9 +454,19 @@ export async function alignPoemAudio(
 
 // --- YouTube Audio Integration ---
 
+/** Builds an Error whose message is prefixed with the structured error code
+ * (e.g. "LOGIN_REQUIRED: ...") so callers can reliably detect specific
+ * failure codes such as LOGIN_REQUIRED / COOKIES_INVALID without relying on
+ * fragile Arabic-text matching. */
+function workerCommandError(errorCode: string | undefined, errorMessage: string | undefined, fallback: string): Error {
+  const message = errorMessage || fallback;
+  return new Error(errorCode ? `${errorCode}: ${message}` : message);
+}
+
 export async function fetchYoutubeVideoInfo(
   url: string,
-  maxDurationSeconds: number = 3600
+  maxDurationSeconds: number = 3600,
+  cookiesContent?: string
 ): Promise<WorkerYouTubeInfoData> {
   const isTauri = typeof window !== "undefined" && ("__TAURI_INTERNALS__" in window || "__TAURI__" in window);
 
@@ -466,14 +476,14 @@ export async function fetchYoutubeVideoInfo(
       request: {
         id: `req-yt-info-${Date.now()}`,
         command: "youtube_info",
-        payload: { url, max_duration_seconds: maxDurationSeconds },
+        payload: { url, max_duration_seconds: maxDurationSeconds, cookies_content: cookiesContent || undefined },
       },
     });
 
     if (resp.success && resp.data) {
       return resp.data;
     }
-    throw new Error(resp.error_message || "تعذر جلب بيانات مقطع YouTube");
+    throw workerCommandError(resp.error_code, resp.error_message, "تعذر جلب بيانات مقطع YouTube");
   }
 
   const response = await fetch("/api-worker/youtube/info", {
@@ -482,11 +492,12 @@ export async function fetchYoutubeVideoInfo(
     body: JSON.stringify({
       url,
       max_duration_seconds: maxDurationSeconds,
+      cookies_content: cookiesContent || undefined,
     }),
   });
   const body = await response.json().catch(() => ({}));
   if (!response.ok || !body.video_id) {
-    throw new Error(body.error_message || "تعذر جلب بيانات مقطع YouTube");
+    throw workerCommandError(body.error_code, body.error_message, "تعذر جلب بيانات مقطع YouTube");
   }
   return body as WorkerYouTubeInfoData;
 }
@@ -495,7 +506,8 @@ export async function downloadYoutubeAudio(
   url: string,
   outputDir: string = "recordings",
   quality: "128k" | "192k" = "192k",
-  jobId?: string
+  jobId?: string,
+  cookiesContent?: string
 ): Promise<WorkerYouTubeDownloadData> {
   const isTauri = typeof window !== "undefined" && ("__TAURI_INTERNALS__" in window || "__TAURI__" in window);
 
@@ -505,14 +517,14 @@ export async function downloadYoutubeAudio(
       request: {
         id: `req-yt-down-${Date.now()}`,
         command: "youtube_download",
-        payload: { url, output_dir: outputDir, quality, job_id: jobId },
+        payload: { url, output_dir: outputDir, quality, job_id: jobId, cookies_content: cookiesContent || undefined },
       },
     });
 
     if (resp.success && resp.data) {
       return resp.data;
     }
-    throw new Error(resp.error_message || "فشل تنزيل المقطع الصوتي من YouTube");
+    throw workerCommandError(resp.error_code, resp.error_message, "فشل تنزيل المقطع الصوتي من YouTube");
   }
 
   const response = await fetch("/api-worker/youtube/download", {
@@ -522,11 +534,12 @@ export async function downloadYoutubeAudio(
       url,
       quality,
       job_id: jobId,
+      cookies_content: cookiesContent || undefined,
     }),
   });
   const body = await response.json().catch(() => ({}));
   if (!response.ok || !body.playback_audio_path) {
-    throw new Error(body.error_message || "فشل تنزيل المقطع الصوتي من YouTube");
+    throw workerCommandError(body.error_code, body.error_message, "فشل تنزيل المقطع الصوتي من YouTube");
   }
   return body as WorkerYouTubeDownloadData;
 }

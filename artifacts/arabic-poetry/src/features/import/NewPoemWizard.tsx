@@ -29,6 +29,7 @@ import {
   ArrowLeft,
   ArrowRight,
   Sparkles,
+  KeyRound,
 } from "lucide-react";
 import { YoutubeIcon } from "@/components/icons/YoutubeIcon";
 
@@ -41,7 +42,8 @@ const ERROR_MAP: Record<string, string> = {
   FFMPEG_NOT_FOUND: "برنامج FFmpeg غير متوفر أو لم يتم العثور على مساره.",
   VIDEO_UNAVAILABLE: "المقطع غير متاح أو تم حذفه.",
   PRIVATE_VIDEO: "المقطع خاص ولا يمكن تنزيله.",
-  LOGIN_REQUIRED: "يتطلب هذا المقطع تسجيل الدخول، وهو غير مدعوم حاليًا.",
+  LOGIN_REQUIRED: "يتطلب هذا المقطع تسجيل الدخول. أدخل بيانات تسجيل الدخول (كوكيز) من متصفحك أدناه للمتابعة.",
+  COOKIES_INVALID: "بيانات تسجيل الدخول (الكوكيز) غير صالحة أو منتهية الصلاحية. يرجى الحصول على كوكيز جديدة والمحاولة مجددًا.",
   LIVE_STREAM_NOT_SUPPORTED: "تنزيل البث المباشر غير مدعوم.",
   NO_AUDIO_FORMAT: "لم يتم العثور على مسار صوتي مناسب.",
   DOWNLOAD_FAILED: "فشل تنزيل الصوت. افتح تفاصيل الخطأ للمزيد.",
@@ -51,15 +53,28 @@ const ERROR_MAP: Record<string, string> = {
   FILESYSTEM_ERROR: "تعذر حفظ الصوت في مجلد التطبيق.",
 };
 
+const COOKIE_UNLOCK_CODES = new Set(["LOGIN_REQUIRED", "COOKIES_INVALID"]);
+
+/** Reads the leading `CODE: message` prefix that workerClient attaches to
+ * YouTube worker errors, falling back to substring scanning. */
+function extractErrorCode(err: unknown): string | null {
+  const msg = (err as Error)?.message || String(err || "");
+  const prefixMatch = msg.match(/^([A-Z_]+):/);
+  if (prefixMatch && prefixMatch[1] in ERROR_MAP) {
+    return prefixMatch[1];
+  }
+  for (const code of Object.keys(ERROR_MAP)) {
+    if (msg.includes(code)) return code;
+  }
+  return null;
+}
+
 function formatErrorMessage(err: unknown): string {
   if (!err) return "فشلت عملية المعالجة";
   const msg = (err as Error).message || String(err);
-  for (const [code, arabicText] of Object.entries(ERROR_MAP)) {
-    if (msg.includes(code)) {
-      return arabicText;
-    }
-  }
-  return msg;
+  const code = extractErrorCode(err);
+  if (code) return ERROR_MAP[code];
+  return msg.replace(/^[A-Z_]+:\s*/, "");
 }
 
 type WizardStep = 1 | 2 | 3 | 4 | 5;
@@ -101,6 +116,9 @@ export const NewPoemWizard: React.FC<NewPoemWizardProps> = ({ onFinishWizard }) 
   const [youtubeLoading, setYoutubeLoading] = useState(false);
   const [youtubeError, setYoutubeError] = useState<string | null>(null);
   const [youtubeCoverImage, setYoutubeCoverImage] = useState<string | null>(null);
+  const [youtubeNeedsCookies, setYoutubeNeedsCookies] = useState(false);
+  const [youtubeCookiesText, setYoutubeCookiesText] = useState("");
+  const [showYoutubeCookieHelp, setShowYoutubeCookieHelp] = useState(false);
 
   const [localAudioPath, setLocalAudioPath] = useState<string | null>(null);
   const [localAudioName, setLocalAudioName] = useState<string | null>(null);
@@ -171,9 +189,14 @@ export const NewPoemWizard: React.FC<NewPoemWizardProps> = ({ onFinishWizard }) 
     setYoutubeLoading(true);
     setYoutubeError(null);
     try {
-      const info = await fetchYoutubeVideoInfo(youtubeUrl.trim());
+      const info = await fetchYoutubeVideoInfo(
+        youtubeUrl.trim(),
+        3600,
+        youtubeNeedsCookies ? youtubeCookiesText.trim() : undefined
+      );
       setYoutubeInfo(info);
       setYoutubeCoverImage(null);
+      setYoutubeNeedsCookies(false);
       if (info.thumbnail) {
         // Download the thumbnail server-side and store it as a data URL so
         // the cover image persists locally and works offline, instead of
@@ -183,6 +206,10 @@ export const NewPoemWizard: React.FC<NewPoemWizardProps> = ({ onFinishWizard }) 
         });
       }
     } catch (err: unknown) {
+      const code = extractErrorCode(err);
+      if (code && COOKIE_UNLOCK_CODES.has(code)) {
+        setYoutubeNeedsCookies(true);
+      }
       setYoutubeError(formatErrorMessage(err));
     } finally {
       setYoutubeLoading(false);
@@ -234,7 +261,11 @@ export const NewPoemWizard: React.FC<NewPoemWizardProps> = ({ onFinishWizard }) 
         // skipped the explicit "fetch info" step.
         if (!resolvedYoutubeInfo) {
           try {
-            resolvedYoutubeInfo = await fetchYoutubeVideoInfo(youtubeUrl.trim());
+            resolvedYoutubeInfo = await fetchYoutubeVideoInfo(
+              youtubeUrl.trim(),
+              3600,
+              youtubeNeedsCookies ? youtubeCookiesText.trim() : undefined
+            );
             setYoutubeInfo(resolvedYoutubeInfo);
           } catch (infoErr) {
             console.warn("Could not fetch YouTube video info before download:", infoErr);
@@ -252,7 +283,13 @@ export const NewPoemWizard: React.FC<NewPoemWizardProps> = ({ onFinishWizard }) 
         }
 
         const targetDir = await getPoemRecordingDirectory(poemId, recId);
-        const ytRes = await downloadYoutubeAudio(youtubeUrl, targetDir, "192k");
+        const ytRes = await downloadYoutubeAudio(
+          youtubeUrl,
+          targetDir,
+          "192k",
+          undefined,
+          youtubeNeedsCookies ? youtubeCookiesText.trim() : undefined
+        );
         sourceAudioPath = ytRes.playback_audio_path;
         processingWavPath = ytRes.processing_audio_path;
         durationMs = ytRes.duration_ms;
@@ -370,10 +407,13 @@ export const NewPoemWizard: React.FC<NewPoemWizardProps> = ({ onFinishWizard }) 
       setGeneratedPoem(finalPoem);
       setCurrentStep(5);
     } catch (err: unknown) {
-      const error = err as Error;
+      const code = extractErrorCode(err);
+      if (code && COOKIE_UNLOCK_CODES.has(code)) {
+        setYoutubeNeedsCookies(true);
+      }
       // Mark running stage as failed
       setStages((prev) =>
-        prev.map((s) => (s.status === "running" ? { ...s, status: "failed", errorMessage: error.message } : s))
+        prev.map((s) => (s.status === "running" ? { ...s, status: "failed", errorMessage: formatErrorMessage(err) } : s))
       );
     }
   };
@@ -596,6 +636,54 @@ export const NewPoemWizard: React.FC<NewPoemWizardProps> = ({ onFinishWizard }) 
                 </button>
               </div>
               {youtubeError && <p className="text-xs text-crimson-400">{youtubeError}</p>}
+
+              {youtubeNeedsCookies && (
+                <div className="p-4 bg-amber-500/10 border border-amber-500/30 rounded-2xl space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-amber-300 flex items-center gap-2">
+                      <KeyRound className="w-4 h-4" />
+                      <span>هذا المقطع يتطلب تسجيل الدخول</span>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setShowYoutubeCookieHelp((v) => !v)}
+                      className="text-xs text-amber-300/80 hover:text-amber-200 underline underline-offset-2"
+                    >
+                      كيف أحصل على الكوكيز؟
+                    </button>
+                  </div>
+                  {showYoutubeCookieHelp && (
+                    <ol className="text-[11px] text-ink-500 leading-relaxed list-decimal list-inside space-y-1 bg-charcoal-950/60 p-3 rounded-xl border border-white/5">
+                      <li>سجّل الدخول إلى حسابك في YouTube داخل متصفحك.</li>
+                      <li>
+                        استخدم إضافة متصفح مثل "Get cookies.txt LOCALLY" لتصدير كوكيز موقع youtube.com بصيغة Netscape.
+                      </li>
+                      <li>الصق محتوى الملف بالكامل في الحقل أدناه ثم أعد المحاولة.</li>
+                    </ol>
+                  )}
+                  <textarea
+                    value={youtubeCookiesText}
+                    onChange={(e) => setYoutubeCookiesText(e.target.value)}
+                    placeholder="# Netscape HTTP Cookie File&#10;.youtube.com  TRUE  /  TRUE  ...  "
+                    dir="ltr"
+                    rows={4}
+                    className="w-full bg-charcoal-950/80 text-parchment-100 placeholder-ink-500/60 border border-white/10 rounded-xl px-3 py-2 text-[11px] font-mono focus:outline-none focus:border-accent-700/60 resize-y"
+                  />
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-[10px] text-ink-500/80">تُستخدم الكوكيز محليًا لهذه العملية فقط ولا يتم تخزينها.</p>
+                    <button
+                      type="button"
+                      onClick={handleFetchYoutube}
+                      disabled={!youtubeCookiesText.trim() || youtubeLoading}
+                      className="shrink-0 px-4 py-2 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 disabled:opacity-40 text-amber-200 border border-amber-500/40 font-bold text-xs flex items-center gap-2"
+                    >
+                      {youtubeLoading ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <KeyRound className="w-3.5 h-3.5" />}
+                      <span>إعادة المحاولة بتسجيل الدخول</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+
               {youtubeInfo && (
                 <div className="p-3 bg-charcoal-900 rounded-2xl border border-white/5 flex gap-3 items-center">
                   {youtubeInfo.thumbnail && (
