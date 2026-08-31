@@ -23,6 +23,7 @@ import {
   Check,
   Volume2,
   FolderCheck,
+  KeyRound,
 } from "lucide-react";
 import { YoutubeIcon } from "@/components/icons/YoutubeIcon";
 
@@ -35,7 +36,8 @@ const ERROR_MAP: Record<string, string> = {
   FFMPEG_NOT_FOUND: "برنامج FFmpeg غير متوفر أو لم يتم العثور على مساره.",
   VIDEO_UNAVAILABLE: "المقطع غير متاح أو تم حذفه.",
   PRIVATE_VIDEO: "المقطع خاص ولا يمكن تنزيله.",
-  LOGIN_REQUIRED: "يتطلب هذا المقطع تسجيل الدخول، وهو غير مدعوم حاليًا.",
+  LOGIN_REQUIRED: "يتطلب هذا المقطع تسجيل الدخول. أدخل بيانات تسجيل الدخول (كوكيز) من متصفحك أدناه للمتابعة.",
+  COOKIES_INVALID: "بيانات تسجيل الدخول (الكوكيز) غير صالحة أو منتهية الصلاحية. يرجى الحصول على كوكيز جديدة والمحاولة مجددًا.",
   LIVE_STREAM_NOT_SUPPORTED: "تنزيل البث المباشر غير مدعوم.",
   NO_AUDIO_FORMAT: "لم يتم العثور على مسار صوتي مناسب.",
   DOWNLOAD_FAILED: "فشل تنزيل الصوت. يرجى التأكد من اتصال الإنترنت وصلاحية الرابط.",
@@ -45,15 +47,30 @@ const ERROR_MAP: Record<string, string> = {
   FILESYSTEM_ERROR: "تعذر حفظ الصوت في مجلد التطبيق.",
 };
 
+const COOKIE_UNLOCK_CODES = new Set(["LOGIN_REQUIRED", "COOKIES_INVALID"]);
+
+/** Reads the leading `CODE: message` prefix that workerClient attaches to
+ * YouTube worker errors. Falls back to substring scanning for callers that
+ * threw a plain Arabic message without the prefix. */
+function extractErrorCode(err: unknown): string | null {
+  const msg = (err as Error)?.message || String(err || "");
+  const prefixMatch = msg.match(/^([A-Z_]+):/);
+  if (prefixMatch && prefixMatch[1] in ERROR_MAP) {
+    return prefixMatch[1];
+  }
+  for (const code of Object.keys(ERROR_MAP)) {
+    if (msg.includes(code)) return code;
+  }
+  return null;
+}
+
 function formatErrorMessage(err: unknown): string {
   if (!err) return "فشلت عملية تنزيل الصوت";
   const msg = (err as Error).message || String(err);
-  for (const [code, arabicText] of Object.entries(ERROR_MAP)) {
-    if (msg.includes(code)) {
-      return arabicText;
-    }
-  }
-  return msg;
+  const code = extractErrorCode(err);
+  if (code) return ERROR_MAP[code];
+  // Strip a leading "CODE: " prefix even for unmapped codes so raw text stays clean
+  return msg.replace(/^[A-Z_]+:\s*/, "");
 }
 
 export const YouTubeImportView: React.FC<YouTubeImportViewProps> = ({ onAudioDownloaded }) => {
@@ -73,6 +90,11 @@ export const YouTubeImportView: React.FC<YouTubeImportViewProps> = ({ onAudioDow
   const [playableAudioSrc, setPlayableAudioSrc] = useState<string>("");
   const [copiedPath, setCopiedPath] = useState(false);
 
+  // Cookie-based login unlock (for age-restricted / login-required videos)
+  const [needsCookies, setNeedsCookies] = useState(false);
+  const [cookiesText, setCookiesText] = useState("");
+  const [showCookieHelp, setShowCookieHelp] = useState(false);
+
   const handleFetchInfo = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     if (!url.trim()) return;
@@ -85,9 +107,14 @@ export const YouTubeImportView: React.FC<YouTubeImportViewProps> = ({ onAudioDow
     setDownloadError(null);
 
     try {
-      const info = await fetchYoutubeVideoInfo(url.trim());
+      const info = await fetchYoutubeVideoInfo(url.trim(), 3600, needsCookies ? cookiesText.trim() : undefined);
       setVideoInfo(info);
+      setNeedsCookies(false);
     } catch (err: unknown) {
+      const code = extractErrorCode(err);
+      if (code && COOKIE_UNLOCK_CODES.has(code)) {
+        setNeedsCookies(true);
+      }
       setInfoError(formatErrorMessage(err));
     } finally {
       setIsLoadingInfo(false);
@@ -117,7 +144,8 @@ export const YouTubeImportView: React.FC<YouTubeImportViewProps> = ({ onAudioDow
         videoInfo.webpage_url,
         targetDir,
         audioQuality,
-        jobId
+        jobId,
+        needsCookies ? cookiesText.trim() : undefined
       );
 
       setDownloadProgress(1.0);
@@ -128,6 +156,7 @@ export const YouTubeImportView: React.FC<YouTubeImportViewProps> = ({ onAudioDow
           : "اكتمل التنزيل وتحويل الصوت إلى MP3 بنجاح!"
       );
       setDownloadResult(res);
+      setNeedsCookies(false);
 
       if (res.playback_audio_path) {
         const streamUrl = await resolveAudioSrcAsync(res.playback_audio_path);
@@ -138,6 +167,10 @@ export const YouTubeImportView: React.FC<YouTubeImportViewProps> = ({ onAudioDow
         onAudioDownloaded(res, videoInfo);
       }
     } catch (err: unknown) {
+      const code = extractErrorCode(err);
+      if (code && COOKIE_UNLOCK_CODES.has(code)) {
+        setNeedsCookies(true);
+      }
       setDownloadError(formatErrorMessage(err));
     } finally {
       setIsDownloading(false);
@@ -202,6 +235,62 @@ export const YouTubeImportView: React.FC<YouTubeImportViewProps> = ({ onAudioDow
         <div className="p-4 bg-rose-500/15 border border-rose-500/30 rounded-2xl text-rose-300 text-xs flex items-center gap-3 select-text shadow-inner">
           <AlertCircle className="w-5 h-5 shrink-0 text-rose-400" />
           <span>{infoError}</span>
+        </div>
+      )}
+
+      {/* Cookie-based login unlock (shown after a LOGIN_REQUIRED / COOKIES_INVALID error) */}
+      {needsCookies && (
+        <div className="p-5 bg-amber-500/10 border border-amber-500/30 rounded-2xl space-y-3 select-text shadow-inner">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-amber-300 flex items-center gap-2">
+              <KeyRound className="w-4 h-4" />
+              <span>هذا المقطع يتطلب تسجيل الدخول</span>
+            </span>
+            <button
+              type="button"
+              onClick={() => setShowCookieHelp((v) => !v)}
+              className="text-xs text-amber-300/80 hover:text-amber-200 underline underline-offset-2 cursor-pointer"
+            >
+              كيف أحصل على الكوكيز؟
+            </button>
+          </div>
+
+          {showCookieHelp && (
+            <ol className="text-[11px] text-ink-500 leading-relaxed list-decimal list-inside space-y-1 bg-charcoal-950/60 p-3 rounded-xl border border-white/5">
+              <li>سجّل الدخول إلى حسابك في YouTube داخل متصفحك.</li>
+              <li>
+                استخدم إضافة متصفح مثل "Get cookies.txt LOCALLY" لتصدير كوكيز موقع youtube.com بصيغة Netscape.
+              </li>
+              <li>الصق محتوى الملف بالكامل في الحقل أدناه ثم أعد المحاولة.</li>
+            </ol>
+          )}
+
+          <textarea
+            value={cookiesText}
+            onChange={(e) => setCookiesText(e.target.value)}
+            placeholder="# Netscape HTTP Cookie File&#10;.youtube.com  TRUE  /  TRUE  ...  "
+            dir="ltr"
+            rows={4}
+            className="w-full bg-charcoal-950/80 text-parchment-100 placeholder-ink-500/60 border border-white/10 rounded-xl px-3 py-2 text-[11px] font-mono focus:outline-none focus:border-accent-700/60 transition-all shadow-inner resize-y"
+          />
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-[10px] text-ink-500/80">
+              تُستخدم الكوكيز محليًا لهذه العملية فقط ولا يتم تخزينها.
+            </p>
+            <button
+              type="button"
+              onClick={() => (downloadError && videoInfo ? handleStartDownload() : handleFetchInfo())}
+              disabled={!cookiesText.trim() || isLoadingInfo || isDownloading}
+              className="shrink-0 px-4 py-2 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 disabled:opacity-40 text-amber-200 border border-amber-500/40 font-bold text-xs transition-colors flex items-center gap-2 cursor-pointer"
+            >
+              {isLoadingInfo || isDownloading ? (
+                <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+              ) : (
+                <KeyRound className="w-3.5 h-3.5" />
+              )}
+              <span>إعادة المحاولة بتسجيل الدخول</span>
+            </button>
+          </div>
         </div>
       )}
 

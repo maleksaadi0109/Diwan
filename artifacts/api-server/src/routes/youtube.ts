@@ -137,7 +137,7 @@ async function runWorker(
 }
 
 router.post("/youtube/info", async (req, res): Promise<void> => {
-  const { url, max_duration_seconds: maxDuration = 3600 } = req.body || {};
+  const { url, max_duration_seconds: maxDuration = 3600, cookies_content: cookiesContent } = req.body || {};
   if (typeof url !== "string" || !url.trim()) {
     res.status(400).json({ error_code: "INVALID_URL", error_message: "رابط YouTube مطلوب" });
     return;
@@ -147,6 +147,7 @@ router.post("/youtube/info", async (req, res): Promise<void> => {
     const data = await runWorker("youtube_info", {
       url: url.trim(),
       max_duration_seconds: Number(maxDuration) || 3600,
+      cookies_content: typeof cookiesContent === "string" && cookiesContent.trim() ? cookiesContent : undefined,
     });
     res.json(data);
   } catch (error) {
@@ -216,6 +217,7 @@ router.post("/youtube/download", async (req, res): Promise<void> => {
     url,
     quality = "192k",
     job_id: requestedJobId,
+    cookies_content: cookiesContent,
   } = req.body || {};
 
   if (typeof url !== "string" || !url.trim()) {
@@ -234,6 +236,7 @@ router.post("/youtube/download", async (req, res): Promise<void> => {
         output_dir: downloadRoot,
         quality: quality === "128k" ? "128k" : "192k",
         job_id: jobId,
+        cookies_content: typeof cookiesContent === "string" && cookiesContent.trim() ? cookiesContent : undefined,
       },
       jobId,
     );
