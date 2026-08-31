@@ -385,6 +385,25 @@ export class AudioController {
     return findActiveVerseIndexBinary(this.verses, currentMs);
   }
 
+  /**
+   * Detects a spurious `currentTime` reading caused by the browser's
+   * internal "probe seek": some engines determine a media file's real
+   * duration by seeking far past the end (or to a huge/negative
+   * placeholder) and then back to the actual position, firing `seeking`/
+   * `timeupdate` with that bogus value in between. Reacting to it makes
+   * playback appear to "jump to the end, then snap back to the start" --
+   * exactly the intermediate reading, not real playback.
+   *
+   * We only trust readings within a small margin of the known duration
+   * once it's established; before that (durationMs still 0) we can't tell,
+   * so nothing is filtered.
+   */
+  private isImplausibleProbeReading(currentMs: number): boolean {
+    if (!isFinite(currentMs) || currentMs < 0) return true;
+    if (this.state.durationMs > 0 && currentMs > this.state.durationMs + 2000) return true;
+    return false;
+  }
+
   private computeStableActiveIndex(currentMs: number): number {
     let activeIdx = findActiveVerseIndexBinary(this.verses, currentMs);
     const prevIdx = this.state.activeVerseIndex;
@@ -401,6 +420,7 @@ export class AudioController {
     let currentMs = explicitMs;
     if (currentMs === undefined) {
       currentMs = this.audio ? Math.round(this.audio.currentTime * 1000) : this.state.currentTimeMs;
+      if (this.isImplausibleProbeReading(currentMs)) return;
     }
 
     const activeIndex = this.findActiveVerseIndex(currentMs);
@@ -435,6 +455,10 @@ export class AudioController {
         }
 
         const currentMs = Math.round(this.audio.currentTime * 1000);
+        if (this.isImplausibleProbeReading(currentMs)) {
+          this.rafId = requestAnimationFrame(sync);
+          return;
+        }
         const activeIdx = this.computeStableActiveIndex(currentMs);
 
         const verseChanged = activeIdx !== this.state.activeVerseIndex;
