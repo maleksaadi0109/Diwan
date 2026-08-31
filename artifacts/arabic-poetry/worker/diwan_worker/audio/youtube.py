@@ -219,11 +219,30 @@ def trim_leading_silence(
         trim_ms,
         playback=False,
     )
-    if trimmed_mp3.exists() and trimmed_wav.exists():
-        os.replace(trimmed_mp3, playback_mp3_path)
-        os.replace(trimmed_wav, processing_wav_path)
-        return trim_ms
-    return 0
+    if not trimmed_mp3.exists() or not trimmed_wav.exists():
+        return 0
+
+    # Sanity check: the trimmed playback file's own real duration must be
+    # close to (original duration - trim_ms). If it isn't -- e.g. because
+    # the re-encode produced a truncated or corrupt file, or wrote
+    # inaccurate duration metadata -- serving it would make the player
+    # report/seek against the wrong length (audio appears to "jump to the
+    # end" then reset). In that case, discard the trim and keep the
+    # original, untrimmed files rather than risk a broken recording.
+    try:
+        original_duration_ms = inspect_audio(str(playback_mp3_path)).duration_ms
+        trimmed_duration_ms = inspect_audio(str(trimmed_mp3)).duration_ms
+        expected_ms = max(0, original_duration_ms - trim_ms)
+        tolerance_ms = max(500, int(expected_ms * 0.05))
+        if abs(trimmed_duration_ms - expected_ms) > tolerance_ms:
+            return 0
+    except Exception:
+        # If we can't verify, don't risk serving a possibly-corrupt file.
+        return 0
+
+    os.replace(trimmed_mp3, playback_mp3_path)
+    os.replace(trimmed_wav, processing_wav_path)
+    return trim_ms
 
 
 def _write_temp_cookiefile(cookies_content: Optional[str]) -> Optional[str]:
