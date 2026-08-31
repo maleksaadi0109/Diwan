@@ -53,7 +53,7 @@ CREATE TABLE IF NOT EXISTS verse_explanations (
     author_death_hijri TEXT,
     source_title TEXT,
     explanation_type TEXT NOT NULL, -- 'classical' | 'verse' | 'manual'
-    provider TEXT NOT NULL,         -- 'aldewan' | 'local'
+    provider TEXT NOT NULL,         -- 'mizan_al_arab' | 'aldewan' | 'local'
     raw_source_json TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );

@@ -8,11 +8,6 @@ export interface ParsedVersePayload {
   secondHemistich: string;
 }
 
-export interface ParsedGlossaryEntry {
-  word: string;
-  meaning: string;
-}
-
 export interface ParsedPoemPayload {
   title: string;
   poetName: string;
@@ -23,7 +18,6 @@ export interface ParsedPoemPayload {
   verses: ParsedVersePayload[];
   rawText?: string;
   sourceUrl?: string;
-  glossary?: ParsedGlossaryEntry[];
 }
 
 export interface PoemImportProvider {
