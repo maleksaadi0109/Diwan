@@ -94,6 +94,20 @@ describe("AudioController Engine & Synchronization Architecture", () => {
     expect(controller.findActiveVerseIndex(27499)).toBe(2);
   });
 
+  it("shows no active verse during a long lead-in silence before verse 1 actually starts", () => {
+    // mockVerses' verse 1 doesn't start until 2500ms; before that, nothing
+    // has been recited yet, so no verse should be highlighted as active
+    // (previously this incorrectly forced verse 1 active from time 0).
+    expect(findActiveVerseIndexBinary(mockVerses, 0)).toBe(-1);
+    expect(findActiveVerseIndexBinary(mockVerses, 2499)).toBe(-1);
+    expect(findActiveVerseIndexBinary(mockVerses, 2500)).toBe(0);
+
+    expect(controller.findActiveVerseIndex(0)).toBe(-1);
+    controller.seekTo(0);
+    expect(controller.getState().activeVerseIndex).toBe(-1);
+    expect(controller.getState().activeVerse).toBeNull();
+  });
+
   it("keeps the previous verse highlighted during a silent gap between verses", () => {
     const gappedVerses: Verse[] = mockVerses.map((v, i) => ({
       ...v,

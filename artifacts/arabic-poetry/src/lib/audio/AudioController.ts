@@ -53,11 +53,15 @@ export function findActiveVerseIndexBinary(verses: Verse[], currentMs: number): 
     }
   }
 
-  // 2. If before the first timed verse, anchor to first timed verse
+  // 2. Before the first timed verse's actual start (e.g. a recording with a
+  // long intro/silence before the recitation begins), no verse is active
+  // yet. Highlighting verse 1 immediately at time 0 would show the text
+  // running far ahead of what's actually heard whenever there's meaningful
+  // lead-in silence, so we wait until playback truly reaches it.
   const firstIdx = timedIndices[0];
   const firstStart = Number(verses[firstIdx].alignment!.startMs);
   if (currentMs < firstStart) {
-    return firstIdx;
+    return -1;
   }
 
   // 3. If after the last timed verse, anchor to last timed verse
@@ -228,10 +232,9 @@ export class AudioController {
         isPlaying: false,
         currentTimeMs: 0,
         durationMs: fallbackDurationMs || 0,
-        activeVerseIndex: 0,
-        activeVerse: this.verses[0] || null,
         errorMessage: null,
       });
+      this.recomputeSyncImmediately(0);
       return;
     }
 
@@ -246,10 +249,12 @@ export class AudioController {
         isPlaying: false,
         currentTimeMs: 0,
         durationMs: fallbackDurationMs || 0,
-        activeVerseIndex: 0,
-        activeVerse: this.verses[0] || null,
         errorMessage: null,
       });
+      // Resolve the real active verse for time 0 rather than assuming verse
+      // 1 (see findActiveVerseIndexBinary: a recording can start with a
+      // silent intro before verse 1 actually begins).
+      this.recomputeSyncImmediately(0);
       this.audio.load();
     }
   }
