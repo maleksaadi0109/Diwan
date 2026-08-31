@@ -1,13 +1,12 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   fetchYoutubeVideoInfo,
-  downloadYoutubeAudio,
-  cancelYoutubeDownload,
   WorkerYouTubeInfoData,
   WorkerYouTubeDownloadData,
 } from "@/lib/worker/workerClient";
-import { getPoemRecordingDirectory, resolveAudioSrc, resolveAudioSrcAsync } from "@/lib/audio/fileManager";
+import { resolveAudioSrc, resolveAudioSrcAsync } from "@/lib/audio/fileManager";
 import { formatTime } from "@/lib/utils";
+import { useImportQueueContext, YoutubeDownloadJobResult } from "@/contexts/ImportQueueContext";
 import {
   Search,
   CheckCircle2,
@@ -74,21 +73,46 @@ function formatErrorMessage(err: unknown): string {
 }
 
 export const YouTubeImportView: React.FC<YouTubeImportViewProps> = ({ onAudioDownloaded }) => {
+  const { enqueueYoutubeDownload, jobs, cancelJob, retryJob } = useImportQueueContext();
   const [url, setUrl] = useState("");
   const [videoInfo, setVideoInfo] = useState<WorkerYouTubeInfoData | null>(null);
   const [isLoadingInfo, setIsLoadingInfo] = useState(false);
   const [infoError, setInfoError] = useState<string | null>(null);
 
-  // Download state
+  // Download state — the actual download runs as a background queue job so
+  // it survives navigating away from this tab; this view is a live reader.
   const [audioQuality, setAudioQuality] = useState<"128k" | "192k">("192k");
-  const [isDownloading, setIsDownloading] = useState(false);
-  const [downloadProgress, setDownloadProgress] = useState(0);
-  const [downloadStage, setDownloadStage] = useState("");
-  const [downloadError, setDownloadError] = useState<string | null>(null);
   const [currentJobId, setCurrentJobId] = useState<string | null>(null);
   const [downloadResult, setDownloadResult] = useState<WorkerYouTubeDownloadData | null>(null);
   const [playableAudioSrc, setPlayableAudioSrc] = useState<string>("");
   const [copiedPath, setCopiedPath] = useState(false);
+  const [notifiedJobId, setNotifiedJobId] = useState<string | null>(null);
+
+  const activeJob = currentJobId ? jobs.find((j) => j.id === currentJobId) || null : null;
+  const isDownloading = activeJob ? activeJob.status === "pending" || activeJob.status === "processing" : false;
+  const downloadProgress = activeJob?.progress ?? 0;
+  const downloadStage = activeJob?.stageLabel || "";
+  const downloadError = activeJob?.status === "failed" ? activeJob.errorMessage || "فشل تنزيل الصوت" : null;
+
+  // React to the queue job completing (even if it started before or the
+  // component briefly unmounted while switching tabs).
+  useEffect(() => {
+    if (!activeJob || activeJob.status !== "completed" || !activeJob.resultJson) return;
+    if (notifiedJobId === activeJob.id) return;
+    setNotifiedJobId(activeJob.id);
+    (async () => {
+      const result: YoutubeDownloadJobResult = JSON.parse(activeJob.resultJson!);
+      setDownloadResult(result.download);
+      if (result.download.playback_audio_path) {
+        const streamUrl = await resolveAudioSrcAsync(result.download.playback_audio_path);
+        setPlayableAudioSrc(streamUrl);
+      }
+      if (onAudioDownloaded) {
+        onAudioDownloaded(result.download, result.videoInfo);
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeJob?.status, activeJob?.resultJson]);
 
   // Cookie-based login unlock (for age-restricted / login-required videos)
   const [needsCookies, setNeedsCookies] = useState(false);
@@ -104,7 +128,6 @@ export const YouTubeImportView: React.FC<YouTubeImportViewProps> = ({ onAudioDow
     setVideoInfo(null);
     setDownloadResult(null);
     setPlayableAudioSrc("");
-    setDownloadError(null);
 
     try {
       const info = await fetchYoutubeVideoInfo(url.trim(), 3600, needsCookies ? cookiesText.trim() : undefined);
@@ -121,68 +144,34 @@ export const YouTubeImportView: React.FC<YouTubeImportViewProps> = ({ onAudioDow
     }
   };
 
-  const handleStartDownload = async () => {
+  const handleStartDownload = () => {
     if (!videoInfo) return;
-
-    setIsDownloading(true);
-    setDownloadProgress(0.1);
-    setDownloadStage("جاري بدء التنزيل واستخراج الصوت بأعلى جودة...");
-    setDownloadError(null);
+    setDownloadResult(null);
     setPlayableAudioSrc("");
-    const jobId = `yt-${Date.now()}`;
+    setNotifiedJobId(null);
+    const jobId = enqueueYoutubeDownload({
+      title: videoInfo.title,
+      payload: {
+        url: videoInfo.webpage_url,
+        quality: audioQuality,
+        cookies: needsCookies ? cookiesText.trim() : undefined,
+        videoInfo,
+      },
+    });
     setCurrentJobId(jobId);
+  };
 
-    try {
-      const poemUuid = `poem-${Date.now()}`;
-      const recUuid = `rec-${Date.now()}`;
-      const targetDir = await getPoemRecordingDirectory(poemUuid, recUuid);
-
-      setDownloadProgress(0.35);
-      setDownloadStage("جاري تنزيل وتحويل المقطع الصوتي عبر yt-dlp و FFmpeg...");
-
-      const res = await downloadYoutubeAudio(
-        videoInfo.webpage_url,
-        targetDir,
-        audioQuality,
-        jobId,
-        needsCookies ? cookiesText.trim() : undefined
-      );
-
-      setDownloadProgress(1.0);
-      const removedMs = res.leading_silence_removed_ms || 0;
-      setDownloadStage(
-        removedMs > 0
-          ? `اكتمل التنزيل بنجاح! حُذف ${removedMs} مللي ثانية من الصمت التمهيدي.`
-          : "اكتمل التنزيل وتحويل الصوت إلى MP3 بنجاح!"
-      );
-      setDownloadResult(res);
-      setNeedsCookies(false);
-
-      if (res.playback_audio_path) {
-        const streamUrl = await resolveAudioSrcAsync(res.playback_audio_path);
-        setPlayableAudioSrc(streamUrl);
-      }
-
-      if (onAudioDownloaded) {
-        onAudioDownloaded(res, videoInfo);
-      }
-    } catch (err: unknown) {
-      const code = extractErrorCode(err);
-      if (code && COOKIE_UNLOCK_CODES.has(code)) {
-        setNeedsCookies(true);
-      }
-      setDownloadError(formatErrorMessage(err));
-    } finally {
-      setIsDownloading(false);
+  const handleCancelDownload = () => {
+    if (currentJobId) {
+      cancelJob(currentJobId);
     }
   };
 
-  const handleCancelDownload = async () => {
+  const handleRetryDownload = () => {
     if (currentJobId) {
-      await cancelYoutubeDownload(currentJobId);
+      setNotifiedJobId(null);
+      retryJob(currentJobId);
     }
-    setIsDownloading(false);
-    setDownloadStage("تم إلغاء التنزيل");
   };
 
   const handleCopyPath = (path: string) => {
@@ -360,7 +349,7 @@ export const YouTubeImportView: React.FC<YouTubeImportViewProps> = ({ onAudioDow
 
             {/* Action Buttons */}
             <div className="flex items-center gap-3 w-full sm:w-auto">
-              {!isDownloading ? (
+              {!isDownloading && activeJob?.status !== "failed" ? (
                 <button
                   type="button"
                   onClick={handleStartDownload}
@@ -368,6 +357,15 @@ export const YouTubeImportView: React.FC<YouTubeImportViewProps> = ({ onAudioDow
                 >
                   <Download className="w-4 h-4" />
                   <span>تنزيل التسجيل الصوتي</span>
+                </button>
+              ) : activeJob?.status === "failed" ? (
+                <button
+                  type="button"
+                  onClick={handleRetryDownload}
+                  className="w-full sm:w-auto px-6 py-3 rounded-2xl bg-red-800/20 hover:bg-red-800/30 text-rose-200 border border-red-800/40 font-bold text-xs transition-all flex items-center justify-center gap-2"
+                >
+                  <RefreshCw className="w-4 h-4" />
+                  <span>إعادة المحاولة</span>
                 </button>
               ) : (
                 <button
@@ -382,7 +380,8 @@ export const YouTubeImportView: React.FC<YouTubeImportViewProps> = ({ onAudioDow
             </div>
           </div>
 
-          {/* Download Progress Bar */}
+          {/* Download Progress Bar (this download runs in the background queue —
+              you can switch tabs and it will keep going) */}
           {isDownloading && (
             <div className="p-5 rounded-2xl bg-charcoal-900 border border-white/10 space-y-3">
               <div className="flex items-center justify-between text-xs">

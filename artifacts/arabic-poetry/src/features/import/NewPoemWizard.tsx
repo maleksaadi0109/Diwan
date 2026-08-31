@@ -1,21 +1,16 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Poem, Era, Bahr } from "@/types";
 import { MizanAlArabProvider } from "@/lib/providers/MizanAlArabProvider";
 import type { ParsedPoemPayload, ParsedVersePayload } from "@/lib/providers/types";
 import {
   fetchYoutubeVideoInfo,
-  downloadYoutubeAudio,
   downloadYoutubeThumbnail,
-  convertAudioFile,
-  inspectAudioFile,
-  detectSpeechIntervals,
-  transcribeArabicAudio,
-  alignPoemAudio,
   WorkerYouTubeInfoData,
 } from "@/lib/worker/workerClient";
-import { pickAudioFile, copyAudioToAppData, getPoemRecordingDirectory, resolveAudioSrc } from "@/lib/audio/fileManager";
+import { pickAudioFile, resolveAudioSrc } from "@/lib/audio/fileManager";
 import { DiwanRepository } from "@/lib/db/repository";
-import { normalizeArabic, formatTime, toArabicDigits } from "@/lib/utils";
+import { formatTime, toArabicDigits } from "@/lib/utils";
+import { useImportQueueContext, PoemImportJobPayload, PoemImportJobResult } from "@/contexts/ImportQueueContext";
 import {
   BookOpen,
   Music,
@@ -79,19 +74,22 @@ function formatErrorMessage(err: unknown): string {
 
 type WizardStep = 1 | 2 | 3 | 4 | 5;
 
-type StageStatus = "pending" | "running" | "completed" | "failed" | "cancelled";
-
-interface PipelineStage {
-  id: string;
-  name: string;
-  description: string;
-  status: StageStatus;
-  progress: number;
-  errorMessage?: string;
-}
+const STAGE_DESCRIPTIONS: Record<string, string> = {
+  queued: "بانتظار دورها في طابور المعالجة",
+  download: "جلب الصوت بأعلى دقة",
+  convert: "تحويل إلى 16kHz mono WAV",
+  vad: "تحليل VAD وحساب فترات التوقف",
+  asr: "استخراج الكلمات والطوابع الزمنية",
+  align: "مطابقة النص مع الصوت",
+  saving: "حفظ القصيدة في الديوان",
+  done: "انتهت جميع المراحل",
+};
 
 export const NewPoemWizard: React.FC<NewPoemWizardProps> = ({ onFinishWizard }) => {
   const [currentStep, setCurrentStep] = useState<WizardStep>(1);
+  const { enqueuePoemImport, jobs, retryJob, cancelJob } = useImportQueueContext();
+  const [activeJobId, setActiveJobId] = useState<string | null>(null);
+  const activeJob = activeJobId ? jobs.find((j) => j.id === activeJobId) || null : null;
 
   // Step 1: Poem Data
   const [poemSourceMode, setPoemSourceMode] = useState<"mizan" | "manual" | "json">("mizan");
@@ -123,16 +121,33 @@ export const NewPoemWizard: React.FC<NewPoemWizardProps> = ({ onFinishWizard }) 
   const [localAudioPath, setLocalAudioPath] = useState<string | null>(null);
   const [localAudioName, setLocalAudioName] = useState<string | null>(null);
 
-  // Step 4: Pipeline Stages
-  const [stages, setStages] = useState<PipelineStage[]>([
-    { id: "download", name: "تنزيل الصوت من المصدر", description: "جلب الصوت بأعلى دقة", status: "pending", progress: 0 },
-    { id: "convert", name: "التحويل والمعايرة الصوتية", description: "تحويل إلى 16kHz mono WAV", status: "pending", progress: 0 },
-    { id: "vad", name: "كشف فترات الكلام والصمت", description: "تحليل VAD وحساب فترات التوقف", status: "pending", progress: 0 },
-    { id: "asr", name: "التفريغ الصوتي بالذكاء الاصطناعي", description: "استخراج الكلمات والطوابع الزمنية", status: "pending", progress: 0 },
-    { id: "align", name: "المحاذاة التلقائية للأبيات", description: "مطابقة النص القرآني/الشعري مع الصوت", status: "pending", progress: 0 },
-  ]);
-
   const [generatedPoem, setGeneratedPoem] = useState<Poem | null>(null);
+  const [reviewError, setReviewError] = useState<string | null>(null);
+
+  // Once the queued job completes, fetch the persisted Poem (the queue itself
+  // saved it, possibly after this component was unmounted/remounted) to show
+  // the review step.
+  useEffect(() => {
+    if (!activeJob || activeJob.status !== "completed" || !activeJob.resultJson) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const result: PoemImportJobResult = JSON.parse(activeJob.resultJson!);
+        const repo = await DiwanRepository.create();
+        const poem = await repo.getPoemById(result.poemId);
+        if (!cancelled && poem) {
+          setGeneratedPoem(poem);
+          setCurrentStep(5);
+        }
+      } catch (err) {
+        if (!cancelled) setReviewError((err as Error).message || "تعذر تحميل القصيدة بعد اكتمال المعالجة");
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeJob?.status, activeJob?.resultJson]);
 
   // Parse raw verses
   const getParsedVerses = (): ParsedVersePayload[] => {
@@ -225,197 +240,38 @@ export const NewPoemWizard: React.FC<NewPoemWizardProps> = ({ onFinishWizard }) 
     }
   };
 
-  // Execute processing pipeline
-  const runPipeline = async () => {
-    setCurrentStep(4);
-    const updateStage = (id: string, partial: Partial<PipelineStage>) => {
-      setStages((prev) => prev.map((s) => (s.id === id ? { ...s, ...partial } : s)));
+  // Enqueue the full pipeline as a background job instead of running it
+  // inline: this lets the user close/navigate away from the wizard while it
+  // processes, and the job survives even if this component unmounts.
+  const handleStartProcessing = () => {
+    const parsedVerses = getParsedVerses();
+    const importedFromMizan =
+      poemSourceMode === "mizan" && mizanPayload !== null && mizanPoemId !== null && versesRaw === mizanSourceText;
+
+    const payload: PoemImportJobPayload = {
+      title,
+      poetName,
+      era,
+      bahr,
+      rhyme,
+      parsedVerses,
+      audioSourceMode,
+      youtubeUrl: audioSourceMode === "youtube" ? youtubeUrl : undefined,
+      youtubeCookies: youtubeNeedsCookies ? youtubeCookiesText.trim() : undefined,
+      youtubeInfo,
+      youtubeCoverImage,
+      localAudioPath: audioSourceMode === "local" ? localAudioPath || undefined : undefined,
+      localAudioName: audioSourceMode === "local" ? localAudioName || undefined : undefined,
+      importedFromMizan,
+      mizanPoemId,
+      mizanUrl: mizanUrl.trim(),
     };
 
-    const parsedVerses = getParsedVerses();
-    const importedFromMizan = poemSourceMode === "mizan"
-      && mizanPayload !== null
-      && mizanPoemId !== null
-      && versesRaw === mizanSourceText;
-    const poemId = `poem-wiz-${Date.now()}`;
-    const recId = `rec-wiz-${Date.now()}`;
-
-    let sourceAudioPath = localAudioPath || "/recordings/mutanabbi_waharra.mp3";
-    let processingWavPath = "/recordings/mutanabbi_waharra_16k.wav";
-    // Real duration only — filled from YouTube metadata or audio inspection;
-    // never a fabricated verse-count estimate.
-    let durationMs = 0;
-
-    // Track the resolved YouTube info/cover locally (not via React state) so the
-    // pipeline works correctly even if the user never clicked "جلب" to fetch
-    // the video info/thumbnail before starting the import.
-    let resolvedYoutubeInfo = youtubeInfo;
-    let resolvedCoverImage = youtubeCoverImage;
-
-    try {
-      // Stage 1: Download (if YouTube)
-      if (audioSourceMode === "youtube" && youtubeUrl) {
-        updateStage("download", { status: "running", progress: 0.2 });
-
-        // Ensure we have the video info and cover image even if the user
-        // skipped the explicit "fetch info" step.
-        if (!resolvedYoutubeInfo) {
-          try {
-            resolvedYoutubeInfo = await fetchYoutubeVideoInfo(
-              youtubeUrl.trim(),
-              3600,
-              youtubeNeedsCookies ? youtubeCookiesText.trim() : undefined
-            );
-            setYoutubeInfo(resolvedYoutubeInfo);
-          } catch (infoErr) {
-            console.warn("Could not fetch YouTube video info before download:", infoErr);
-          }
-        }
-        if (!resolvedCoverImage && resolvedYoutubeInfo?.thumbnail) {
-          try {
-            const dataUrl = await downloadYoutubeThumbnail(resolvedYoutubeInfo.thumbnail);
-            resolvedCoverImage = dataUrl || resolvedYoutubeInfo.thumbnail;
-            setYoutubeCoverImage(resolvedCoverImage);
-          } catch (thumbErr) {
-            console.warn("Could not download YouTube thumbnail before pipeline:", thumbErr);
-            resolvedCoverImage = resolvedYoutubeInfo.thumbnail;
-          }
-        }
-
-        const targetDir = await getPoemRecordingDirectory(poemId, recId);
-        const ytRes = await downloadYoutubeAudio(
-          youtubeUrl,
-          targetDir,
-          "192k",
-          undefined,
-          youtubeNeedsCookies ? youtubeCookiesText.trim() : undefined
-        );
-        sourceAudioPath = ytRes.playback_audio_path;
-        processingWavPath = ytRes.processing_audio_path;
-        durationMs = ytRes.duration_ms;
-        updateStage("download", { status: "completed", progress: 1.0 });
-      } else {
-        updateStage("download", { status: "completed", progress: 1.0 });
-      }
-
-      // Stage 2: Convert
-      updateStage("convert", { status: "running", progress: 0.5 });
-      if (audioSourceMode === "local" && localAudioPath && localAudioName) {
-        sourceAudioPath = await copyAudioToAppData(localAudioPath, localAudioName);
-        processingWavPath = sourceAudioPath.replace(/\.[^.]+$/, "_16k.wav");
-        await convertAudioFile(sourceAudioPath, processingWavPath);
-        if (!durationMs) {
-          try {
-            const meta = await inspectAudioFile(sourceAudioPath);
-            durationMs = meta.duration_ms;
-          } catch {
-            // duration stays 0 (unknown); never fabricated
-          }
-        }
-      }
-      updateStage("convert", { status: "completed", progress: 1.0 });
-
-      // Stage 3: VAD
-      updateStage("vad", { status: "running", progress: 0.5 });
-      await detectSpeechIntervals(processingWavPath);
-      updateStage("vad", { status: "completed", progress: 1.0 });
-
-      // Stage 4: ASR
-      updateStage("asr", { status: "running", progress: 0.5 });
-      const transcription = await transcribeArabicAudio(processingWavPath, undefined, {
-        model_size: "small",
-        device: "cpu",
-      });
-      updateStage("asr", { status: "completed", progress: 1.0 });
-
-      // Stage 5: Forced Alignment with silence switching
-      updateStage("align", { status: "running", progress: 0.5 });
-      const alignRes = await alignPoemAudio(
-        processingWavPath,
-        parsedVerses.map((v) => ({
-          id: `v-${poemId}-${v.orderIndex}`,
-          orderIndex: v.orderIndex,
-          text: v.text,
-          firstHemistich: v.firstHemistich,
-          secondHemistich: v.secondHemistich,
-        })),
-        poemId,
-        recId,
-        { transcript: transcription.transcript }
-      );
-      updateStage("align", { status: "completed", progress: 1.0 });
-
-      // Construct final Poem
-      const finalPoem: Poem = {
-        id: poemId,
-        title: title.trim() || "قصيدة جديدة",
-        poet: {
-          id: `poet-${Date.now()}`,
-          name: poetName.trim() || "شاعر",
-          era,
-        },
-        era,
-        bahr,
-        rhyme: rhyme || "الميم",
-        versesCount: parsedVerses.length,
-        tags: ["مستورد عبر المعالج", `بحر ${bahr}`],
-        externalProvider: importedFromMizan ? "mizan_al_arab" : undefined,
-        externalId: importedFromMizan ? mizanPoemId : undefined,
-        sourceUrl: importedFromMizan ? mizanUrl.trim() : undefined,
-        coverImageUrl: resolvedCoverImage || resolvedYoutubeInfo?.thumbnail || undefined,
-        verses: parsedVerses.map((v) => {
-          const alignmentItem = alignRes.alignments.find((a) => a.order_index === v.orderIndex);
-          return {
-            id: `v-${poemId}-${v.orderIndex}`,
-            poemId,
-            orderIndex: v.orderIndex,
-            text: v.text,
-            normalizedText: normalizeArabic(v.text),
-            firstHemistich: v.firstHemistich,
-            secondHemistich: v.secondHemistich,
-            externalId: importedFromMizan ? v.externalId : undefined,
-            alignment: alignmentItem
-              ? {
-                  id: `align-${poemId}-${v.orderIndex}`,
-                  verseId: `v-${poemId}-${v.orderIndex}`,
-                  recordingId: recId,
-                  startMs: alignmentItem.start_ms,
-                  endMs: alignmentItem.end_ms,
-                  confidence: alignmentItem.confidence,
-                  status: alignmentItem.status,
-                }
-              : undefined,
-          };
-        }),
-        recordings: [
-          {
-            id: recId,
-            poemId,
-            title: resolvedYoutubeInfo?.title || localAudioName || "تسجيل صوتي",
-            reciter: poetName.trim(),
-            audioPath: sourceAudioPath,
-            durationMs,
-            createdAt: new Date().toISOString(),
-          },
-        ],
-      };
-
-      // Save to SQLite
-      const repo = await DiwanRepository.create();
-      await repo.savePoem(finalPoem);
-
-      setGeneratedPoem(finalPoem);
-      setCurrentStep(5);
-    } catch (err: unknown) {
-      const code = extractErrorCode(err);
-      if (code && COOKIE_UNLOCK_CODES.has(code)) {
-        setYoutubeNeedsCookies(true);
-      }
-      // Mark running stage as failed
-      setStages((prev) =>
-        prev.map((s) => (s.status === "running" ? { ...s, status: "failed", errorMessage: formatErrorMessage(err) } : s))
-      );
-    }
+    const jobId = enqueuePoemImport({ title: title.trim() || "قصيدة جديدة", payload });
+    setActiveJobId(jobId);
+    setGeneratedPoem(null);
+    setReviewError(null);
+    setCurrentStep(4);
   };
 
   return (
@@ -777,7 +633,7 @@ export const NewPoemWizard: React.FC<NewPoemWizardProps> = ({ onFinishWizard }) 
 
             <button
               type="button"
-              onClick={runPipeline}
+              onClick={handleStartProcessing}
               className="px-6 py-2.5 rounded-2xl bg-accent-700 hover:bg-accent-700 text-parchment-100 font-bold text-xs flex items-center gap-1.5 shadow-md shadow-accent-700/20"
             >
               <Sparkles className="w-4 h-4" />
@@ -787,68 +643,98 @@ export const NewPoemWizard: React.FC<NewPoemWizardProps> = ({ onFinishWizard }) 
         </div>
       )}
 
-      {/* Step 4: Processing Pipeline */}
+      {/* Step 4: Processing Pipeline (live view of the background queue job) */}
       {currentStep === 4 && (
         <div className="bg-charcoal-850 border border-white/5 rounded-2xl p-6 space-y-6 animate-fadeIn select-text">
           <div className="flex items-center gap-3">
             <Cpu className="w-6 h-6 text-accent-700" />
             <div>
               <h3 className="text-base font-bold text-parchment-100 font-heading">
-                الخطوة الرابعة: خط المعالجة الذكي (Processing Pipeline)
+                الخطوة الرابعة: خط المعالجة الذكي (يعمل في الخلفية)
               </h3>
               <p className="text-xs text-ink-600">
-                متابعة مراحل المعالجة بالذكاء الاصطناعي مع إمكانية إعادة المحاولة عند اللزوم
+                يمكنك إغلاق المعالج أو التنقل بين الأقسام؛ ستتابع المعالجة في الخلفية وسيصلك إشعار عند الانتهاء
               </p>
             </div>
           </div>
 
-          {/* Stages List */}
-          <div className="space-y-3">
-            {stages.map((stage) => (
-              <div
-                key={stage.id}
-                className="p-3.5 bg-charcoal-900 rounded-2xl border border-white/5 flex items-center justify-between"
-              >
-                <div className="flex items-center gap-3">
-                  <div
-                    className={`w-7 h-7 rounded-2xl flex items-center justify-center text-xs ${
-                      stage.status === "completed"
-                        ? "bg-emerald-600/20 text-emerald-400"
-                        : stage.status === "running"
-                        ? "bg-accent-700/20 text-accent-700 animate-pulse"
-                        : stage.status === "failed"
-                        ? "bg-red-800/20 text-crimson-400"
-                        : "bg-charcoal-800 text-ink-600"
-                    }`}
-                  >
-                    {stage.status === "completed" ? (
-                      <CheckCircle2 className="w-4 h-4" />
-                    ) : stage.status === "running" ? (
-                      <RefreshCw className="w-4 h-4 animate-spin" />
-                    ) : stage.status === "failed" ? (
-                      <AlertCircle className="w-4 h-4" />
-                    ) : (
-                      <span className="w-2 h-2 rounded-2xl border-white/5" />
-                    )}
-                  </div>
-                  <div>
-                    <h5 className="text-xs font-bold text-parchment-100">{stage.name}</h5>
-                    <p className="text-[11px] text-ink-600">{stage.description}</p>
-                    {stage.errorMessage && <p className="text-[11px] text-crimson-400 mt-0.5">{stage.errorMessage}</p>}
-                  </div>
+          {activeJob ? (
+            <div className="space-y-4">
+              <div className="p-4 bg-charcoal-900 rounded-2xl border border-white/5 space-y-3">
+                <div className="flex items-center justify-between">
+                  <h5 className="text-xs font-bold text-parchment-100">{activeJob.stageLabel || STAGE_DESCRIPTIONS[activeJob.stage] || activeJob.stage}</h5>
+                  <span className="text-[11px] text-ink-600 ltr-num">{Math.round(activeJob.progress * 100)}%</span>
                 </div>
-
-                {stage.status === "failed" && (
-                  <button
-                    onClick={runPipeline}
-                    className="px-3 py-1 rounded bg-red-800/20 hover:bg-red-800/30 text-rose-200 text-xs font-semibold"
-                  >
-                    إعادة المحاولة
-                  </button>
+                <div className="w-full bg-charcoal-800 h-2.5 border border-white/5 rounded-2xl overflow-hidden">
+                  <div
+                    className={`h-full rounded-2xl transition-all duration-300 ${
+                      activeJob.status === "failed" ? "bg-crimson-500" : "bg-accent-700"
+                    }`}
+                    style={{ width: `${Math.max(4, Math.min(100, activeJob.progress * 100))}%` }}
+                  />
+                </div>
+                {activeJob.status === "processing" && (
+                  <p className="text-[11px] text-ink-600 flex items-center gap-2">
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                    <span>جاري التنفيذ...</span>
+                  </p>
+                )}
+                {activeJob.status === "failed" && activeJob.errorMessage && (
+                  <div className="p-3 bg-red-800/10 border border-red-800/30 rounded-xl flex items-start gap-2">
+                    <AlertCircle className="w-4 h-4 text-crimson-400 shrink-0 mt-0.5" />
+                    <p className="text-[11px] text-crimson-400">{activeJob.errorMessage}</p>
+                  </div>
                 )}
               </div>
-            ))}
-          </div>
+
+              <div className="flex items-center justify-between gap-3">
+                <button
+                  type="button"
+                  onClick={() => setCurrentStep(3)}
+                  className="px-4 py-2 rounded-2xl bg-charcoal-800 text-ink-400 text-xs flex items-center gap-1"
+                >
+                  <ArrowRight className="w-3.5 h-3.5" />
+                  <span>السابق</span>
+                </button>
+
+                <div className="flex items-center gap-2">
+                  {(activeJob.status === "pending" || activeJob.status === "processing") && (
+                    <button
+                      onClick={() => cancelJob(activeJob.id)}
+                      className="px-3 py-1.5 rounded-xl bg-charcoal-800 hover:bg-charcoal-800/70 text-ink-400 text-xs font-semibold border border-white/5"
+                    >
+                      إلغاء
+                    </button>
+                  )}
+                  {activeJob.status === "failed" && (
+                    <button
+                      onClick={() => retryJob(activeJob.id)}
+                      className="px-4 py-1.5 rounded-xl bg-red-800/20 hover:bg-red-800/30 text-rose-200 text-xs font-semibold"
+                    >
+                      إعادة المحاولة
+                    </button>
+                  )}
+                  {activeJob.status === "cancelled" && (
+                    <button
+                      onClick={() => retryJob(activeJob.id)}
+                      className="px-4 py-1.5 rounded-xl bg-accent-700/20 hover:bg-accent-700/30 text-accent-700 text-xs font-semibold"
+                    >
+                      إعادة المحاولة
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          ) : (
+            <p className="text-xs text-ink-600">لم يتم العثور على مهمة نشطة.</p>
+          )}
+
+          {reviewError && (
+            <div className="p-3 bg-red-800/10 border border-red-800/30 rounded-xl flex items-start gap-2">
+              <AlertCircle className="w-4 h-4 text-crimson-400 shrink-0 mt-0.5" />
+              <p className="text-[11px] text-crimson-400">{reviewError}</p>
+            </div>
+          )}
         </div>
       )}
 

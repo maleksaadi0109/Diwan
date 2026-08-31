@@ -110,10 +110,19 @@ CREATE TABLE IF NOT EXISTS import_jobs (
     id TEXT PRIMARY KEY,
     status TEXT NOT NULL,
     job_type TEXT NOT NULL,
+    title TEXT NOT NULL DEFAULT '',
+    stage TEXT NOT NULL DEFAULT 'queued',
+    stage_label TEXT NOT NULL DEFAULT '',
     input_path TEXT,
     output_path TEXT,
     progress REAL NOT NULL DEFAULT 0.0,
     error_message TEXT,
+    retry_count INTEGER NOT NULL DEFAULT 0,
+    max_retries INTEGER NOT NULL DEFAULT 3,
+    cancel_requested INTEGER NOT NULL DEFAULT 0,
+    payload TEXT NOT NULL DEFAULT '{}',
+    result_json TEXT,
+    notified INTEGER NOT NULL DEFAULT 0,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
@@ -255,10 +264,19 @@ export interface ImportJobRow {
   id: string;
   status: string;
   job_type: string;
+  title: string | null;
+  stage: string | null;
+  stage_label: string | null;
   input_path: string | null;
   output_path: string | null;
   progress: number;
   error_message: string | null;
+  retry_count: number | null;
+  max_retries: number | null;
+  cancel_requested: number | null;
+  payload: string | null;
+  result_json: string | null;
+  notified: number | null;
   created_at: string;
   updated_at: string;
 }

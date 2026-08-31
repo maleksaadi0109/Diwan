@@ -161,10 +161,28 @@ export interface ImportJob {
   id: string;
   status: 'pending' | 'processing' | 'completed' | 'failed' | 'cancelled';
   jobType: 'audio_transcription' | 'verse_alignment' | 'poem_import' | 'youtube_download';
+  /** Human-readable title shown in the queue UI (e.g. the poem title). */
+  title: string;
+  /** Machine id of the current pipeline stage, e.g. "queued" | "download" | "convert" | "vad" | "asr" | "align" | "saving" | "done". */
+  stage: string;
+  /** Arabic label of the current stage, shown directly in the UI. */
+  stageLabel: string;
   inputPath?: string;
   outputPath?: string;
   progress: number; // 0.0 to 1.0
   errorMessage?: string;
+  /** How many times this job has been retried after a failure. */
+  retryCount: number;
+  /** Soft cap surfaced in the UI; manual retries are never hard-blocked by it. */
+  maxRetries: number;
+  /** Cooperative cancellation flag checked by the queue processor between stages. */
+  cancelRequested: boolean;
+  /** JSON-encoded job input, shaped differently per jobType, needed to (re)run the job. */
+  payload: string;
+  /** JSON-encoded job output once completed (e.g. { poemId } or download info). */
+  resultJson?: string;
+  /** Whether the completion/failure notification for this job has already been shown. */
+  notified: boolean;
   createdAt: string;
   updatedAt: string;
 }
