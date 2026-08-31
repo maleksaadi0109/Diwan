@@ -11,6 +11,7 @@ import {
   Bahr,
   AlignmentStatus,
   Playlist,
+  VerseSnapshotEntry,
 } from "@/types";
 import { normalizeArabic } from "@/lib/utils";
 import { DatabaseAdapter, getDatabase } from "./adapter";
@@ -461,6 +462,110 @@ export class DiwanRepository {
     );
 
     return newVerseId;
+  }
+
+  /**
+   * Captures a poem's full verse set as it needs to be restored later by
+   * `replacePoemVerses`: every verse row plus *all* of its alignments
+   * (across every recording, not just the single default-recording one
+   * normally attached to `Verse.alignment` by `getVersesByPoemId`) plus its
+   * explanations. Used by undo/redo to snapshot state before/after a
+   * destructive multi-row edit (delete, merge, split).
+   */
+  async snapshotPoemVerses(poemId: string): Promise<VerseSnapshotEntry[]> {
+    const rows = await this.adapter.select<VerseRow>(
+      `SELECT * FROM verses WHERE poem_id = ? ORDER BY order_index ASC;`,
+      [poemId]
+    );
+    const entries: VerseSnapshotEntry[] = [];
+    for (const r of rows) {
+      const alignments = await this.getAlignmentsByVerseId(r.id);
+      const explanations = await this.getVerseExplanationsByVerseId(r.id);
+      entries.push({
+        id: r.id,
+        poemId: r.poem_id,
+        orderIndex: r.order_index,
+        text: r.text,
+        normalizedText: r.normalized_text,
+        firstHemistich: r.first_hemistich,
+        secondHemistich: r.second_hemistich,
+        explanation: r.explanation || undefined,
+        externalId: r.external_id || undefined,
+        alignments,
+        explanations: explanations.length > 0 ? explanations : undefined,
+      });
+    }
+    return entries;
+  }
+
+  /**
+   * Restores a poem's verse set to exactly match `snapshot` (as captured by
+   * `snapshotPoemVerses`). This is the primitive undo/redo uses to swap
+   * back to a prior (or forward to a later) state after a destructive
+   * multi-row edit like a merge, split, or delete, rather than
+   * hand-writing a bespoke inverse for each operation.
+   *
+   * Every verse in `snapshot` is upserted (with its alignments across all
+   * recordings and explanations replaced to match the snapshot exactly)
+   * *before* any row absent from the snapshot is deleted, so a failure
+   * partway through never passes through a state with fewer verses than
+   * either the before or after side of the edit -- unlike a naive
+   * delete-everything-then-reinsert approach, which briefly leaves the poem
+   * with zero verses.
+   */
+  async replacePoemVerses(poemId: string, snapshot: VerseSnapshotEntry[]): Promise<void> {
+    const targetIds = new Set(snapshot.map((v) => v.id));
+    const currentRows = await this.adapter.select<{ id: string }>(
+      `SELECT id FROM verses WHERE poem_id = ?;`,
+      [poemId]
+    );
+    const staleIds = currentRows.map((r) => r.id).filter((id) => !targetIds.has(id));
+
+    for (const entry of snapshot) {
+      await this.saveVerse({ ...entry, poemId });
+      await this.adapter.execute(`DELETE FROM verse_alignments WHERE verse_id = ?;`, [entry.id]);
+      for (const alignment of entry.alignments) {
+        await this.saveAlignment(alignment);
+      }
+      await this.adapter.execute(`DELETE FROM verse_explanations WHERE verse_id = ?;`, [entry.id]);
+      if (entry.explanations && entry.explanations.length > 0) {
+        await this.saveVerseExplanations(entry.id, entry.explanations);
+      }
+    }
+
+    for (const staleId of staleIds) {
+      await this.adapter.execute(`DELETE FROM verse_alignments WHERE verse_id = ?;`, [staleId]);
+      await this.adapter.execute(`DELETE FROM verse_explanations WHERE verse_id = ?;`, [staleId]);
+      await this.adapter.execute(`DELETE FROM verses WHERE id = ?;`, [staleId]);
+    }
+
+    await this.adapter.execute(
+      `UPDATE poems SET verses_count = (SELECT COUNT(*) FROM verses WHERE poem_id = ?), updated_at = CURRENT_TIMESTAMP WHERE id = ?;`,
+      [poemId, poemId]
+    );
+  }
+
+  async getAlignmentsByVerseId(verseId: string): Promise<VerseAlignment[]> {
+    const rows = await this.adapter.select<VerseAlignmentRow>(
+      `SELECT * FROM verse_alignments WHERE verse_id = ?;`,
+      [verseId]
+    );
+    return rows.map((r) => ({
+      id: r.id,
+      verseId: r.verse_id,
+      recordingId: r.recording_id,
+      startMs: r.start_ms,
+      endMs: r.end_ms,
+      confidence: r.confidence,
+      status: r.status as AlignmentStatus,
+      transcriptRange:
+        r.start_token_index !== null && r.end_token_index !== null
+          ? {
+              startTokenIndex: r.start_token_index,
+              endTokenIndex: r.end_token_index,
+            }
+          : undefined,
+    }));
   }
 
   async saveVerse(verse: Verse): Promise<void> {

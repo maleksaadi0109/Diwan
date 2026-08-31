@@ -691,7 +691,19 @@ export class WebMemoryAdapter implements DatabaseAdapter {
       return align ? ([align] as unknown as T[]) : [];
     }
 
+    if (trimmed.includes("FROM verse_alignments WHERE verse_id = ?") && !trimmed.includes("ORDER BY")) {
+      // Unqualified "give me everything for this verse" query -- used by
+      // snapshotPoemVerses/getAlignmentsByVerseId to capture *every*
+      // recording's alignment (not just the best one) for undo/redo.
+      const verseId = String(params[0]);
+      const list = Array.from(this.alignments.values()).filter((a) => a.verse_id === verseId);
+      return list as unknown as T[];
+    }
+
     if (trimmed.includes("FROM verse_alignments WHERE verse_id = ?")) {
+      // "Best" alignment lookup (no recording specified): prefer
+      // manual > reviewed > auto, used when no particular recording context
+      // is available.
       const verseId = String(params[0]);
       const align = Array.from(this.alignments.values())
         .filter((a) => a.verse_id === verseId)

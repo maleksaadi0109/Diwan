@@ -94,6 +94,18 @@ export interface VerseSegmentationSuggestion {
 
 export type AlignmentStatus = 'auto' | 'review' | 'reviewed' | 'manual';
 
+/**
+ * A full point-in-time capture of one verse row for undo/redo restoration:
+ * unlike the `Verse` shape returned by normal reads (which attaches only
+ * the single best/default-recording alignment as `alignment`), this keeps
+ * every alignment across every recording so restoring a snapshot can never
+ * silently drop timing data for a non-default recording.
+ */
+export interface VerseSnapshotEntry
+  extends Omit<Verse, "alignment"> {
+  alignments: VerseAlignment[];
+}
+
 export interface VerseAlignment {
   id: string;
   verseId: string;
