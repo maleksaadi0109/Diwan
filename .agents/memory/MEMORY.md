@@ -5,4 +5,3 @@
 - [Poem import flows](arabic-poetry-import-flows.md) — 4 independent import tabs each build their own Poem object; a feature added to one (e.g. cover image) doesn't apply to the others.
 - [Async audio load/play race](arabic-poetry-audio-load-race.md) — never call controller.play() right after loadPoem(); pass autoplay so it plays once the async src resolves.
 - [Verse merge/split heuristic thresholds](arabic-poetry-verse-boundary-heuristics.md) — merge/split suggestion detection is sensitive to word-count balance between adjacent verses; test data must be crafted carefully.
-- [Aldiwan.net poem import](aldiwan-net-import.md) — aldiwan.net is Cloudflare-blocked server-side; provider must detect the challenge page and fail gracefully, not treat it as a bug.
