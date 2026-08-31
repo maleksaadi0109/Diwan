@@ -99,6 +99,13 @@ export class AudioController {
   private calculatedFps: number = 60;
   private fpsTimer: number = 0;
 
+  // Engine-reading jump filter (see filterEngineReading below).
+  private lastTrustedMs: number = 0;
+  private pendingSpike: { ms: number; at: number } | null = null;
+  private static readonly JUMP_THRESHOLD_MS = 1500;
+  private static readonly SPIKE_CONFIRM_WINDOW_MS = 400;
+  private static readonly SPIKE_CONFIRM_TOLERANCE_MS = 400;
+
   constructor() {
     this.state = {
       status: "idle",
@@ -180,6 +187,7 @@ export class AudioController {
         this.audio && isFinite(this.audio.duration)
           ? Math.round(this.audio.duration * 1000)
           : this.state.durationMs;
+      this.trustExplicitMs(realEndMs);
       this.updateState({
         isPlaying: false,
         status: "ended",
@@ -386,22 +394,65 @@ export class AudioController {
   }
 
   /**
-   * Detects a spurious `currentTime` reading caused by the browser's
-   * internal "probe seek": some engines determine a media file's real
-   * duration by seeking far past the end (or to a huge/negative
-   * placeholder) and then back to the actual position, firing `seeking`/
-   * `timeupdate` with that bogus value in between. Reacting to it makes
-   * playback appear to "jump to the end, then snap back to the start" --
-   * exactly the intermediate reading, not real playback.
+   * Filters spurious `currentTime` readings caused by the media engine's
+   * internal "duration probe seek": some engines (this shows up especially
+   * on WebKit2GTK/desktop webviews used by the Tauri build, more than in
+   * Chromium) determine a file's real duration -- particularly for
+   * Blob-sourced or re-encoded/trimmed MP3s without a reliable
+   * header -- by briefly seeking to a huge *or* a perfectly plausible
+   * near-the-end timestamp and then back to the actual position, firing
+   * `seeking`/`timeupdate` with that transient value in between. Reacting
+   * to it makes the UI flash the *last* verse right as playback starts,
+   * then snap back to the first verse -- exactly the reported symptom.
    *
-   * We only trust readings within a small margin of the known duration
-   * once it's established; before that (durationMs still 0) we can't tell,
-   * so nothing is filtered.
+   * Comparing only against the known duration isn't enough: the probe
+   * value can legitimately fall within the real duration (e.g. seeking to
+   * near the end to test EOF), so a single reading can't be told apart
+   * from a real seek. Instead, any large jump away from the last trusted
+   * position is held as a "pending spike" and only accepted once a second
+   * reading, shortly after, lands close to the same spot -- confirming the
+   * position actually stuck rather than being an internal probe that gets
+   * reverted a moment later. Small, continuous advances (normal playback)
+   * are always trusted immediately.
+   *
+   * Explicit, user/programmatic seeks (seekTo/seekToVerse/prevVerse/
+   * nextVerse/load) bypass this entirely by passing an explicit ms to
+   * recomputeSyncImmediately, so real seeks are never delayed.
+   *
+   * Returns the accepted ms, or null if the reading should be ignored for
+   * now (caller should keep displaying the last trusted position).
    */
-  private isImplausibleProbeReading(currentMs: number): boolean {
-    if (!isFinite(currentMs) || currentMs < 0) return true;
-    if (this.state.durationMs > 0 && currentMs > this.state.durationMs + 2000) return true;
-    return false;
+  private filterEngineReading(rawMs: number): number | null {
+    if (!isFinite(rawMs) || rawMs < 0) return null;
+
+    const delta = Math.abs(rawMs - this.lastTrustedMs);
+    if (delta <= AudioController.JUMP_THRESHOLD_MS) {
+      this.pendingSpike = null;
+      this.lastTrustedMs = rawMs;
+      return rawMs;
+    }
+
+    const now = typeof performance !== "undefined" ? performance.now() : Date.now();
+
+    if (
+      this.pendingSpike &&
+      now - this.pendingSpike.at <= AudioController.SPIKE_CONFIRM_WINDOW_MS &&
+      Math.abs(rawMs - this.pendingSpike.ms) <= AudioController.SPIKE_CONFIRM_TOLERANCE_MS
+    ) {
+      // Same jump position confirmed by a second reading shortly after --
+      // treat it as a real position change.
+      this.pendingSpike = null;
+      this.lastTrustedMs = rawMs;
+      return rawMs;
+    }
+
+    this.pendingSpike = { ms: rawMs, at: now };
+    return null;
+  }
+
+  private trustExplicitMs(ms: number): void {
+    this.lastTrustedMs = ms;
+    this.pendingSpike = null;
   }
 
   private computeStableActiveIndex(currentMs: number): number {
@@ -419,8 +470,12 @@ export class AudioController {
   public recomputeSyncImmediately(explicitMs?: number): void {
     let currentMs = explicitMs;
     if (currentMs === undefined) {
-      currentMs = this.audio ? Math.round(this.audio.currentTime * 1000) : this.state.currentTimeMs;
-      if (this.isImplausibleProbeReading(currentMs)) return;
+      const rawMs = this.audio ? Math.round(this.audio.currentTime * 1000) : this.state.currentTimeMs;
+      const filtered = this.filterEngineReading(rawMs);
+      if (filtered === null) return;
+      currentMs = filtered;
+    } else {
+      this.trustExplicitMs(currentMs);
     }
 
     const activeIndex = this.findActiveVerseIndex(currentMs);
@@ -454,8 +509,9 @@ export class AudioController {
           this.fpsTimer = now;
         }
 
-        const currentMs = Math.round(this.audio.currentTime * 1000);
-        if (this.isImplausibleProbeReading(currentMs)) {
+        const rawMs = Math.round(this.audio.currentTime * 1000);
+        const currentMs = this.filterEngineReading(rawMs);
+        if (currentMs === null) {
           this.rafId = requestAnimationFrame(sync);
           return;
         }
