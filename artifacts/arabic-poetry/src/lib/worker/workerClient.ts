@@ -608,10 +608,10 @@ export async function fetchUrlViaWorker(
     }
   }
 
-  // Web Browser / Proxy mode: rewrite to local vite proxy if mizanalarab.com
+  // Web Browser / Proxy mode: rewrite to local vite proxy for known hosts
   let targetUrl = url;
-  if (url.startsWith("https://mizanalarab.com")) {
-    targetUrl = url.replace("https://mizanalarab.com", "/api-mizan");
+  if (url.startsWith("https://aldiwan.net") || url.startsWith("https://www.aldiwan.net")) {
+    targetUrl = url.replace(/^https:\/\/(www\.)?aldiwan\.net/, "/api-aldiwan");
   } else if (url.startsWith("https://adabworld.com") || url.startsWith("https://www.adabworld.com")) {
     targetUrl = url.replace(/^https:\/\/(www\.)?adabworld\.com/, "/api-adabworld");
   }
@@ -644,8 +644,8 @@ export async function fetchUrlViaWorker(
     };
   } catch (browserFetchErr) {
     // If standard fetch was blocked by CORS and we are not using proxy, try proxy
-    if (targetUrl === url && url.startsWith("https://mizanalarab.com")) {
-      const proxyUrl = url.replace("https://mizanalarab.com", "/api-mizan");
+    if (targetUrl === url && (url.startsWith("https://aldiwan.net") || url.startsWith("https://www.aldiwan.net"))) {
+      const proxyUrl = url.replace(/^https:\/\/(www\.)?aldiwan\.net/, "/api-aldiwan");
       const proxyResp = await fetch(proxyUrl, {
         method: "GET",
         headers: {
