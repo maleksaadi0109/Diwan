@@ -82,6 +82,63 @@ def test_error_mapping_dictionary():
     assert code3 == "VIDEO_UNAVAILABLE"
 
 
+def test_error_mapping_cookies_invalid_when_cookies_supplied():
+    # A login/age-restriction failure with no cookies supplied is a normal LOGIN_REQUIRED
+    code, _ = map_ytdlp_exception_to_error(Exception("Sign in to confirm you're not a bot"))
+    assert code == "LOGIN_REQUIRED"
+
+    # The same failure after cookies were already supplied means the cookies
+    # themselves are invalid/expired, not that login is simply unsupported.
+    code2, _ = map_ytdlp_exception_to_error(
+        Exception("Sign in to confirm you're not a bot"), had_cookies=True
+    )
+    assert code2 == "COOKIES_INVALID"
+    assert "COOKIES_INVALID" in ERROR_MESSAGES_AR
+
+
+def test_fetch_metadata_with_cookies_writes_and_cleans_up_cookiefile():
+    """cookies_content should be written to a temp cookiefile passed to yt-dlp,
+    and the temp file must be removed after the call regardless of outcome."""
+    mock_info = {
+        "id": "dQw4w9WgXcQ",
+        "title": "قصيدة",
+        "uploader": "قناة",
+        "duration": 120,
+    }
+
+    captured_opts = {}
+
+    def fake_ydl(opts):
+        captured_opts.update(opts)
+        instance = MagicMock()
+        instance.extract_info.return_value = mock_info
+        instance.__enter__.return_value = instance
+        instance.__exit__.return_value = False
+        return instance
+
+    with patch("yt_dlp.YoutubeDL", side_effect=fake_ydl):
+        fetch_youtube_video_info(
+            "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+            cookies_content="# Netscape HTTP Cookie File\n.youtube.com\tTRUE\t/\tTRUE\t0\tNAME\tvalue\n",
+        )
+
+    assert "cookiefile" in captured_opts
+    cookiefile_path = captured_opts["cookiefile"]
+    # The temp cookiefile must be cleaned up after the call
+    assert not os.path.exists(cookiefile_path)
+
+
+def test_fetch_metadata_without_cookies_has_no_cookiefile():
+    mock_info = {"id": "abc", "title": "t", "duration": 10}
+    with patch("yt_dlp.YoutubeDL") as mock_ydl:
+        instance = mock_ydl.return_value.__enter__.return_value
+        instance.extract_info.return_value = mock_info
+        fetch_youtube_video_info("https://www.youtube.com/watch?v=dQw4w9WgXcQ")
+        _, called_opts = mock_ydl.call_args
+        opts_arg = mock_ydl.call_args[0][0]
+        assert "cookiefile" not in opts_arg
+
+
 def test_fetch_metadata_mocked():
     mock_info = {
         "id": "dQw4w9WgXcQ",

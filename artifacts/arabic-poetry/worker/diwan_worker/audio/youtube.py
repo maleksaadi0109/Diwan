@@ -18,7 +18,8 @@ ERROR_MESSAGES_AR: Dict[str, str] = {
     "FFMPEG_NOT_FOUND": "برنامج FFmpeg غير متوفر أو لم يتم العثور على مساره.",
     "VIDEO_UNAVAILABLE": "المقطع غير متاح أو تم حذفه.",
     "PRIVATE_VIDEO": "المقطع خاص ولا يمكن تنزيله.",
-    "LOGIN_REQUIRED": "يتطلب هذا المقطع تسجيل الدخول، وهو غير مدعوم حاليًا.",
+    "LOGIN_REQUIRED": "يتطلب هذا المقطع تسجيل الدخول. يمكنك إدخال بيانات تسجيل الدخول (كوكيز) من متصفحك للمتابعة.",
+    "COOKIES_INVALID": "بيانات تسجيل الدخول (الكوكيز) غير صالحة أو منتهية الصلاحية. يرجى الحصول على كوكيز جديدة والمحاولة مجددًا.",
     "LIVE_STREAM_NOT_SUPPORTED": "تنزيل البث المباشر غير مدعوم.",
     "NO_AUDIO_FORMAT": "لم يتم العثور على مسار صوتي مناسب.",
     "DOWNLOAD_FAILED": "فشل تنزيل الصوت. افتح تفاصيل الخطأ للمزيد.",
@@ -100,15 +101,21 @@ def validate_and_normalize_youtube_url(url: str) -> str:
     return f"https://www.youtube.com/watch?v={video_id}"
 
 
-def map_ytdlp_exception_to_error(e: Exception) -> tuple[str, str]:
+def map_ytdlp_exception_to_error(e: Exception, had_cookies: bool = False) -> tuple[str, str]:
     """
     Maps yt-dlp exceptions to structured (error_code, arabic_message)
+
+    `had_cookies` should be True when the request already supplied a cookie
+    file. In that case a login/age-restriction failure means the supplied
+    cookies are invalid or expired, not that cookies are simply missing.
     """
     err_str = str(e)
 
     if "Private video" in err_str or "private" in err_str.lower():
         return "PRIVATE_VIDEO", ERROR_MESSAGES_AR["PRIVATE_VIDEO"]
     if "Sign in to confirm" in err_str or "login" in err_str.lower() or "age-restricted" in err_str.lower():
+        if had_cookies:
+            return "COOKIES_INVALID", ERROR_MESSAGES_AR["COOKIES_INVALID"]
         return "LOGIN_REQUIRED", ERROR_MESSAGES_AR["LOGIN_REQUIRED"]
     if "Video unavailable" in err_str or "does not exist" in err_str.lower() or "not available" in err_str.lower():
         return "VIDEO_UNAVAILABLE", ERROR_MESSAGES_AR["VIDEO_UNAVAILABLE"]
@@ -219,12 +226,53 @@ def trim_leading_silence(
     return 0
 
 
+def _write_temp_cookiefile(cookies_content: Optional[str]) -> Optional[str]:
+    """Writes user-supplied cookie text (Netscape cookie-jar format) to a
+    private temp file for yt-dlp's `cookiefile` option.
+
+    Cookies are session credentials: the file is written with owner-only
+    permissions and the caller is responsible for deleting it once the
+    yt-dlp call returns (success or failure). Never logged.
+    """
+    if not cookies_content or not cookies_content.strip():
+        return None
+
+    import tempfile
+
+    fd, path = tempfile.mkstemp(prefix="diwan-yt-cookies-", suffix=".txt")
+    try:
+        os.chmod(path, 0o600)
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            f.write(cookies_content)
+    except Exception:
+        try:
+            os.close(fd)
+        except Exception:
+            pass
+        raise
+    return path
+
+
+def _cleanup_temp_cookiefile(path: Optional[str]) -> None:
+    if path and os.path.exists(path):
+        try:
+            os.remove(path)
+        except Exception:
+            pass
+
+
 def fetch_youtube_video_info(
     url: str,
     max_duration_seconds: int = 3600,
+    cookies_content: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Fetches YouTube video metadata without downloading using yt-dlp Python API.
+
+    `cookies_content` is optional Netscape-format cookie text pasted by the
+    user (exported from their own logged-in browser session) to unlock
+    login-required or age-restricted videos. It is written to a private temp
+    file for the duration of this call only and removed afterwards.
     """
     try:
         import yt_dlp
@@ -241,12 +289,18 @@ def fetch_youtube_video_info(
         "socket_timeout": 30,
     }
 
+    cookiefile_path = _write_temp_cookiefile(cookies_content)
+    if cookiefile_path:
+        ydl_opts["cookiefile"] = cookiefile_path
+
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(clean_url, download=False)
     except Exception as e:
-        code, msg = map_ytdlp_exception_to_error(e)
+        code, msg = map_ytdlp_exception_to_error(e, had_cookies=bool(cookiefile_path))
         raise RuntimeError(f"{code}: {msg}")
+    finally:
+        _cleanup_temp_cookiefile(cookiefile_path)
 
     if not info:
         raise RuntimeError(f"VIDEO_UNAVAILABLE: {ERROR_MESSAGES_AR['VIDEO_UNAVAILABLE']}")
@@ -284,6 +338,7 @@ def download_youtube_audio(
     job_id: Optional[str] = None,
     audio_quality: str = "192k",
     on_progress: Optional[ProgressCallback] = None,
+    cookies_content: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Executes the two-stage YouTube audio import:
@@ -291,6 +346,9 @@ def download_youtube_audio(
     2. Validates raw audio with ffprobe.
     3. Converts to {job_dir}/final/playback.mp3 (192k) and {job_dir}/final/processing.wav (16k mono).
     4. Validates both converted files with ffprobe before returning.
+
+    `cookies_content` is optional Netscape-format cookie text (see
+    `fetch_youtube_video_info`) used to unlock login-required videos.
     """
     try:
         import yt_dlp
@@ -365,6 +423,10 @@ def download_youtube_audio(
         "progress_hooks": [progress_hook],
     }
 
+    cookiefile_path = _write_temp_cookiefile(cookies_content)
+    if cookiefile_path:
+        ydl_opts["cookiefile"] = cookiefile_path
+
     if on_progress:
         on_progress(0.05, "جاري بدء تنزيل الصوت من YouTube...", None)
 
@@ -377,11 +439,12 @@ def download_youtube_audio(
         clean_temp_files(temp_dir)
         if cancel_event.is_set():
             raise RuntimeError("تم إلغاء عملية التنزيل")
-        code, msg = map_ytdlp_exception_to_error(e)
+        code, msg = map_ytdlp_exception_to_error(e, had_cookies=bool(cookiefile_path))
         raise RuntimeError(f"{code}: {msg}")
     finally:
         with _cancel_lock:
             _active_cancels.pop(job_id, None)
+        _cleanup_temp_cookiefile(cookiefile_path)
 
     # 2. Locate raw audio in raw_dir (Section 3)
     raw_files = [

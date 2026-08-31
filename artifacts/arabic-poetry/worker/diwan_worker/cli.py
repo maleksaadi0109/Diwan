@@ -437,6 +437,7 @@ def handle_segment_audio(req: WorkerRequest) -> None:
 def handle_youtube_info(req: WorkerRequest) -> None:
     url = req.payload.get("url")
     max_duration = req.payload.get("max_duration_seconds", 3600)
+    cookies_content = req.payload.get("cookies_content")
 
     if not url:
         emit_response(
@@ -451,7 +452,7 @@ def handle_youtube_info(req: WorkerRequest) -> None:
 
     try:
         from .audio.youtube import fetch_youtube_video_info
-        info = fetch_youtube_video_info(url=url, max_duration_seconds=max_duration)
+        info = fetch_youtube_video_info(url=url, max_duration_seconds=max_duration, cookies_content=cookies_content)
         emit_response(
             WorkerResponse(
                 id=req.id,
@@ -493,6 +494,7 @@ def handle_youtube_download(req: WorkerRequest) -> None:
     output_dir = req.payload.get("output_dir")
     job_id = req.payload.get("job_id")
     quality = req.payload.get("quality", "192k")
+    cookies_content = req.payload.get("cookies_content")
 
     if not url or not output_dir:
         emit_response(
@@ -516,6 +518,7 @@ def handle_youtube_download(req: WorkerRequest) -> None:
             job_id=job_id,
             audio_quality=quality,
             on_progress=on_prog,
+            cookies_content=cookies_content,
         )
         emit_response(
             WorkerResponse(
