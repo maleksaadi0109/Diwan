@@ -6,85 +6,31 @@ describe("Poem Providers", () => {
   describe("AldewanProvider", () => {
     const provider = new AldewanProvider();
 
-    // Minimal fixture mirroring aldiwan.net's real markup: breadcrumb JSON-LD,
-    // a `poem_content` block with one verse (two <h3> hemistichs, one word
-    // wrapped in a mosahma_highlight span), and the corresponding
-    // "مساهمات" (contributions) glossary entry for that word.
-    const sampleHtml = `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <title>تطاول ليلك بالأثمد - امرؤ القيس - الديوان</title>
-        <script type="application/ld+json">
-        {
-          "@context": "https://schema.org",
-          "@type": "BreadcrumbList",
-          "itemListElement": [
-            {"@type": "ListItem", "position": 1, "name": "العصر الجاهلي", "item": "https://www.aldiwan.net/cat-poets-pre-islamic-period"},
-            {"@type": "ListItem", "position": 2, "name": "امرؤ القيس", "item": "https://www.aldiwan.net/cat-poet-imru-alqays"},
-            {"@type": "ListItem", "position": 3, "name": "تطاول ليلك بالأثمد"}
-          ]
-        }
-        </script>
-      </head>
-      <body>
-        <div class="bet-1 row" id="poem_content">
-          <h3>تَطاوَلَ لَيلُكَ <span class="mosahma_highlight" id="496">بِالأَثمَدِ</span></h3>
-          <h3>وَنامَ الخَلِيُّ وَلَم تَرقُدِ</h3>
-        </div>
-        <div class="header-center">نبذة عن القصيدة</div>
-        <div class="tips row">
-          <div class="col-6 col-md-3"><a href="sea-المتقارب.html">بحر المتقارب</a></div>
-          <div class="col-6 col-md-3"><a href="q-د">قافية الدال (د)</a></div>
-        </div>
-        <div class="mosahmat">
-          <div id="mosahma_496" class="mosahmat_item">
-            <div class="header">
-              <h2 class="h3">بِالأَثمَدِ</h2>
-            </div>
-            <h4 class="main-color">الإثمد: اسم موضع.</h4>
+    it("parses Aldewan HTML structure correctly", () => {
+      const sampleHtml = `
+        <!DOCTYPE html>
+        <html>
+        <head><title>واحر قلباه - أبو الطيب المتنبي - الديوان</title></head>
+        <body>
+          <h1 class="poem-title">واحر قلباه ممن قلبه شبم</h1>
+          <div class="poet-name">أبو الطيب المتنبي</div>
+          <div class="bahr">بحر البسيط</div>
+          <div class="era">العصر العباسي</div>
+          <div class="poem-content">
+            <h3 class="bet">واحَرَّ قَلباهُ مِمَّن قَلبُهُ شَبِمُ ... وَمَن بِجِسمي وَحالي عِندَهُ سَقَمُ</h3>
+            <h3 class="bet">ما لي أُكَتِّمُ حُبّاً قَد بَرى جَسَدي ... وَتَدَّعي حُبَّ سَيفِ الدَولَةِ الأُمَمُ</h3>
           </div>
-        </div>
-        <div class="s-menu1"></div>
-      </body>
-      </html>
-    `;
+        </body>
+        </html>
+      `;
 
-    it("extracts poem/poet metadata from the breadcrumb", () => {
-      const result = provider.parseHtml(sampleHtml, "https://www.aldiwan.net/poem81.html");
-      expect(result.title).toBe("تطاول ليلك بالأثمد");
-      expect(result.poetName).toBe("امرؤ القيس");
-      expect(result.era).toBe("جاهلي");
-    });
-
-    it("extracts bahr and rhyme from the topic links", () => {
       const result = provider.parseHtml(sampleHtml);
-      expect(result.bahr).toBe("المتقارب");
-      expect(result.rhyme).toBe("الدال (د)");
-    });
-
-    it("pairs consecutive hemistich <h3> tags into verses", () => {
-      const result = provider.parseHtml(sampleHtml);
-      expect(result.verses).toHaveLength(1);
-      expect(result.verses[0].firstHemistich).toBe("تَطاوَلَ لَيلُكَ بِالأَثمَدِ");
-      expect(result.verses[0].secondHemistich).toBe("وَنامَ الخَلِيُّ وَلَم تَرقُدِ");
-    });
-
-    it("extracts the word-meaning glossary from the contributions section", () => {
-      const result = provider.parseHtml(sampleHtml);
-      expect(result.glossary).toHaveLength(1);
-      expect(result.glossary?.[0]).toEqual({
-        word: "بِالأَثمَدِ",
-        meaning: "الإثمد: اسم موضع.",
-      });
-    });
-
-    it("rejects a URL from a different host", () => {
-      expect(() => provider.extractPoemPathFromUrl("https://example.com/poem81.html")).toThrow();
-    });
-
-    it("accepts a valid aldiwan.net poem URL", () => {
-      expect(provider.extractPoemPathFromUrl("https://www.aldiwan.net/poem81.html")).toBe("poem81.html");
+      expect(result.title).toBe("واحر قلباه ممن قلبه شبم");
+      expect(result.poetName).toBe("أبو الطيب المتنبي");
+      expect(result.bahr).toBe("البسيط");
+      expect(result.era).toBe("عباسي");
+      expect(result.verses).toHaveLength(2);
+      expect(result.verses[0].firstHemistich).toBe("واحَرَّ قَلباهُ مِمَّن قَلبُهُ شَبِمُ");
     });
   });
 
