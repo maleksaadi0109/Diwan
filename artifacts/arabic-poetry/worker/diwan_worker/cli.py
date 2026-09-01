@@ -16,6 +16,19 @@ from .audio.converter import convert_to_playback_wav, convert_to_wav_16k_mono
 from .audio.vad import detect_speech_regions
 from .bin_paths import ffmpeg_path, ffprobe_path
 
+def configure_utf8_stdio() -> None:
+    """Keep JSON protocol and worker logs safe for Unicode on Windows pipes."""
+    for stream in (sys.stdin, sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(
+                encoding="utf-8",
+                errors="strict" if stream is sys.stdin else "backslashreplace",
+            )
+        except (AttributeError, OSError, ValueError):
+            # Test doubles and unusual embedded streams may not support
+            # reconfigure; the normal Python streams do.
+            pass
+
 def log(msg: str) -> None:
     """All logging goes strictly to stderr to preserve stdout for JSON protocol."""
     sys.stderr.write(f"[diwan-worker] {msg}\n")
@@ -708,6 +721,7 @@ def process_line(line: str) -> None:
         )
 
 def main() -> None:
+    configure_utf8_stdio()
     log(f"Starting Diwan Worker v{__version__}...")
     for line in sys.stdin:
         process_line(line)
