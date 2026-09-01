@@ -165,7 +165,12 @@ fn spawn_worker_process(app: &AppHandle, worker_dir: &PathBuf) -> Result<std::pr
         command
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
-            .env("PYTHONIOENCODING", "utf-8")
+            // Applied by the interpreter at startup, before any of our own
+            // stream reconfiguration runs, so it also covers writes from
+            // yt-dlp internals and uncaught-exception tracebacks that would
+            // otherwise hit Windows' legacy strict-mode console codec.
+            .env("PYTHONIOENCODING", "utf-8:backslashreplace")
+            .env("PYTHONUTF8", "1")
             .stderr(Stdio::inherit());
         if let Some(p) = &ffmpeg_path {
             command.env("DIWAN_FFMPEG_PATH", p);
@@ -194,7 +199,8 @@ fn spawn_worker_process(app: &AppHandle, worker_dir: &PathBuf) -> Result<std::pr
             .current_dir(worker_dir)
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
-            .env("PYTHONIOENCODING", "utf-8")
+            .env("PYTHONIOENCODING", "utf-8:backslashreplace")
+            .env("PYTHONUTF8", "1")
             .stderr(Stdio::inherit());
         if let Some(p) = &ffmpeg_path {
             command.env("DIWAN_FFMPEG_PATH", p);
