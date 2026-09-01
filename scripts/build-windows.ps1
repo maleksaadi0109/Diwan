@@ -23,9 +23,19 @@ pnpm install
 Write-Host "--> Building Frontend..." -ForegroundColor Yellow
 pnpm --filter @workspace/arabic-poetry run build
 
-# 5. Build Tauri .exe
+# 5. Fetch/verify the offline speech model + other bundled resources.
+# Fails the whole build loudly if anything required is missing, instead of
+# silently producing an installer that needs internet on first run.
+Write-Host "--> Preparing Windows bundle (offline speech model, ffmpeg, worker exe)..." -ForegroundColor Yellow
+node scripts/prepare-windows-bundle.mjs
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "Error: Windows bundle is incomplete. See messages above." -ForegroundColor Red
+    Exit 1
+}
+
+# 6. Build Tauri .exe
 Write-Host "--> Building Windows .exe installer with Tauri..." -ForegroundColor Green
-pnpm --filter @workspace/arabic-poetry tauri build
+pnpm --filter @workspace/arabic-poetry tauri build --target x86_64-pc-windows-msvc
 
 Write-Host ""
 Write-Host "=========================================" -ForegroundColor Green
