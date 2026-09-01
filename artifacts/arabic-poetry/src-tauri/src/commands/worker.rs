@@ -165,6 +165,7 @@ fn spawn_worker_process(app: &AppHandle, worker_dir: &PathBuf) -> Result<std::pr
         command
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
+            .env("PYTHONIOENCODING", "utf-8")
             .stderr(Stdio::inherit());
         if let Some(p) = &ffmpeg_path {
             command.env("DIWAN_FFMPEG_PATH", p);
@@ -193,6 +194,7 @@ fn spawn_worker_process(app: &AppHandle, worker_dir: &PathBuf) -> Result<std::pr
             .current_dir(worker_dir)
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
+            .env("PYTHONIOENCODING", "utf-8")
             .stderr(Stdio::inherit());
         if let Some(p) = &ffmpeg_path {
             command.env("DIWAN_FFMPEG_PATH", p);

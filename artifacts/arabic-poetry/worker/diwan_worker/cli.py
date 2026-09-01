@@ -29,18 +29,28 @@ def configure_utf8_stdio() -> None:
             # reconfigure; the normal Python streams do.
             pass
 
+def _write_utf8(stream: object, text: str) -> None:
+    """Write a protocol/log line without relying on Windows console encoding."""
+    line = (text + "\n").encode("utf-8")
+    buffer = getattr(stream, "buffer", None)
+    if buffer is not None:
+        buffer.write(line)
+        buffer.flush()
+        return
+
+    # StringIO and simple test doubles do not expose a binary buffer.
+    stream.write(text + "\n")  # type: ignore[attr-defined]
+    stream.flush()  # type: ignore[attr-defined]
+
 def log(msg: str) -> None:
     """All logging goes strictly to stderr to preserve stdout for JSON protocol."""
-    sys.stderr.write(f"[diwan-worker] {msg}\n")
-    sys.stderr.flush()
+    _write_utf8(sys.stderr, f"[diwan-worker] {msg}")
 
 def emit_event(event: WorkerProgressEvent) -> None:
-    sys.stdout.write(event.to_json() + "\n")
-    sys.stdout.flush()
+    _write_utf8(sys.stdout, event.to_json())
 
 def emit_response(resp: WorkerResponse) -> None:
-    sys.stdout.write(resp.to_json() + "\n")
-    sys.stdout.flush()
+    _write_utf8(sys.stdout, resp.to_json())
 
 def handle_health(req: WorkerRequest) -> None:
     # Check ffmpeg / ffprobe availability

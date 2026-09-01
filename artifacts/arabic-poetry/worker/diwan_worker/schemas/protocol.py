@@ -63,7 +63,10 @@ class WorkerResponse:
             d["error_code"] = self.error_code
         if self.error_message is not None:
             d["error_message"] = self.error_message
-        return json.dumps(d, ensure_ascii=False)
+        # The Rust host reads stdout as UTF-8. Escaping non-ASCII characters
+        # keeps the wire protocol safe even if a frozen/embedded Python runtime
+        # applies a legacy Windows encoding before our stream setup runs.
+        return json.dumps(d, ensure_ascii=True)
 
 @dataclass
 class WorkerProgressEvent:
@@ -84,7 +87,7 @@ class WorkerProgressEvent:
             d["message"] = self.message
         if self.details:
             d["details"] = self.details
-        return json.dumps(d, ensure_ascii=False)
+        return json.dumps(d, ensure_ascii=True)
 
 @dataclass
 class SpeechInterval:
