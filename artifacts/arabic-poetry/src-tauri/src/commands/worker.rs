@@ -151,9 +151,33 @@ fn resolve_bundled_bin(_app: &AppHandle, _filename: &str) -> Option<PathBuf> {
     None
 }
 
+/// Resolves the directory containing pre-converted CTranslate2 Whisper
+/// model(s) bundled as a Tauri resource on Windows (see
+/// WINDOWS_PACKAGING.md), if present. The worker looks for a
+/// `<model_size>/model.bin` subfolder under this directory and, when
+/// found, loads it directly with no network access at all -- letting a
+/// fresh install transcribe successfully on its very first run even with
+/// no internet connection. Dev builds, non-Windows platforms, and Windows
+/// builds that skipped the optional model-bundling step all return `None`
+/// and fall back to the existing huggingface_hub download-on-first-use
+/// behavior, so nothing changes unless the resource was actually bundled.
+#[cfg(target_os = "windows")]
+fn resolve_bundled_models_dir(app: &AppHandle) -> Option<PathBuf> {
+    app.path()
+        .resolve("models", BaseDirectory::Resource)
+        .ok()
+        .filter(|p| p.exists())
+}
+
+#[cfg(not(target_os = "windows"))]
+fn resolve_bundled_models_dir(_app: &AppHandle) -> Option<PathBuf> {
+    None
+}
+
 fn spawn_worker_process(app: &AppHandle, worker_dir: &PathBuf) -> Result<std::process::Child, String> {
     let ffmpeg_path = resolve_bundled_bin(app, "ffmpeg.exe");
     let ffprobe_path = resolve_bundled_bin(app, "ffprobe.exe");
+    let models_dir = resolve_bundled_models_dir(app);
 
     // On Windows, prefer a frozen, self-contained worker executable (built
     // via PyInstaller, see WINDOWS_PACKAGING.md) so no system Python
@@ -177,6 +201,9 @@ fn spawn_worker_process(app: &AppHandle, worker_dir: &PathBuf) -> Result<std::pr
         }
         if let Some(p) = &ffprobe_path {
             command.env("DIWAN_FFPROBE_PATH", p);
+        }
+        if let Some(p) = &models_dir {
+            command.env("DIWAN_BUNDLED_MODELS_DIR", p);
         }
         return command.spawn().map_err(|e| {
             format!(
@@ -207,6 +234,9 @@ fn spawn_worker_process(app: &AppHandle, worker_dir: &PathBuf) -> Result<std::pr
         }
         if let Some(p) = &ffprobe_path {
             command.env("DIWAN_FFPROBE_PATH", p);
+        }
+        if let Some(p) = &models_dir {
+            command.env("DIWAN_BUNDLED_MODELS_DIR", p);
         }
 
         match command.spawn() {

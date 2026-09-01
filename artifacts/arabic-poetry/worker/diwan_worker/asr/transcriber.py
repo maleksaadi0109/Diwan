@@ -19,6 +19,36 @@ DEFAULT_MODELS_DIR = os.environ.get(
     os.path.expanduser("~/.cache/diwan/models"),
 )
 
+
+def _resolve_bundled_model_dir(model_size: str) -> Optional[str]:
+    """Locates a pre-converted CTranslate2 Whisper model bundled alongside
+    the app, if one exists for `model_size`.
+
+    On Windows, the packaged build bundles the CTranslate2-converted
+    "small" model as a Tauri resource (see WINDOWS_PACKAGING.md). The Rust
+    host sets `DIWAN_BUNDLED_MODELS_DIR` to that resource directory's
+    absolute path before spawning the worker; everywhere else (dev sandbox,
+    Linux/macOS, or a Windows build without the bundled model) the env var
+    is unset or the specific model_size subfolder is missing, so callers
+    fall back to the normal huggingface_hub download path.
+
+    Passing a local directory straight to `WhisperModel(...)` makes
+    faster-whisper skip the Hugging Face Hub entirely (it only consults the
+    network when given a model name/ID rather than an existing directory),
+    which is exactly what lets a fresh install transcribe with no internet
+    access on the very first run.
+    """
+    base = os.environ.get("DIWAN_BUNDLED_MODELS_DIR")
+    if not base:
+        return None
+    candidate = os.path.join(base, model_size)
+    if os.path.isdir(candidate) and os.path.isfile(
+        os.path.join(candidate, "model.bin")
+    ):
+        return candidate
+    return None
+
+
 def _configure_resilient_download_backend() -> None:
     """Makes the Whisper model download (via huggingface_hub) survive a
     flaky connection instead of failing outright on the first hiccup.
@@ -180,45 +210,60 @@ def transcribe_arabic_audio(
             "ثبّت faster-whisper أو استخدم الوضع التجريبي (mock) بشكل صريح."
         )
 
-    if on_progress:
-        on_progress(0.15, f"جاري تحميل نموذج Whisper ({model_size}) على {device}...")
-
-    _configure_resilient_download_backend()
-
-    # Load model with outside-repo cache directory. The download itself is
-    # retried at the HTTP layer (see _configure_resilient_download_backend),
-    # but a reset can still occur between requests inside huggingface_hub's
-    # own retry loop, so also retry the whole load a few times with backoff
-    # before surfacing a failure to the user.
     ctranslate2_compute = "int8" if device == "cpu" and compute_type == "default" else compute_type
-    max_attempts = 4
-    model = None
-    last_error: Optional[Exception] = None
-    for attempt in range(1, max_attempts + 1):
-        try:
-            model = WhisperModel(
-                model_size,
-                device=device,
-                compute_type=ctranslate2_compute,
-                download_root=DEFAULT_MODELS_DIR,
-            )
-            break
-        except Exception as exc:  # noqa: BLE001 - network errors vary by platform
-            last_error = exc
-            if attempt < max_attempts:
-                if on_progress:
-                    on_progress(
-                        0.15,
-                        f"انقطع الاتصال أثناء تحميل النموذج، جاري إعادة المحاولة ({attempt}/{max_attempts - 1})...",
-                    )
-                time.sleep(2 * attempt)
-    if model is None:
-        raise RuntimeError(
-            "تعذّر تحميل نموذج Whisper بسبب مشكلة في الاتصال بالإنترنت "
-            f"(تمت المحاولة {max_attempts} مرات). تأكد من استقرار الاتصال أو أن برنامج "
-            f"الحماية/الجدار الناري لا يحجب التحميل، ثم أعد المحاولة. "
-            f"({type(last_error).__name__ if last_error else 'unknown'})"
-        ) from last_error
+
+    bundled_model_dir = _resolve_bundled_model_dir(model_size)
+    if bundled_model_dir is not None:
+        # A pre-converted model shipped with the app is available locally
+        # (see WINDOWS_PACKAGING.md) -- load it directly with no network
+        # access at all, so a fresh install works on the very first run
+        # even with no internet connection.
+        if on_progress:
+            on_progress(0.15, f"جاري تحميل نموذج Whisper ({model_size}) المضمّن محليًا على {device}...")
+        model = WhisperModel(
+            bundled_model_dir,
+            device=device,
+            compute_type=ctranslate2_compute,
+        )
+    else:
+        if on_progress:
+            on_progress(0.15, f"جاري تحميل نموذج Whisper ({model_size}) على {device}...")
+
+        _configure_resilient_download_backend()
+
+        # Load model with outside-repo cache directory. The download itself is
+        # retried at the HTTP layer (see _configure_resilient_download_backend),
+        # but a reset can still occur between requests inside huggingface_hub's
+        # own retry loop, so also retry the whole load a few times with backoff
+        # before surfacing a failure to the user.
+        max_attempts = 4
+        model = None
+        last_error: Optional[Exception] = None
+        for attempt in range(1, max_attempts + 1):
+            try:
+                model = WhisperModel(
+                    model_size,
+                    device=device,
+                    compute_type=ctranslate2_compute,
+                    download_root=DEFAULT_MODELS_DIR,
+                )
+                break
+            except Exception as exc:  # noqa: BLE001 - network errors vary by platform
+                last_error = exc
+                if attempt < max_attempts:
+                    if on_progress:
+                        on_progress(
+                            0.15,
+                            f"انقطع الاتصال أثناء تحميل النموذج، جاري إعادة المحاولة ({attempt}/{max_attempts - 1})...",
+                        )
+                    time.sleep(2 * attempt)
+        if model is None:
+            raise RuntimeError(
+                "تعذّر تحميل نموذج Whisper بسبب مشكلة في الاتصال بالإنترنت "
+                f"(تمت المحاولة {max_attempts} مرات). تأكد من استقرار الاتصال أو أن برنامج "
+                f"الحماية/الجدار الناري لا يحجب التحميل، ثم أعد المحاولة. "
+                f"({type(last_error).__name__ if last_error else 'unknown'})"
+            ) from last_error
 
     if on_progress:
         on_progress(0.4, "جاري معالجة الصوت واستخراج طوابع الكلمات باللغة العربية...")
