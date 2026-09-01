@@ -4,7 +4,8 @@
     "resources": {
       "windows-dist/bin/ffmpeg.exe": "bin/win/ffmpeg.exe",
       "windows-dist/bin/ffprobe.exe": "bin/win/ffprobe.exe",
-      "windows-dist/worker/": "worker-dist/"
+      "windows-dist/worker/": "worker-dist/",
+      "windows-dist/models/": "models/"
     }
   }
 }

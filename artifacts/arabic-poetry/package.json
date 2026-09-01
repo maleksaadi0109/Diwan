@@ -12,7 +12,8 @@
     "tauri": "tauri",
     "tauri:dev": "node ../../scripts/tauri-dev.mjs",
     "tauri:build": "tauri build",
-    "tauri:build:windows": "tauri build --target x86_64-pc-windows-msvc"
+    "prepare:windows-bundle": "node ../../scripts/prepare-windows-bundle.mjs",
+    "tauri:build:windows": "node ../../scripts/prepare-windows-bundle.mjs && tauri build --target x86_64-pc-windows-msvc"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.2.0",
