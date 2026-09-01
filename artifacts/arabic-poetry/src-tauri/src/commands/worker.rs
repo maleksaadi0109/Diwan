@@ -270,7 +270,15 @@ pub async fn execute_worker_command(
         }
     }
 
-    let _ = child.wait();
+    // Reap the process in the background instead of blocking here. Heavy ML
+    // dependencies used for transcription can leave lingering background
+    // threads on Windows even after the worker has sent its final response
+    // and flushed stdout, which would otherwise make `child.wait()` hang and
+    // make the whole command look stuck to the user even though the answer
+    // has already arrived.
+    std::thread::spawn(move || {
+        let _ = child.wait();
+    });
 
     final_response.ok_or_else(|| "Worker finished without returning a final response".to_string())
 }

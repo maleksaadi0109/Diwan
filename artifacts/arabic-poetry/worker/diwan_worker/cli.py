@@ -737,5 +737,17 @@ def main() -> None:
         process_line(line)
     log("Worker received EOF, shutting down cleanly.")
 
+    # Heavy ML dependencies used for transcription (faster-whisper/CTranslate2)
+    # can leave non-daemon background threads running on Windows even after
+    # the response has been sent, which prevents a normal process exit from
+    # ever completing. Since this process handles exactly one request per
+    # spawn (the host closes stdin after writing its request), a hard exit
+    # here is safe: all output has already been flushed, and it avoids the
+    # host seeing "the job never finished" while the real answer is sitting
+    # in its stdout buffer.
+    sys.stdout.flush()
+    sys.stderr.flush()
+    os._exit(0)
+
 if __name__ == "__main__":
     main()
