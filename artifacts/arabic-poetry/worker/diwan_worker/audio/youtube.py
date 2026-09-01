@@ -32,6 +32,23 @@ ERROR_MESSAGES_AR: Dict[str, str] = {
 
 ProgressCallback = Callable[[float, str, Optional[Dict[str, Any]]], None]
 
+
+class _QuietYtdlpLogger:
+    """Prevent yt-dlp from writing Unicode metadata to a Windows console."""
+
+    def debug(self, _message: str) -> None:
+        pass
+
+    def info(self, _message: str) -> None:
+        pass
+
+    def warning(self, _message: str) -> None:
+        pass
+
+    def error(self, _message: str) -> None:
+        pass
+
+
 # Keep a tiny amount of audio before the first detected speech frame so the
 # first consonant is never clipped. The long intro/silence itself is removed.
 LEADING_SPEECH_PADDING_MS = 80
@@ -315,6 +332,7 @@ def fetch_youtube_video_info(
         "noplaylist": True,
         "no_warnings": True,
         "quiet": True,
+        "logger": _QuietYtdlpLogger(),
         "socket_timeout": 30,
     }
     if ffmpeg_dir():
@@ -450,7 +468,8 @@ def download_youtube_audio(
         "fragment_retries": 3,
         "socket_timeout": 30,
         "quiet": True,
-        "no_warnings": False,
+        "no_warnings": True,
+        "logger": _QuietYtdlpLogger(),
         "progress_hooks": [progress_hook],
     }
     if ffmpeg_dir():
