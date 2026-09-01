@@ -2,6 +2,7 @@ from __future__ import annotations
 import os
 import shutil
 import sys
+import time
 from typing import Callable, Optional, List
 from ..schemas.transcript import (
     TimedWord,
@@ -17,6 +18,49 @@ DEFAULT_MODELS_DIR = os.environ.get(
     "DIWAN_MODELS_DIR",
     os.path.expanduser("~/.cache/diwan/models"),
 )
+
+def _configure_resilient_download_backend() -> None:
+    """Makes the Whisper model download (via huggingface_hub) survive a
+    flaky connection instead of failing outright on the first hiccup.
+
+    On some Windows machines, antivirus/firewall SSL inspection or an
+    unstable network resets in-flight HTTPS downloads (WinError 10054 /
+    "An existing connection was forcibly closed by the remote host").
+    huggingface_hub's default HTTP session has no retry policy, so a single
+    reset anywhere in the ~250MB model download aborts the whole
+    transcription. Installing a urllib3 Retry-backed session here makes
+    the download layer itself retry transient connection failures before
+    giving up, on every machine -- not just ones that already have the
+    model cached.
+    """
+    try:
+        import requests
+        from requests.adapters import HTTPAdapter
+        from urllib3.util.retry import Retry
+        from huggingface_hub import configure_http_backend
+
+        def _resilient_session_factory() -> "requests.Session":
+            session = requests.Session()
+            retry = Retry(
+                total=5,
+                connect=5,
+                read=5,
+                backoff_factor=2,
+                status_forcelist=[429, 500, 502, 503, 504],
+                allowed_methods=None,  # retry on GET/HEAD by default is fine for downloads
+            )
+            adapter = HTTPAdapter(max_retries=retry)
+            session.mount("http://", adapter)
+            session.mount("https://", adapter)
+            return session
+
+        configure_http_backend(backend_factory=_resilient_session_factory)
+    except Exception:
+        # Best-effort only: if huggingface_hub's API shape changes or the
+        # dependency is missing, fall back to the default (non-retrying)
+        # behavior rather than blocking transcription entirely.
+        pass
+
 
 def get_free_disk_space_bytes(path: str) -> int:
     try:
@@ -139,14 +183,42 @@ def transcribe_arabic_audio(
     if on_progress:
         on_progress(0.15, f"جاري تحميل نموذج Whisper ({model_size}) على {device}...")
 
-    # Load model with outside-repo cache directory
+    _configure_resilient_download_backend()
+
+    # Load model with outside-repo cache directory. The download itself is
+    # retried at the HTTP layer (see _configure_resilient_download_backend),
+    # but a reset can still occur between requests inside huggingface_hub's
+    # own retry loop, so also retry the whole load a few times with backoff
+    # before surfacing a failure to the user.
     ctranslate2_compute = "int8" if device == "cpu" and compute_type == "default" else compute_type
-    model = WhisperModel(
-        model_size,
-        device=device,
-        compute_type=ctranslate2_compute,
-        download_root=DEFAULT_MODELS_DIR,
-    )
+    max_attempts = 4
+    model = None
+    last_error: Optional[Exception] = None
+    for attempt in range(1, max_attempts + 1):
+        try:
+            model = WhisperModel(
+                model_size,
+                device=device,
+                compute_type=ctranslate2_compute,
+                download_root=DEFAULT_MODELS_DIR,
+            )
+            break
+        except Exception as exc:  # noqa: BLE001 - network errors vary by platform
+            last_error = exc
+            if attempt < max_attempts:
+                if on_progress:
+                    on_progress(
+                        0.15,
+                        f"انقطع الاتصال أثناء تحميل النموذج، جاري إعادة المحاولة ({attempt}/{max_attempts - 1})...",
+                    )
+                time.sleep(2 * attempt)
+    if model is None:
+        raise RuntimeError(
+            "تعذّر تحميل نموذج Whisper بسبب مشكلة في الاتصال بالإنترنت "
+            f"(تمت المحاولة {max_attempts} مرات). تأكد من استقرار الاتصال أو أن برنامج "
+            f"الحماية/الجدار الناري لا يحجب التحميل، ثم أعد المحاولة. "
+            f"({type(last_error).__name__ if last_error else 'unknown'})"
+        ) from last_error
 
     if on_progress:
         on_progress(0.4, "جاري معالجة الصوت واستخراج طوابع الكلمات باللغة العربية...")
