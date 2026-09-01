@@ -1,0 +1,65 @@
+ pnpm install
+Scope: all 9 workspace projects
+✓ Lockfile passes supply-chain policies (565 entries in 1m 47.9s)
+Lockfile is up to date, resolution step is skipped
+Packages: +549
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+Packages are hard linked from the content-addressable store to the virtual store.
+  Content-addressable store is at: C:\Users\LENOVO\AppData\Local\pnpm\store\v11
+  Virtual store is at:             node_modules/.pnpm
+[WARN] Tarball download average speed 25 KiB/s (size 30 KiB) is below 50 KiB/s: https://registry.npmjs.org/esbuild/-/esbuild-0.27.3.tgz (GET)
+[WARN] Tarball download average speed 5 KiB/s (size 5 KiB) is below 50 KiB/s: https://registry.npmjs.org/@replit/vite-plugin-dev-banner/-/vite-plugin-dev-banner-0.1.2.tgz (GET)
+[WARN] Tarball download average speed 4 KiB/s (size 6 KiB) is below 50 KiB/s: https://registry.npmjs.org/@tauri-apps/plugin-dialog/-/plugin-dialog-2.7.2.tgz (GET)
+[WARN] Tarball download average speed 28 KiB/s (size 28 KiB) is below 50 KiB/s: https://registry.npmjs.org/@radix-ui/react-tooltip/-/react-tooltip-1.2.16.tgz (GET)
+[WARN] Tarball download average speed 22 KiB/s (size 69 KiB) is below 50 KiB/s: https://registry.npmjs.org/html-to-image/-/html-to-image-1.11.13.tgz (GET)
+[WARN] 148 other warnings
+Downloading @tauri-apps/cli-win32-x64-msvc@2.11.4: 7.61 MB/7.61 MB, done
+Progress: resolved 549, reused 0, downloaded 549, added 549, done
+Downloading better-sqlite3@13.0.3: 11.40 MB/11.40 MB, done
+node_modules/.pnpm/esbuild@0.27.3/node_modules/esbuild: Running postinstall script...
+node_modules/.pnpm/better-sqlite3@13.0.3/node_modules/better-sqlite3: Running install script, failed in 6.8s
+.../node_modules/better-sqlite3 install$ node-gyp rebuild
+│ C:\Users\LENOVO\arabic_poem\arabic-poetry-desktop\node_modules\.pnpm\better-sqlite3@13.0.3\node_modules\better-sqlite3>i…
+│ gyp info it worked if it ends with ok
+│ gyp info using node-gyp@12.3.0
+│ gyp info using node@25.2.0 | win32 | x64
+│ gyp info find Python using Python version 3.14.0 found at "C:\Users\LENOVO\AppData\Local\Programs\Python\Python314\pytho…
+│ gyp ERR! find VS
+│ gyp ERR! find VS --msvs_version was not set on the command line
+│ gyp ERR! find VS VCINSTALLDIR not set, not running in VS Command Prompt
+│ gyp ERR! find VS could not use PowerShell to find Visual Studio 2017 or newer, try re-running with '--loglevel silly' fo…
+│ gyp ERR! find VS
+│ gyp ERR! find VS Failure details: undefined
+│ gyp ERR! find VS could not use PowerShell to find Visual Studio 2017 or newer, try re-running with '--loglevel silly' fo…
+│ gyp ERR! find VS
+│ gyp ERR! find VS Failure details: undefined
+│ gyp ERR! find VS not looking for VS2017 as it is only supported up to Node.js 21
+│ gyp ERR! find VS not looking for VS2017 as it is only supported up to Node.js 21
+│ gyp ERR! find VS not looking for VS2017 as it is only supported up to Node.js 21
+│ gyp ERR! find VS not looking for VS2015 as it is only supported up to Node.js 18
+│ gyp ERR! find VS not looking for VS2013 as it is only supported up to Node.js 8
+│ gyp ERR! find VS
+│ gyp ERR! find VS **************************************************************
+│ gyp ERR! find VS You need to install the latest version of Visual Studio
+│ gyp ERR! find VS including the "Desktop development with C++" workload.
+│ gyp ERR! find VS For more information consult the documentation at:
+│ gyp ERR! find VS https://github.com/nodejs/node-gyp#on-windows
+│ gyp ERR! find VS **************************************************************
+│ gyp ERR! find VS
+│ gyp ERR! configure error
+│ gyp ERR! stack Error: Could not find any Visual Studio installation to use
+│ gyp ERR! stack at VisualStudioFinder.fail (C:\Users\LENOVO\CONFIG~1\herd\bin\nvm\v25.2.0\node_modules\pnpm\dist\node_mod…
+│ gyp ERR! stack at VisualStudioFinder.findVisualStudio (C:\Users\LENOVO\CONFIG~1\herd\bin\nvm\v25.2.0\node_modules\pnpm\d…
+│ gyp ERR! stack at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+│ gyp ERR! stack at async createBuildDir (C:\Users\LENOVO\CONFIG~1\herd\bin\nvm\v25.2.0\node_modules\pnpm\dist\node_module…
+│ gyp ERR! stack at async run (C:\Users\LENOVO\CONFIG~1\herd\bin\nvm\v25.2.0\node_modules\pnpm\dist\node_modules\node-gyp\…
+│ gyp ERR! System Windows_NT 10.0.19045
+│ gyp ERR! command "C:\\Program Files\\nodejs\\node.exe" "C:\\Users\\LENOVO\\CONFIG~1\\herd\\bin\\nvm\\v25.2.0\\node_modul…
+│ gyp ERR! cwd C:\Users\LENOVO\arabic_poem\arabic-poetry-desktop\node_modules\.pnpm\better-sqlite3@13.0.3\node_modules\bet…
+│ gyp ERR! node -v v25.2.0
+│ gyp ERR! node-gyp -v v12.3.0
+│ gyp ERR! $npm_package_name better-sqlite3
+│ gyp ERR! $npm_package_version 13.0.3
+│ gyp ERR! not ok
+└─ Failed in 6.8s at C:\Users\LENOVO\arabic_poem\arabic-poetry-desktop\node_modules\.pnpm\better-sqlite3@13.0.3\node_modules\better-sqlite3
+[ELIFECYCLE] Command failed with exit code 1.
