@@ -5,6 +5,26 @@ use std::process::{Command, Stdio};
 use std::sync::Mutex;
 use tauri::{path::BaseDirectory, AppHandle, Emitter, Manager};
 
+#[cfg(target_os = "windows")]
+use std::os::windows::process::CommandExt;
+
+// CREATE_NO_WINDOW: prevents Windows from popping up a console window for
+// the spawned worker process. The worker communicates over piped
+// stdin/stdout/stderr, so it never needs a visible console -- without this
+// flag, Windows still allocates and shows one because the worker binary
+// (a frozen Python console app / python.exe) is a console subsystem
+// executable.
+#[cfg(target_os = "windows")]
+const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+
+#[cfg(target_os = "windows")]
+fn hide_console_window(command: &mut Command) {
+    command.creation_flags(CREATE_NO_WINDOW);
+}
+
+#[cfg(not(target_os = "windows"))]
+fn hide_console_window(_command: &mut Command) {}
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct WorkerRequestPayload {
     pub id: String,
@@ -186,6 +206,7 @@ fn spawn_worker_process(app: &AppHandle, worker_dir: &PathBuf) -> Result<std::pr
     // source path below.
     if let Some(frozen_exe) = resolve_frozen_worker_exe(app) {
         let mut command = Command::new(&frozen_exe);
+        hide_console_window(&mut command);
         command
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
@@ -220,6 +241,7 @@ fn spawn_worker_process(app: &AppHandle, worker_dir: &PathBuf) -> Result<std::pr
         args.extend(["-m", "diwan_worker.cli"]);
 
         let mut command = Command::new(cmd);
+        hide_console_window(&mut command);
         command
             .args(&args)
             .env("PYTHONPATH", worker_dir)
