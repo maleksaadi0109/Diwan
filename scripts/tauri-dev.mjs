@@ -1,6 +1,7 @@
 import { spawn } from "node:child_process";
 
-const command = process.platform === "win32" ? "tauri.cmd" : "tauri";
+const isWindows = process.platform === "win32";
+const command = isWindows ? "tauri.cmd" : "tauri";
 const env = { ...process.env };
 
 // WebKitGTK uses this workaround on Linux. Windows and macOS do not need it.
@@ -11,7 +12,8 @@ if (process.platform === "linux") {
 const child = spawn(command, ["dev"], {
   env,
   stdio: "inherit",
-  shell: false,
+  // Windows .cmd shims require cmd.exe to launch through Node.
+  shell: isWindows,
 });
 
 child.on("error", (error) => {
