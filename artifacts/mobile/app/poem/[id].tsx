@@ -19,6 +19,7 @@ import { useLibrary } from '@/contexts/LibraryContext';
 import { usePlaylists } from '@/contexts/PlaylistsContext';
 import { useSettings } from '@/contexts/SettingsContext';
 import { ProgressBar } from '@/components/ProgressBar';
+import { VerseShareModal } from '@/components/VerseShareModal';
 import { formatDuration } from '@/lib/api';
 import type { Verse } from '@/lib/types';
 
@@ -40,6 +41,7 @@ export default function PoemPlayerScreen() {
   const [future, setFuture] = useState<Verse[][]>([]);
   const [playlistModalVisible, setPlaylistModalVisible] = useState(false);
   const [newPlaylistName, setNewPlaylistName] = useState('');
+  const [shareVerseIndex, setShareVerseIndex] = useState<number | null>(null);
 
   const poem = getPoem(id);
 
@@ -368,6 +370,13 @@ export default function PoemPlayerScreen() {
                   <Feather name="edit-2" size={14} color={colors.mutedForeground} />
                 </Pressable>
                 <Pressable
+                  onPress={() => setShareVerseIndex(poem.verses.findIndex((v) => v.id === verse.id))}
+                  hitSlop={10}
+                  testID={`verse-share-button-${verse.id}`}
+                >
+                  <Feather name="share-2" size={14} color={colors.mutedForeground} />
+                </Pressable>
+                <Pressable
                   onPress={() => handleDeleteVerse(verse)}
                   hitSlop={10}
                   testID={`verse-delete-button-${verse.id}`}
@@ -429,6 +438,14 @@ export default function PoemPlayerScreen() {
             </Pressable>
           ) : null}
         </View>
+      ) : null}
+
+      {shareVerseIndex !== null ? (
+        <VerseShareModal
+          poem={poem}
+          initialVerseIndex={shareVerseIndex}
+          onClose={() => setShareVerseIndex(null)}
+        />
       ) : null}
 
       <Modal
