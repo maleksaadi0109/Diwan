@@ -15,6 +15,7 @@ import { useColors } from '@/hooks/useColors';
 import { useLibrary } from '@/contexts/LibraryContext';
 import { PoemCard } from '@/components/PoemCard';
 import { EmptyState } from '@/components/EmptyState';
+import { normalizeArabic } from '@/lib/utils';
 import type { Poem } from '@/lib/types';
 
 export default function LibraryScreen() {
@@ -25,11 +26,13 @@ export default function LibraryScreen() {
   const [query, setQuery] = useState('');
 
   const filtered = useMemo(() => {
-    const q = query.trim();
+    const q = normalizeArabic(query.trim());
     if (!q) return poems;
-    return poems.filter(
-      (p) => p.title.includes(q) || p.poetName.includes(q),
-    );
+    return poems.filter((p) => {
+      if (normalizeArabic(p.title).includes(q)) return true;
+      if (normalizeArabic(p.poetName).includes(q)) return true;
+      return p.verses.some((v) => normalizeArabic(v.text).includes(q));
+    });
   }, [poems, query]);
 
   const topInset = Platform.OS === 'web' ? Math.max(insets.top, 67) : insets.top;

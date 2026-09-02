@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   Alert,
   Platform,
@@ -6,6 +6,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -17,14 +18,17 @@ import { useLibrary } from '@/contexts/LibraryContext';
 import { useSettings } from '@/contexts/SettingsContext';
 import { ProgressBar } from '@/components/ProgressBar';
 import { formatDuration } from '@/lib/api';
+import type { Verse } from '@/lib/types';
 
 export default function PoemPlayerScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const colors = useColors();
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { getPoem, removePoem } = useLibrary();
+  const { getPoem, removePoem, updatePoem } = useLibrary();
   const { fontSize } = useSettings();
+  const [editingVerseId, setEditingVerseId] = useState<string | null>(null);
+  const [editingText, setEditingText] = useState('');
 
   const poem = getPoem(id);
 
@@ -104,6 +108,49 @@ export default function PoemPlayerScreen() {
     ]);
   };
 
+  const startEditVerse = (verse: Verse) => {
+    setEditingVerseId(verse.id);
+    setEditingText(verse.text);
+  };
+
+  const cancelEditVerse = () => {
+    setEditingVerseId(null);
+    setEditingText('');
+  };
+
+  const saveEditVerse = async () => {
+    const trimmed = editingText.trim();
+    if (!editingVerseId || !trimmed) {
+      cancelEditVerse();
+      return;
+    }
+    await updatePoem(poem.id, (p) => ({
+      ...p,
+      verses: p.verses.map((v) =>
+        v.id === editingVerseId ? { ...v, text: trimmed } : v,
+      ),
+    }));
+    cancelEditVerse();
+  };
+
+  const handleDeleteVerse = (verse: Verse) => {
+    Alert.alert('حذف البيت', 'هل تريد حذف هذا البيت من القصيدة؟', [
+      { text: 'إلغاء', style: 'cancel' },
+      {
+        text: 'حذف',
+        style: 'destructive',
+        onPress: async () => {
+          await updatePoem(poem.id, (p) => ({
+            ...p,
+            verses: p.verses
+              .filter((v) => v.id !== verse.id)
+              .map((v, index) => ({ ...v, orderIndex: index })),
+          }));
+        },
+      },
+    ]);
+  };
+
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <View style={[styles.topBar, { paddingTop: topInset + 8 }]}>
@@ -130,13 +177,61 @@ export default function PoemPlayerScreen() {
       >
         {poem.verses.map((verse) => {
           const isActive = verse.id === activeVerseId;
+          const isEditing = verse.id === editingVerseId;
+
+          if (isEditing) {
+            return (
+              <View
+                key={verse.id}
+                style={[styles.verseEditRow, { borderColor: colors.border }]}
+              >
+                <TextInput
+                  value={editingText}
+                  onChangeText={setEditingText}
+                  multiline
+                  autoFocus
+                  textAlign="right"
+                  style={[
+                    styles.verseEditInput,
+                    {
+                      fontSize,
+                      color: colors.foreground,
+                      fontFamily: 'Amiri_400Regular',
+                    },
+                  ]}
+                  testID={`verse-edit-input-${verse.id}`}
+                />
+                <View style={styles.verseEditActions}>
+                  <Pressable
+                    onPress={cancelEditVerse}
+                    hitSlop={10}
+                    testID={`verse-edit-cancel-${verse.id}`}
+                  >
+                    <Text style={[styles.verseEditAction, { color: colors.mutedForeground }]}>
+                      إلغاء
+                    </Text>
+                  </Pressable>
+                  <Pressable
+                    onPress={saveEditVerse}
+                    hitSlop={10}
+                    testID={`verse-edit-save-${verse.id}`}
+                  >
+                    <Text style={[styles.verseEditAction, { color: colors.primary }]}>
+                      حفظ
+                    </Text>
+                  </Pressable>
+                </View>
+              </View>
+            );
+          }
+
           return (
             <Pressable
               key={verse.id}
               onPress={() =>
                 verse.alignment ? seekToVerse(verse.alignment.startMs) : undefined
               }
-              disabled={!verse.alignment}
+              onLongPress={() => startEditVerse(verse)}
               style={[
                 styles.verseRow,
                 isActive && { backgroundColor: colors.accent },
@@ -154,6 +249,22 @@ export default function PoemPlayerScreen() {
               >
                 {verse.text}
               </Text>
+              <View style={styles.verseActionsRow}>
+                <Pressable
+                  onPress={() => startEditVerse(verse)}
+                  hitSlop={10}
+                  testID={`verse-edit-button-${verse.id}`}
+                >
+                  <Feather name="edit-2" size={14} color={colors.mutedForeground} />
+                </Pressable>
+                <Pressable
+                  onPress={() => handleDeleteVerse(verse)}
+                  hitSlop={10}
+                  testID={`verse-delete-button-${verse.id}`}
+                >
+                  <Feather name="trash-2" size={14} color={colors.mutedForeground} />
+                </Pressable>
+              </View>
             </Pressable>
           );
         })}
@@ -243,6 +354,33 @@ const styles = StyleSheet.create({
   verseText: {
     fontFamily: 'Amiri_400Regular',
     textAlign: 'right',
+  },
+  verseActionsRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-start',
+    gap: 16,
+    marginTop: 6,
+  },
+  verseEditRow: {
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    marginBottom: 4,
+    borderWidth: StyleSheet.hairlineWidth,
+    gap: 8,
+  },
+  verseEditInput: {
+    textAlignVertical: 'top',
+    minHeight: 60,
+  },
+  verseEditActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-start',
+    gap: 20,
+  },
+  verseEditAction: {
+    fontSize: 13,
+    fontFamily: 'Cairo_700Bold',
   },
   playerBar: {
     paddingHorizontal: 20,
