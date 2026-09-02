@@ -1,5 +1,5 @@
 import React from "react";
-import { BookOpen, PlayCircle, PlusCircle, Settings, Feather, ListMusic, Keyboard } from "lucide-react";
+import { BookOpen, PlayCircle, PlusCircle, Settings, Feather, ListMusic, Keyboard, Library } from "lucide-react";
 import { ActiveTab } from "@/types";
 import { cn, toArabicDigits } from "@/lib/utils";
 
@@ -38,6 +38,12 @@ export const Navigation: React.FC<NavigationProps> = ({
       label: "استيراد قصيدة",
       mobileLabel: "استيراد",
       icon: PlusCircle,
+    },
+    {
+      id: "catalog" as ActiveTab,
+      label: "مكتبة جاهزة",
+      mobileLabel: "جاهزة",
+      icon: Library,
     },
     {
       id: "playlists" as ActiveTab,

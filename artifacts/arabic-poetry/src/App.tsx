@@ -6,6 +6,7 @@ import { MiniPlayer } from "./components/MiniPlayer";
 import { LibraryView } from "./features/library/LibraryView";
 import { PoemPlayerView } from "./features/player/PoemPlayerView";
 import { ImportView } from "./features/import/ImportView";
+import { CatalogView } from "./features/catalog/CatalogView";
 import { SettingsView } from "./features/settings/SettingsView";
 import { PlaylistsView } from "./features/playlists/PlaylistsView";
 import { PlaylistDetailView } from "./features/playlists/PlaylistDetailView";
@@ -751,6 +752,8 @@ function AppShell() {
               {activeTab === "import" && (
                 <ImportView onImportPoem={handleImportPoem} />
               )}
+
+              {activeTab === "catalog" && <CatalogView poems={poems} />}
 
               {activeTab === "playlists" && !activePlaylist && (
                 <PlaylistsView
