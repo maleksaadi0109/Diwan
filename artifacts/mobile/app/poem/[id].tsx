@@ -29,8 +29,37 @@ export default function PoemPlayerScreen() {
   const { fontSize } = useSettings();
   const [editingVerseId, setEditingVerseId] = useState<string | null>(null);
   const [editingText, setEditingText] = useState('');
+  const [past, setPast] = useState<Verse[][]>([]);
+  const [future, setFuture] = useState<Verse[][]>([]);
 
   const poem = getPoem(id);
+
+  // Applies a verse-array mutation while recording an undo entry. Undo/redo
+  // history here is scoped to this poem screen only (mirrors desktop's
+  // per-poem undo scope, but as local component state instead of a global
+  // context, since only verse edits/deletes/boundary marks happen here).
+  const applyVerseChange = async (nextVerses: Verse[]) => {
+    if (!poem) return;
+    setPast((prev) => [...prev, poem.verses]);
+    setFuture([]);
+    await updatePoem(poem.id, (p) => ({ ...p, verses: nextVerses }));
+  };
+
+  const undo = async () => {
+    if (!poem || past.length === 0) return;
+    const previous = past[past.length - 1];
+    setPast((prev) => prev.slice(0, -1));
+    setFuture((prev) => [poem.verses, ...prev]);
+    await updatePoem(poem.id, (p) => ({ ...p, verses: previous }));
+  };
+
+  const redo = async () => {
+    if (!poem || future.length === 0) return;
+    const next = future[0];
+    setFuture((prev) => prev.slice(1));
+    setPast((prev) => [...prev, poem.verses]);
+    await updatePoem(poem.id, (p) => ({ ...p, verses: next }));
+  };
 
   const player = useAudioPlayer(poem?.recording?.audioUrl ?? null);
   const status = useAudioPlayerStatus(player);
@@ -124,12 +153,11 @@ export default function PoemPlayerScreen() {
       cancelEditVerse();
       return;
     }
-    await updatePoem(poem.id, (p) => ({
-      ...p,
-      verses: p.verses.map((v) =>
+    await applyVerseChange(
+      poem.verses.map((v) =>
         v.id === editingVerseId ? { ...v, text: trimmed } : v,
       ),
-    }));
+    );
     cancelEditVerse();
   };
 
@@ -140,15 +168,38 @@ export default function PoemPlayerScreen() {
         text: 'حذف',
         style: 'destructive',
         onPress: async () => {
-          await updatePoem(poem.id, (p) => ({
-            ...p,
-            verses: p.verses
+          await applyVerseChange(
+            poem.verses
               .filter((v) => v.id !== verse.id)
               .map((v, index) => ({ ...v, orderIndex: index })),
-          }));
+          );
         },
       },
     ]);
+  };
+
+  // Touch equivalent of desktop's "press B during playback" boundary edit:
+  // marks the split point between the active verse and the next one at the
+  // current playback position.
+  const markBoundaryHere = async () => {
+    if (!activeVerseId) return;
+    const activeIndex = poem.verses.findIndex((v) => v.id === activeVerseId);
+    const nextVerse = poem.verses[activeIndex + 1];
+    if (activeIndex === -1 || !nextVerse?.alignment) return;
+    const activeVerse = poem.verses[activeIndex];
+    if (!activeVerse.alignment) return;
+    const boundaryMs = Math.round(currentMs);
+    await applyVerseChange(
+      poem.verses.map((v, index) => {
+        if (index === activeIndex) {
+          return { ...v, alignment: { ...v.alignment!, endMs: boundaryMs } };
+        }
+        if (index === activeIndex + 1) {
+          return { ...v, alignment: { ...v.alignment!, startMs: boundaryMs } };
+        }
+        return v;
+      }),
+    );
   };
 
   return (
@@ -157,9 +208,35 @@ export default function PoemPlayerScreen() {
         <Pressable onPress={() => router.back()} hitSlop={12} testID="player-back-button">
           <Feather name="arrow-right" size={22} color={colors.foreground} />
         </Pressable>
-        <Pressable onPress={handleDelete} hitSlop={12} testID="player-delete-button">
-          <Feather name="trash-2" size={20} color={colors.mutedForeground} />
-        </Pressable>
+        <View style={styles.topBarActions}>
+          <Pressable
+            onPress={undo}
+            disabled={past.length === 0}
+            hitSlop={12}
+            testID="player-undo-button"
+          >
+            <Feather
+              name="rotate-ccw"
+              size={19}
+              color={past.length === 0 ? colors.border : colors.mutedForeground}
+            />
+          </Pressable>
+          <Pressable
+            onPress={redo}
+            disabled={future.length === 0}
+            hitSlop={12}
+            testID="player-redo-button"
+          >
+            <Feather
+              name="rotate-cw"
+              size={19}
+              color={future.length === 0 ? colors.border : colors.mutedForeground}
+            />
+          </Pressable>
+          <Pressable onPress={handleDelete} hitSlop={12} testID="player-delete-button">
+            <Feather name="trash-2" size={20} color={colors.mutedForeground} />
+          </Pressable>
+        </View>
       </View>
 
       <View style={styles.headerText}>
@@ -305,6 +382,19 @@ export default function PoemPlayerScreen() {
               <Feather name="rotate-cw" size={22} color={colors.foreground} />
             </Pressable>
           </View>
+          {activeVerseId ? (
+            <Pressable
+              onPress={markBoundaryHere}
+              hitSlop={8}
+              style={styles.boundaryButton}
+              testID="player-mark-boundary"
+            >
+              <Feather name="scissors" size={13} color={colors.mutedForeground} />
+              <Text style={[styles.boundaryButtonText, { color: colors.mutedForeground }]}>
+                ضبط حد البيت هنا
+              </Text>
+            </Pressable>
+          ) : null}
         </View>
       ) : null}
     </View>
@@ -325,6 +415,22 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 20,
     paddingBottom: 8,
+  },
+  topBarActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 18,
+  },
+  boundaryButton: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    marginTop: 4,
+  },
+  boundaryButtonText: {
+    fontSize: 12,
+    fontFamily: 'Cairo_400Regular',
   },
   headerText: {
     paddingHorizontal: 20,
