@@ -21,6 +21,12 @@ function NativeTabLayout() {
         />
         <NativeTabs.Trigger.Label>المكتبة</NativeTabs.Trigger.Label>
       </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="playlists">
+        <NativeTabs.Trigger.Icon
+          sf={{ default: 'music.note.list', selected: 'music.note.list' }}
+        />
+        <NativeTabs.Trigger.Label>القوائم</NativeTabs.Trigger.Label>
+      </NativeTabs.Trigger>
       <NativeTabs.Trigger name="import">
         <NativeTabs.Trigger.Icon
           sf={{ default: 'plus.circle', selected: 'plus.circle.fill' }}
@@ -88,6 +94,18 @@ function ClassicTabLayout() {
               <SymbolView name="book" tintColor={color} size={24} />
             ) : (
               <Feather name="book-open" size={22} color={color} />
+            ),
+        }}
+      />
+      <Tabs.Screen
+        name="playlists"
+        options={{
+          title: 'القوائم',
+          tabBarIcon: ({ color }) =>
+            isIOS ? (
+              <SymbolView name="music.note.list" tintColor={color} size={24} />
+            ) : (
+              <Feather name="list" size={22} color={color} />
             ),
         }}
       />
