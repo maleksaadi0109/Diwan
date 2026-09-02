@@ -30,7 +30,10 @@ export default function PoemPlayerScreen() {
   const { getPoem, removePoem, updatePoem } = useLibrary();
   const { playlists, createPlaylist, addPoemToPlaylist, removePoemFromPlaylist } =
     usePlaylists();
-  const { fontSize } = useSettings();
+  const { fontSize, setFontSize } = useSettings();
+  const [focusModeVisible, setFocusModeVisible] = useState(false);
+  const focusScrollRef = React.useRef<ScrollView>(null);
+  const focusVerseOffsets = React.useRef<Record<string, number>>({});
   const [editingVerseId, setEditingVerseId] = useState<string | null>(null);
   const [editingText, setEditingText] = useState('');
   const [past, setPast] = useState<Verse[][]>([]);
@@ -85,6 +88,14 @@ export default function PoemPlayerScreen() {
     );
     return active?.id ?? null;
   }, [poem, currentMs]);
+
+  React.useEffect(() => {
+    if (!focusModeVisible || !activeVerseId) return;
+    const offset = focusVerseOffsets.current[activeVerseId];
+    if (offset != null) {
+      focusScrollRef.current?.scrollTo({ y: Math.max(0, offset - 160), animated: true });
+    }
+  }, [activeVerseId, focusModeVisible]);
 
   const topInset = Platform.OS === 'web' ? Math.max(insets.top, 67) : insets.top;
   const bottomInset = Platform.OS === 'web' ? 34 : insets.bottom;
@@ -246,6 +257,15 @@ export default function PoemPlayerScreen() {
           >
             <Feather name="list" size={19} color={colors.mutedForeground} />
           </Pressable>
+          {poem.recording ? (
+            <Pressable
+              onPress={() => setFocusModeVisible(true)}
+              hitSlop={12}
+              testID="player-focus-mode-button"
+            >
+              <Feather name="maximize" size={19} color={colors.mutedForeground} />
+            </Pressable>
+          ) : null}
           <Pressable onPress={handleDelete} hitSlop={12} testID="player-delete-button">
             <Feather name="trash-2" size={20} color={colors.mutedForeground} />
           </Pressable>
@@ -410,6 +430,90 @@ export default function PoemPlayerScreen() {
           ) : null}
         </View>
       ) : null}
+
+      <Modal
+        visible={focusModeVisible}
+        animationType="fade"
+        onRequestClose={() => setFocusModeVisible(false)}
+      >
+        <View style={[styles.focusContainer, { backgroundColor: colors.background }]}>
+          <View style={[styles.focusTopBar, { paddingTop: topInset + 12 }]}>
+            <Pressable
+              onPress={() => setFocusModeVisible(false)}
+              hitSlop={12}
+              testID="focus-exit-button"
+            >
+              <Feather name="x" size={22} color={colors.mutedForeground} />
+            </Pressable>
+            <View style={styles.focusFontControls}>
+              <Pressable
+                onPress={() => setFontSize(fontSize - 2)}
+                hitSlop={10}
+                testID="focus-font-decrease"
+              >
+                <Feather name="minus" size={16} color={colors.mutedForeground} />
+              </Pressable>
+              <Pressable
+                onPress={() => setFontSize(fontSize + 2)}
+                hitSlop={10}
+                testID="focus-font-increase"
+              >
+                <Feather name="plus" size={16} color={colors.mutedForeground} />
+              </Pressable>
+            </View>
+          </View>
+
+          <ScrollView
+            ref={focusScrollRef}
+            contentContainerStyle={styles.focusScrollContent}
+          >
+            <Text style={[styles.focusPoemTitle, { color: colors.primary }]}>
+              {poem.title}
+            </Text>
+            {poem.verses.map((verse) => {
+              const isActive = verse.id === activeVerseId;
+              return (
+                <Pressable
+                  key={verse.id}
+                  onLayout={(e) => {
+                    focusVerseOffsets.current[verse.id] = e.nativeEvent.layout.y;
+                  }}
+                  onPress={() => verse.alignment && seekToVerse(verse.alignment.startMs)}
+                  testID={`focus-verse-${verse.id}`}
+                  style={styles.focusVerseRow}
+                >
+                  <Text
+                    style={[
+                      styles.focusVerseText,
+                      {
+                        fontSize: fontSize + 6,
+                        lineHeight: (fontSize + 6) * 1.8,
+                        color: isActive ? colors.foreground : colors.mutedForeground,
+                        fontFamily: isActive ? 'Amiri_700Bold' : 'Amiri_400Regular',
+                      },
+                    ]}
+                  >
+                    {verse.text}
+                  </Text>
+                </Pressable>
+              );
+            })}
+            <View style={{ height: 140 }} />
+          </ScrollView>
+
+          <Pressable
+            onPress={togglePlay}
+            testID="focus-play-pause"
+            style={[styles.focusPlayButton, { backgroundColor: colors.primary }]}
+          >
+            <Feather
+              name={status.playing ? 'pause' : 'play'}
+              size={24}
+              color={colors.primaryForeground}
+            />
+          </Pressable>
+        </View>
+      </Modal>
 
       <Modal
         visible={playlistModalVisible}
@@ -589,6 +693,47 @@ const styles = StyleSheet.create({
   createInput: {
     flex: 1,
     fontSize: 15,
+  },
+  focusContainer: {
+    flex: 1,
+  },
+  focusTopBar: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingBottom: 8,
+  },
+  focusFontControls: {
+    flexDirection: 'row',
+    gap: 16,
+  },
+  focusScrollContent: {
+    paddingHorizontal: 24,
+    paddingTop: 20,
+    alignItems: 'center',
+  },
+  focusPoemTitle: {
+    fontSize: 20,
+    fontFamily: 'Amiri_700Bold',
+    marginBottom: 24,
+    textAlign: 'center',
+  },
+  focusVerseRow: {
+    paddingVertical: 14,
+    width: '100%',
+  },
+  focusVerseText: {
+    textAlign: 'center',
+  },
+  focusPlayButton: {
+    position: 'absolute',
+    bottom: 40,
+    alignSelf: 'center',
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   headerText: {
     paddingHorizontal: 20,
