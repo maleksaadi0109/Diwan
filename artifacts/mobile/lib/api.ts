@@ -4,7 +4,7 @@
  * documented contract.
  */
 
-function apiDomain(): string {
+export function apiDomain(): string {
   const domain = process.env.EXPO_PUBLIC_DOMAIN;
   if (!domain) {
     throw new Error('EXPO_PUBLIC_DOMAIN is not set');

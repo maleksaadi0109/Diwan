@@ -3,12 +3,16 @@
  * classical Arabic poetry. Mirrors the desktop app's MizanAlArabProvider
  * (artifacts/arabic-poetry/src/lib/providers/MizanAlArabProvider.ts), but
  * simplified for mobile: only the fields the import pipeline needs (title,
- * poet name, ordered verse text). Fetched directly with the platform fetch
- * (no worker bridge needed — unlike the desktop browser preview, native
- * fetch is not subject to browser CORS).
+ * poet name, ordered verse text).
+ *
+ * Poem lookups are routed through the shared api-server's /api/mizan/poem/:id
+ * proxy rather than fetched directly, because mizanalarab.com sends no CORS
+ * allow-origin header — a direct browser fetch (web preview, or any future
+ * web build) fails outright, even though native app fetches are unaffected.
+ * Proxying server-side makes the feature work the same way everywhere.
  */
 
-const MIZAN_BASE_URL = 'https://mizanalarab.com';
+import { apiDomain } from './api';
 
 export interface MizanVersePayload {
   id: string | number;
@@ -154,7 +158,7 @@ export function extractMizanPoemId(rawUrl: string): string {
 }
 
 export async function fetchMizanPoem(poemId: string): Promise<MizanPoemResponse> {
-  const endpoint = `${MIZAN_BASE_URL}/api/poems/${encodeURIComponent(poemId)}`;
+  const endpoint = `https://${apiDomain()}/api/mizan/poem/${encodeURIComponent(poemId)}`;
   let response: Response;
   try {
     response = await fetch(endpoint, { headers: { Accept: 'application/json' } });
@@ -162,7 +166,14 @@ export async function fetchMizanPoem(poemId: string): Promise<MizanPoemResponse>
     throw new Error('تعذر الاتصال بموقع ميزان العرب، تحقق من الإنترنت');
   }
   if (!response.ok) {
-    throw new Error(`فشل جلب القصيدة من ميزان العرب (HTTP ${response.status})`);
+    let message = `فشل جلب القصيدة من ميزان العرب (HTTP ${response.status})`;
+    try {
+      const errBody = (await response.json()) as { error_message?: string };
+      if (errBody?.error_message) message = errBody.error_message;
+    } catch {
+      // ignore — fall back to the generic message above
+    }
+    throw new Error(message);
   }
   const data = (await response.json()) as MizanPoemResponse;
   if (!data || !data.title || !Array.isArray(data.verses) || data.verses.length === 0) {
