@@ -26,6 +26,7 @@ import {
   extractErrorMessage,
   formatDuration,
   makeLocalId,
+  needsCookieUnlock,
   toPlayableAudioUrl,
 } from '@/lib/api';
 import type { Poem, Verse } from '@/lib/types';
@@ -53,6 +54,10 @@ export default function ImportScreen() {
   const [poetName, setPoetName] = useState('');
   const [versesText, setVersesText] = useState('');
 
+  const [needsCookies, setNeedsCookies] = useState(false);
+  const [cookiesText, setCookiesText] = useState('');
+  const [showCookieHelp, setShowCookieHelp] = useState(false);
+
   const infoMutation = useGetYoutubeInfo();
   const downloadMutation = useDownloadYoutubeAudio();
   const alignMutation = useAlignPoemVerses();
@@ -75,7 +80,12 @@ export default function ImportScreen() {
     if (!trimmed) return;
     setError(null);
     try {
-      const info = await infoMutation.mutateAsync({ data: { url: trimmed } });
+      const info = await infoMutation.mutateAsync({
+        data: {
+          url: trimmed,
+          cookies_content: needsCookies ? cookiesText.trim() : undefined,
+        },
+      });
       setVideoInfo({
         title: info.title,
         channel: info.channel ?? '',
@@ -83,8 +93,12 @@ export default function ImportScreen() {
         thumbnail: info.thumbnail,
       });
       setTitle(info.title ?? '');
+      setNeedsCookies(false);
       setStage('details');
     } catch (err) {
+      if (needsCookieUnlock(err)) {
+        setNeedsCookies(true);
+      }
       setError(extractErrorMessage(err, 'تعذر جلب بيانات الفيديو، تحقق من الرابط'));
     }
   };
@@ -106,7 +120,10 @@ export default function ImportScreen() {
     try {
       setStage('downloading');
       const download = await downloadMutation.mutateAsync({
-        data: { url: url.trim() },
+        data: {
+          url: url.trim(),
+          cookies_content: needsCookies ? cookiesText.trim() : undefined,
+        },
       });
 
       const verses: Verse[] = lines.map((text, index) => ({
@@ -162,6 +179,9 @@ export default function ImportScreen() {
       router.push({ pathname: '/poem/[id]', params: { id: importedId } });
     } catch (err) {
       setStage('details');
+      if (needsCookieUnlock(err)) {
+        setNeedsCookies(true);
+      }
       setError(extractErrorMessage(err, 'حدث خطأ أثناء الاستيراد، حاول مرة أخرى'));
     }
   };
@@ -223,6 +243,67 @@ export default function ImportScreen() {
             )}
           </Pressable>
         </View>
+
+        {needsCookies ? (
+          <View
+            style={[
+              styles.cookieCard,
+              { backgroundColor: 'rgba(245, 158, 11, 0.1)', borderColor: 'rgba(245, 158, 11, 0.3)' },
+            ]}
+          >
+            <View style={styles.cookieHeaderRow}>
+              <Text style={styles.cookieTitle}>
+                <Feather name="key" size={13} color="#fcd34d" /> هذا المقطع يتطلب تسجيل الدخول
+              </Text>
+              <Pressable onPress={() => setShowCookieHelp((v) => !v)} testID="import-cookie-help-toggle">
+                <Text style={styles.cookieHelpLink}>كيف أحصل على الكوكيز؟</Text>
+              </Pressable>
+            </View>
+
+            {showCookieHelp ? (
+              <View style={styles.cookieHelpBox}>
+                <Text style={styles.cookieHelpText}>
+                  ١. سجّل الدخول إلى حسابك في YouTube داخل متصفحك.{'\n'}
+                  ٢. استخدم إضافة متصفح مثل "Get cookies.txt LOCALLY" لتصدير كوكيز موقع
+                  youtube.com بصيغة Netscape.{'\n'}
+                  ٣. الصق محتوى الملف بالكامل في الحقل أدناه ثم أعد المحاولة.
+                </Text>
+              </View>
+            ) : null}
+
+            <TextInput
+              value={cookiesText}
+              onChangeText={setCookiesText}
+              placeholder={'# Netscape HTTP Cookie File\n.youtube.com  TRUE  /  TRUE  ...'}
+              placeholderTextColor="rgba(252, 211, 77, 0.4)"
+              multiline
+              textAlignVertical="top"
+              autoCapitalize="none"
+              autoCorrect={false}
+              style={styles.cookieInput}
+              testID="import-cookies-input"
+            />
+            <Text style={styles.cookieHint}>
+              تُستخدم الكوكيز محليًا لهذه العملية فقط ولا يتم تخزينها.
+            </Text>
+            <Pressable
+              onPress={handleFetchInfo}
+              disabled={!cookiesText.trim() || infoMutation.isPending}
+              testID="import-cookie-retry-button"
+              style={({ pressed }) => [
+                styles.cookieRetryButton,
+                { opacity: !cookiesText.trim() ? 0.4 : pressed ? 0.8 : 1 },
+              ]}
+            >
+              {infoMutation.isPending ? (
+                <ActivityIndicator size="small" color="#fcd34d" />
+              ) : (
+                <Feather name="key" size={14} color="#fcd34d" />
+              )}
+              <Text style={styles.cookieRetryText}>إعادة المحاولة بتسجيل الدخول</Text>
+            </Pressable>
+          </View>
+        ) : null}
 
         {videoInfo ? (
           <View
@@ -485,5 +566,75 @@ const styles = StyleSheet.create({
   submitText: {
     fontSize: 15,
     fontFamily: 'Cairo_700Bold',
+  },
+  cookieCard: {
+    borderRadius: 14,
+    borderWidth: StyleSheet.hairlineWidth,
+    padding: 14,
+    gap: 10,
+  },
+  cookieHeaderRow: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  cookieTitle: {
+    fontSize: 12,
+    fontFamily: 'Cairo_700Bold',
+    color: '#fcd34d',
+    textAlign: 'right',
+  },
+  cookieHelpLink: {
+    fontSize: 11,
+    fontFamily: 'Cairo_400Regular',
+    color: 'rgba(252, 211, 77, 0.8)',
+    textDecorationLine: 'underline',
+  },
+  cookieHelpBox: {
+    backgroundColor: 'rgba(10, 11, 14, 0.5)',
+    borderRadius: 10,
+    padding: 10,
+  },
+  cookieHelpText: {
+    fontSize: 11,
+    fontFamily: 'Cairo_400Regular',
+    color: '#a0aab7',
+    textAlign: 'right',
+    lineHeight: 18,
+  },
+  cookieInput: {
+    backgroundColor: 'rgba(10, 11, 14, 0.6)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255,255,255,0.1)',
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    fontSize: 11,
+    color: '#fdfbf7',
+    minHeight: 90,
+    fontFamily: Platform.select({ ios: 'Courier', android: 'monospace', default: 'monospace' }),
+  },
+  cookieHint: {
+    fontSize: 10,
+    fontFamily: 'Cairo_400Regular',
+    color: 'rgba(160, 170, 183, 0.8)',
+    textAlign: 'right',
+  },
+  cookieRetryButton: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    borderRadius: 10,
+    paddingVertical: 10,
+    backgroundColor: 'rgba(245, 158, 11, 0.2)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(245, 158, 11, 0.4)',
+  },
+  cookieRetryText: {
+    fontSize: 12,
+    fontFamily: 'Cairo_700Bold',
+    color: '#fcd34d',
   },
 });

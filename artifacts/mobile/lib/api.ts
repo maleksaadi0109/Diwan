@@ -48,3 +48,24 @@ export function extractErrorMessage(error: unknown, fallback: string): string {
   }
   return fallback;
 }
+
+/**
+ * Error codes returned by artifacts/api-server's YouTube worker (see
+ * artifacts/arabic-poetry/src/features/import/YouTubeImportView.tsx for the
+ * matching desktop behavior) that mean "this video needs a logged-in
+ * YouTube session" — the app should show a cookie-paste box and retry.
+ */
+const COOKIE_UNLOCK_CODES = new Set(['LOGIN_REQUIRED', 'COOKIES_INVALID']);
+
+export function extractErrorCode(error: unknown): string | null {
+  if (error && typeof error === 'object') {
+    const code = (error as { error_code?: string }).error_code;
+    if (typeof code === 'string' && code) return code;
+  }
+  return null;
+}
+
+export function needsCookieUnlock(error: unknown): boolean {
+  const code = extractErrorCode(error);
+  return code !== null && COOKIE_UNLOCK_CODES.has(code);
+}
