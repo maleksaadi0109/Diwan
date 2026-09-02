@@ -25,4 +25,8 @@ export interface Poem {
   recording?: Recording;
   createdAt: number;
   sourceUrl?: string;
+  /** Set when imported from a curated provider (e.g. "mizan_al_arab") so a
+   * catalog entry can detect it was already imported and avoid duplicates. */
+  externalProvider?: string;
+  externalId?: string;
 }

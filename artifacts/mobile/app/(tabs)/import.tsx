@@ -30,8 +30,10 @@ import {
   toPlayableAudioUrl,
 } from '@/lib/api';
 import type { Poem, Verse } from '@/lib/types';
+import { CatalogPoemEntry, POEM_CATALOG, fetchMizanPoem, parseMizanPoem } from '@/lib/mizan';
 
 type Stage = 'link' | 'details' | 'downloading' | 'aligning';
+type CatalogItemStatus = 'idle' | 'text' | 'downloading' | 'aligning' | 'error';
 
 export default function ImportScreen() {
   const colors = useColors();
@@ -57,6 +59,14 @@ export default function ImportScreen() {
   const [needsCookies, setNeedsCookies] = useState(false);
   const [cookiesText, setCookiesText] = useState('');
   const [showCookieHelp, setShowCookieHelp] = useState(false);
+
+  const { poems } = useLibrary();
+  const [activeCatalogId, setActiveCatalogId] = useState<string | null>(null);
+  const [catalogStatus, setCatalogStatus] = useState<Record<string, CatalogItemStatus>>({});
+
+  const importedMizanIds = new Set(
+    poems.filter((p) => p.externalProvider === 'mizan_al_arab').map((p) => p.externalId),
+  );
 
   const infoMutation = useGetYoutubeInfo();
   const downloadMutation = useDownloadYoutubeAudio();
@@ -186,7 +196,96 @@ export default function ImportScreen() {
     }
   };
 
+  const handleCatalogImport = async (entry: CatalogPoemEntry) => {
+    const existing = poems.find(
+      (p) => p.externalProvider === 'mizan_al_arab' && p.externalId === entry.mizanPoemId,
+    );
+    if (existing) {
+      router.push({ pathname: '/poem/[id]', params: { id: existing.id } });
+      return;
+    }
+
+    setError(null);
+    setActiveCatalogId(entry.id);
+    setCatalogStatus((s) => ({ ...s, [entry.id]: 'text' }));
+    try {
+      const mizanData = await fetchMizanPoem(entry.mizanPoemId);
+      const parsed = parseMizanPoem(mizanData);
+
+      setCatalogStatus((s) => ({ ...s, [entry.id]: 'downloading' }));
+      const download = await downloadMutation.mutateAsync({
+        data: {
+          url: entry.youtubeUrl,
+          cookies_content: needsCookies ? cookiesText.trim() : undefined,
+        },
+      });
+
+      const verses: Verse[] = parsed.verses.map((v, index) => ({
+        id: makeLocalId('verse'),
+        orderIndex: index,
+        text: v.text,
+      }));
+
+      setCatalogStatus((s) => ({ ...s, [entry.id]: 'aligning' }));
+      const alignment = await alignMutation.mutateAsync({
+        data: {
+          audio_path: download.processing_audio_path,
+          verses: verses.map((v) => ({ id: v.id, text: v.text })),
+          poem_id: makeLocalId('poem'),
+          recording_id: makeLocalId('rec'),
+        },
+      });
+
+      const alignmentByVerseId = new Map(
+        alignment.alignments.map((entryAlign) => [entryAlign.verse_id, entryAlign]),
+      );
+      const alignedVerses: Verse[] = verses.map((verse) => {
+        const alignEntry = alignmentByVerseId.get(verse.id);
+        if (!alignEntry) return verse;
+        return {
+          ...verse,
+          alignment: {
+            startMs: alignEntry.start_ms,
+            endMs: alignEntry.end_ms,
+            confidence: alignEntry.confidence,
+          },
+        };
+      });
+
+      const poem: Poem = {
+        id: makeLocalId('poem'),
+        title: parsed.title,
+        poetName: parsed.poetName !== 'شاعر غير معروف' ? parsed.poetName : entry.poetHint,
+        verses: alignedVerses,
+        recording: {
+          id: makeLocalId('rec'),
+          audioUrl: toPlayableAudioUrl(download.playback_audio_path),
+          durationMs: download.duration_ms ?? 0,
+        },
+        createdAt: Date.now(),
+        sourceUrl: entry.mizanUrl,
+        externalProvider: 'mizan_al_arab',
+        externalId: entry.mizanPoemId,
+      };
+
+      await addPoem(poem);
+      const importedId = poem.id;
+      setCatalogStatus((s) => ({ ...s, [entry.id]: 'idle' }));
+      setActiveCatalogId(null);
+      router.push({ pathname: '/poem/[id]', params: { id: importedId } });
+    } catch (err) {
+      if (needsCookieUnlock(err)) {
+        setNeedsCookies(true);
+      }
+      setCatalogStatus((s) => ({ ...s, [entry.id]: 'error' }));
+      setActiveCatalogId(null);
+      setError(extractErrorMessage(err, 'تعذر استيراد القصيدة من ميزان العرب'));
+    }
+  };
+
   const isBusy = stage === 'downloading' || stage === 'aligning';
+  const isCatalogBusy = activeCatalogId !== null;
+  const anyBusy = isBusy || isCatalogBusy;
 
   return (
     <KeyboardAvoidingView
@@ -203,6 +302,104 @@ export default function ImportScreen() {
         <Text style={[styles.pageTitle, { color: colors.foreground }]}>
           استيراد قصيدة
         </Text>
+
+        {stage === 'link' ? (
+          <View style={styles.catalogSection}>
+            <Text style={[styles.sectionLabel, { color: colors.mutedForeground }]}>
+              مكتبة جاهزة
+            </Text>
+            <Text style={[styles.sectionHint, { color: colors.mutedForeground }]}>
+              نصوص موثّقة من ميزان العرب مع تلاوات صوتية مطابقة — استيراد بضغطة واحدة
+            </Text>
+            <View style={styles.catalogList}>
+              {POEM_CATALOG.map((entry) => {
+                const imported = importedMizanIds.has(entry.mizanPoemId);
+                const status: CatalogItemStatus | 'imported' = imported
+                  ? 'imported'
+                  : catalogStatus[entry.id] || 'idle';
+                const isThisBusy = activeCatalogId === entry.id;
+                const statusLabel =
+                  status === 'text'
+                    ? 'جلب النص...'
+                    : status === 'downloading'
+                      ? 'تنزيل الصوت...'
+                      : status === 'aligning'
+                        ? 'مزامنة الأبيات...'
+                        : status === 'error'
+                          ? 'إعادة المحاولة'
+                          : status === 'imported'
+                            ? 'مستوردة'
+                            : null;
+                return (
+                  <Pressable
+                    key={entry.id}
+                    onPress={() => handleCatalogImport(entry)}
+                    disabled={anyBusy && !isThisBusy}
+                    testID={`catalog-item-${entry.id}`}
+                    style={({ pressed }) => [
+                      styles.catalogItem,
+                      {
+                        backgroundColor: colors.card,
+                        borderColor: colors.border,
+                        opacity: anyBusy && !isThisBusy ? 0.4 : pressed ? 0.8 : 1,
+                      },
+                    ]}
+                  >
+                    <View style={styles.catalogItemText}>
+                      <Text
+                        style={[styles.catalogItemTitle, { color: colors.foreground }]}
+                        numberOfLines={1}
+                      >
+                        {entry.titleHint}
+                      </Text>
+                      <Text
+                        style={[styles.catalogItemPoet, { color: colors.mutedForeground }]}
+                        numberOfLines={1}
+                      >
+                        {entry.poetHint}
+                      </Text>
+                    </View>
+                    {isThisBusy ? (
+                      <ActivityIndicator size="small" color={colors.primary} />
+                    ) : status === 'imported' ? (
+                      <Feather name="check-circle" size={18} color={colors.primary} />
+                    ) : status === 'error' ? (
+                      <Feather name="refresh-cw" size={18} color={colors.destructive} />
+                    ) : (
+                      <Feather name="download" size={18} color={colors.mutedForeground} />
+                    )}
+                    {statusLabel && !isThisBusy ? (
+                      <Text
+                        style={[
+                          styles.catalogItemStatus,
+                          {
+                            color:
+                              status === 'error'
+                                ? colors.destructive
+                                : status === 'imported'
+                                  ? colors.primary
+                                  : colors.mutedForeground,
+                          },
+                        ]}
+                      >
+                        {statusLabel}
+                      </Text>
+                    ) : null}
+                  </Pressable>
+                );
+              })}
+            </View>
+
+            <View style={styles.dividerRow}>
+              <View style={[styles.dividerLine, { backgroundColor: colors.border }]} />
+              <Text style={[styles.dividerText, { color: colors.mutedForeground }]}>
+                أو استيراد يدوي من رابط
+              </Text>
+              <View style={[styles.dividerLine, { backgroundColor: colors.border }]} />
+            </View>
+          </View>
+        ) : null}
+
         <Text style={[styles.pageHint, { color: colors.mutedForeground }]}>
           الصق رابط تلاوة من يوتيوب، ثم أضف نص الأبيات لمزامنتها مع الصوت
         </Text>
@@ -222,17 +419,18 @@ export default function ImportScreen() {
             autoCorrect={false}
             keyboardType="url"
             style={[styles.textInput, { color: colors.foreground }]}
+            editable={!anyBusy}
             testID="import-url-input"
           />
           <Pressable
             onPress={handleFetchInfo}
-            disabled={infoMutation.isPending || !url.trim()}
+            disabled={infoMutation.isPending || !url.trim() || anyBusy}
             testID="import-fetch-info-button"
             style={({ pressed }) => [
               styles.iconButton,
               {
                 backgroundColor: colors.primary,
-                opacity: !url.trim() ? 0.4 : pressed ? 0.8 : 1,
+                opacity: !url.trim() || anyBusy ? 0.4 : pressed ? 0.8 : 1,
               },
             ]}
           >
@@ -636,5 +834,63 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontFamily: 'Cairo_700Bold',
     color: '#fcd34d',
+  },
+  catalogSection: {
+    gap: 8,
+  },
+  sectionLabel: {
+    fontSize: 13,
+    fontFamily: 'Cairo_700Bold',
+    textAlign: 'right',
+  },
+  sectionHint: {
+    fontSize: 11,
+    fontFamily: 'Cairo_400Regular',
+    textAlign: 'right',
+    lineHeight: 16,
+  },
+  catalogList: {
+    gap: 8,
+  },
+  catalogItem: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    gap: 10,
+    borderRadius: 12,
+    borderWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  catalogItemText: {
+    flex: 1,
+    gap: 2,
+  },
+  catalogItemTitle: {
+    fontSize: 13,
+    fontFamily: 'Amiri_700Bold',
+    textAlign: 'right',
+  },
+  catalogItemPoet: {
+    fontSize: 11,
+    fontFamily: 'Cairo_400Regular',
+    textAlign: 'right',
+  },
+  catalogItemStatus: {
+    fontSize: 10,
+    fontFamily: 'Cairo_400Regular',
+  },
+  dividerRow: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    gap: 10,
+    marginTop: 4,
+  },
+  dividerLine: {
+    flex: 1,
+    height: StyleSheet.hairlineWidth,
+  },
+  dividerText: {
+    fontSize: 11,
+    fontFamily: 'Cairo_400Regular',
   },
 });
