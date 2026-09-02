@@ -1,6 +1,7 @@
 - [Tailwind v4 artifact preview](tailwind-v4-artifact-preview.md) — imported Tailwind v3 tokens need a CSS @theme block under the workspace Vite template.
 - [YouTube web worker bridge](youtube-web-worker-bridge.md) — browser previews need the API-to-Python worker bridge; Tauri uses IPC directly.
-- [GitHub pull authentication](github-pull-auth.md) — the Git CLI remote may reject credentials even when the connected GitHub workflow and remote-tracking refs work.
+- [GitHub sync auth & divergence recovery](github-pull-auth.md) — CLI push/fetch can fail auth; rebase locally then push diverged history via the Octokit Git Data API.
+- [Poem catalog one-click import](arabic-poetry-catalog-import.md) — reuse the existing import pipeline for curated content; how to resolve mizanalarab.com poem ids for duplicates.
 - [Global audio player context](arabic-poetry-global-audio-context.md) — audio playback state must live above per-view hooks for a persistent mini-player to work.
 - [Poem import flows](arabic-poetry-import-flows.md) — 4 independent import tabs each build their own Poem object; a feature added to one (e.g. cover image) doesn't apply to the others.
 - [Async audio load race & browser duration-probe seek](arabic-poetry-audio-load-race.md) — never play() before async src resolves; also guard against browsers' probe-seek to a bogus timestamp when duration is uncertain (causes "jump to end then back to start").
