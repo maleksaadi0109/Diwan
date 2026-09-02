@@ -11,7 +11,7 @@ from typing import Dict, Any, Optional, Callable, List
 from urllib.parse import urlparse, parse_qs
 from .inspector import inspect_audio
 from .vad import analyze_audio_vad
-from ..bin_paths import ffmpeg_path, ffmpeg_dir
+from ..bin_paths import ffmpeg_path, ffmpeg_dir, subprocess_creation_flags
 
 # Structured Error Codes & Arabic Messages (Section 7)
 ERROR_MESSAGES_AR: Dict[str, str] = {
@@ -191,7 +191,10 @@ def _trim_file_from_ms(
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
+            encoding="utf-8",
+            errors="replace",
             check=False,
+            creationflags=subprocess_creation_flags(),
         )
     except FileNotFoundError:
         raise RuntimeError(f"FFMPEG_NOT_FOUND: {ERROR_MESSAGES_AR['FFMPEG_NOT_FOUND']}")
@@ -538,7 +541,10 @@ def download_youtube_audio(
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
+            encoding="utf-8",
+            errors="replace",
             check=False,
+            creationflags=subprocess_creation_flags(),
         )
         if res_mp3.returncode != 0:
             raise RuntimeError(f"CONVERSION_FAILED: {ERROR_MESSAGES_AR['CONVERSION_FAILED']} ({res_mp3.stderr[:150]})")
@@ -567,7 +573,10 @@ def download_youtube_audio(
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
+            encoding="utf-8",
+            errors="replace",
             check=False,
+            creationflags=subprocess_creation_flags(),
         )
         if res_wav.returncode != 0:
             raise RuntimeError(f"CONVERSION_FAILED: فشل تحويل WAV لمعالجة الصوت ({res_wav.stderr[:150]})")

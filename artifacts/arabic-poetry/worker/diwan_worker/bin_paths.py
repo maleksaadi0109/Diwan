@@ -34,3 +34,15 @@ def ffmpeg_dir() -> Optional[str]:
     """
     p = os.environ.get("DIWAN_FFMPEG_PATH")
     return os.path.dirname(p) if p else None
+
+
+def subprocess_creation_flags() -> int:
+    """Returns CREATE_NO_WINDOW on Windows so child processes (ffmpeg/ffprobe)
+    never open or flash a console window.
+    """
+    import sys
+    import subprocess
+    if sys.platform == "win32":
+        return getattr(subprocess, "CREATE_NO_WINDOW", 0x08000000)
+    return 0
+

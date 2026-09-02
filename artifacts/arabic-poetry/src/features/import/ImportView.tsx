@@ -136,7 +136,7 @@ export const ImportView: React.FC<ImportViewProps> = ({ onImportPoem }) => {
       setStageMessage("جاري استخراج الكلمات وطوابعها الزمنية بالذكاء الاصطناعي...");
 
       const res = await transcribeArabicAudio(audioSourcePath, undefined, {
-        model_size: "small",
+        model_size: "tiny",
         device: "cpu",
       });
 

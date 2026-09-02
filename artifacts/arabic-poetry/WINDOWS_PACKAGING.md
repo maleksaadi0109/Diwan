@@ -98,43 +98,16 @@ Confirm the license terms for whichever build you choose are compatible
 with how this app will be distributed (FFmpeg's own binaries are
 LGPL/GPL depending on which codecs are enabled in the specific build).
 
-### 3. Fetch the pre-converted Whisper "small" model
+### 3. Pre-download the Whisper AI Model for 100% Offline Use
 
-This is the one step that still needs an internet connection -- it only
-runs once per release, on the build machine, not on the end user's
-machine. It is scripted (not a manual copy-paste) so every release
-reproducibly bundles the same, verified model files:
+To ensure users never experience runtime downloads or Hugging Face errors on target PCs, pre-download the fast, compact `tiny` model (~75 MB) into the bundle resources:
 
 ```powershell
-cd worker
-.venv\Scripts\activate
-pip install huggingface_hub
-python scripts\fetch_bundled_model.py
+# Run the helper script from artifacts/arabic-poetry:
+python scripts/bundle_model.py
 ```
 
-`worker/scripts/fetch_bundled_model.py` downloads the CTranslate2-converted
-model from a **pinned Hugging Face Hub revision** (not "main", so the
-bundle can't silently drift between releases) into
-`src-tauri/windows-dist/models/small/`, then verifies the required files
-(`model.bin`, `config.json`, `tokenizer.json`, a vocabulary file) are
-present, non-empty, and not a truncated/partial download before declaring
-success. Re-running it is idempotent -- it skips the download if a valid
-copy is already there (`--force` to re-fetch anyway), and `--verify-only`
-checks an existing bundle without downloading.
-
-If a different `model_size` is ever selected in the app (e.g. "medium"),
-add its repo ID + pinned revision to `MODEL_SOURCES` in that script and run
-it with `--model-size medium` -- `transcriber.py` looks up the bundled
-folder by whichever size string it's asked to load.
-
-**This step (along with the ffmpeg/worker-exe resources above) is also
-enforced automatically.** `scripts/build-windows.ps1` / `.bat` and the
-`pnpm --filter @workspace/arabic-poetry run tauri:build:windows` script
-both run `scripts/prepare-windows-bundle.mjs` before invoking `tauri
-build`, which calls this fetch/verify script and checks the other
-resources are present. If anything required is missing, the build stops
-with a clear error instead of silently producing an installer that falls
-back to requiring internet on first run.
+This creates `src-tauri/windows-dist/models/tiny/` with all required weights and tokenizers.
 
 ### 4. Confirm the layout
 
@@ -147,12 +120,11 @@ src-tauri/windows-dist/
     diwan_worker.exe
     ... (PyInstaller-generated support files/DLLs)
   models/
-    small/
+    tiny/
       model.bin
       config.json
       tokenizer.json
-      vocabulary.json (or vocabulary.txt)
-      preprocessor_config.json
+      vocabulary.txt
 ```
 
 `src-tauri/tauri.windows.conf.json` maps this `windows-dist/` folder onto

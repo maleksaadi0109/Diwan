@@ -2,7 +2,7 @@ from __future__ import annotations
 import os
 import subprocess
 from typing import List, Dict, Any, Callable, Optional
-from ..bin_paths import ffmpeg_path
+from ..bin_paths import ffmpeg_path, subprocess_creation_flags
 
 ProgressCallback = Callable[[float, str], None]
 
@@ -62,8 +62,11 @@ def segment_audio_clips(
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 text=True,
+                encoding="utf-8",
+                errors="replace",
                 timeout=timeout_seconds,
                 check=True,
+                creationflags=subprocess_creation_flags(),
             )
             generated_files.append(out_file)
         except Exception as e:

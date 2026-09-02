@@ -3,6 +3,9 @@ import json
 import os
 import sys
 import subprocess
+
+# Disable noisy Hugging Face symlink warnings on Windows
+os.environ.setdefault("HF_HUB_DISABLE_SYMLINKS_WARNING", "1")
 from typing import NoReturn
 from . import __version__
 from .schemas.protocol import (
@@ -14,7 +17,7 @@ from .schemas.protocol import (
 from .audio.inspector import inspect_audio
 from .audio.converter import convert_to_playback_wav, convert_to_wav_16k_mono
 from .audio.vad import detect_speech_regions
-from .bin_paths import ffmpeg_path, ffprobe_path
+from .bin_paths import ffmpeg_path, ffprobe_path, subprocess_creation_flags
 
 def configure_utf8_stdio() -> None:
     """Keep JSON protocol and worker logs safe for Unicode on Windows pipes."""
@@ -60,14 +63,14 @@ def handle_health(req: WorkerRequest) -> None:
     ytdlp_path = None
 
     try:
-        res = subprocess.run([ffmpeg_path(), "-version"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, timeout=5)
+        res = subprocess.run([ffmpeg_path(), "-version"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, encoding="utf-8", errors="replace", timeout=5, creationflags=subprocess_creation_flags())
         if res.returncode == 0:
             ffmpeg_version = res.stdout.split("\n")[0]
     except Exception:
         pass
 
     try:
-        res = subprocess.run([ffprobe_path(), "-version"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, timeout=5)
+        res = subprocess.run([ffprobe_path(), "-version"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, encoding="utf-8", errors="replace", timeout=5, creationflags=subprocess_creation_flags())
         if res.returncode == 0:
             ffprobe_version = res.stdout.split("\n")[0]
     except Exception:
@@ -267,7 +270,7 @@ def handle_detect_speech(req: WorkerRequest) -> None:
 
 def handle_transcribe(req: WorkerRequest) -> None:
     audio_path = req.payload.get("audio_path")
-    model_size = req.payload.get("model_size", "small")
+    model_size = req.payload.get("model_size", "tiny")
     device = req.payload.get("device", "cpu")
     compute_type = req.payload.get("compute_type", "default")
     output_json_path = req.payload.get("output_json_path")

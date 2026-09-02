@@ -66,11 +66,15 @@ async function runWorker(
   jobId?: string,
 ): Promise<Record<string, unknown>> {
   const requestId = `api-${command}-${randomUUID()}`;
-  const child = spawn("python3", ["-m", "diwan_worker.cli"], {
+  const isWin = process.platform === "win32";
+  const pythonCmd = process.env.PYTHON || (isWin ? "python" : "python3");
+  const child = spawn(pythonCmd, ["-m", "diwan_worker.cli"], {
     cwd: workspaceRoot,
     env: {
       ...process.env,
       PYTHONPATH: workerPath,
+      PYTHONIOENCODING: "utf-8:backslashreplace",
+      PYTHONUTF8: "1",
     },
     stdio: ["pipe", "pipe", "pipe"],
   });
