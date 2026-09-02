@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Verse, VerseExplanationItem } from "@/types";
 import { cn, formatTime, toArabicDigits } from "@/lib/utils";
 import { Info, CheckCircle2, Volume2, Sparkles, Trash2, AlertTriangle, X, BookOpenText, Pencil, Save, Loader2, Share2 } from "lucide-react";
+import { useSettingsContext } from "@/contexts/SettingsContext";
 
 export type VerseExplanationStatus = "idle" | "loading" | "loaded" | "empty" | "error";
 
@@ -47,6 +48,7 @@ export const VerseItem: React.FC<VerseItemProps> = ({
   const [editSecond, setEditSecond] = useState(verse.secondHemistich);
   const [editError, setEditError] = useState<string | null>(null);
   const [isSavingEdit, setIsSavingEdit] = useState(false);
+  const { poetryFontSize } = useSettingsContext();
 
   const startEditing = () => {
     setEditFirst(verse.firstHemistich);
@@ -340,13 +342,14 @@ export const VerseItem: React.FC<VerseItemProps> = ({
             <div className="flex-1 text-center md:text-right">
               <span
                 className={cn(
-                  "font-poetry text-2xl md:text-[30px] leading-[2.3] tracking-wide transition-all duration-300",
+                  "font-poetry leading-[2.3] tracking-wide transition-all duration-300",
                   isActive
                     ? "text-parchment-100 font-bold text-shadow-gold"
                     : isSelected
                     ? "text-parchment-100 font-bold"
                     : "text-ink-600 group-hover:text-parchment-100"
                 )}
+                style={{ fontSize: `${poetryFontSize}px` }}
               >
                 {renderWords(verse.firstHemistich)}
               </span>
@@ -361,13 +364,14 @@ export const VerseItem: React.FC<VerseItemProps> = ({
             <div className="flex-1 text-center md:text-left">
               <span
                 className={cn(
-                  "font-poetry text-2xl md:text-[30px] leading-[2.3] tracking-wide transition-all duration-300",
+                  "font-poetry leading-[2.3] tracking-wide transition-all duration-300",
                   isActive
                     ? "text-parchment-100 font-bold text-shadow-gold"
                     : isSelected
                     ? "text-parchment-100 font-bold"
                     : "text-ink-600 group-hover:text-parchment-100"
                 )}
+                style={{ fontSize: `${poetryFontSize}px` }}
               >
                 {renderWords(verse.secondHemistich)}
               </span>
