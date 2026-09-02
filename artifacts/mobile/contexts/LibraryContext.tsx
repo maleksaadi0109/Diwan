@@ -17,6 +17,7 @@ interface LibraryContextValue {
   addPoem: (poem: Poem) => Promise<void>;
   removePoem: (id: string) => Promise<void>;
   getPoem: (id: string) => Poem | undefined;
+  updatePoem: (id: string, updater: (poem: Poem) => Poem) => Promise<void>;
 }
 
 const LibraryContext = createContext<LibraryContextValue | undefined>(
@@ -73,9 +74,19 @@ export function LibraryProvider({ children }: { children: React.ReactNode }) {
     [poems],
   );
 
+  const updatePoem = useCallback(
+    async (id: string, updater: (poem: Poem) => Poem) => {
+      const current = poems.find((p) => p.id === id);
+      if (!current) return;
+      const next = updater(current);
+      await persist(poems.map((p) => (p.id === id ? next : p)));
+    },
+    [poems, persist],
+  );
+
   const value = useMemo(
-    () => ({ poems, isLoading, addPoem, removePoem, getPoem }),
-    [poems, isLoading, addPoem, removePoem, getPoem],
+    () => ({ poems, isLoading, addPoem, removePoem, getPoem, updatePoem }),
+    [poems, isLoading, addPoem, removePoem, getPoem, updatePoem],
   );
 
   return (
