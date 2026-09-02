@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { Type, Cpu, ShieldCheck, Database, Trash2, AlertTriangle, Headphones, Radio } from "lucide-react";
 import { toArabicDigits } from "@/lib/utils";
 import { useAudioPlayerContext } from "@/contexts/AudioPlayerContext";
+import { MAX_POETRY_FONT_SIZE, MIN_POETRY_FONT_SIZE, useSettingsContext } from "@/contexts/SettingsContext";
 import { DiagnosticsPanel } from "./DiagnosticsPanel";
 
 interface SettingsViewProps {
@@ -20,7 +21,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     setMediaSessionEnabled,
   } = useAudioPlayerContext();
 
-  const [poetryFontSize, setPoetryFontSize] = useState("24px");
+  const { poetryFontSize, setPoetryFontSize } = useSettingsContext();
   const [asrModel, setAsrModel] = useState("tiny");
   const [computeDevice, setComputeDevice] = useState("cpu");
   const [autoScroll, setAutoScroll] = useState(true);
@@ -121,22 +122,38 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 font-sans">
           <div>
             <label className="block text-sm font-bold text-ink-500 mb-3">
-              حجم خط أبيات الشعر ({poetryFontSize})
+              حجم خط أبيات الشعر ({poetryFontSize}px)
             </label>
-            <div className="flex items-center gap-2 bg-charcoal-900 p-1.5 border border-white/5 rounded-2xl shadow-inner">
-              {["20px", "24px", "28px", "32px"].map((size) => (
-                <button
-                  key={size}
-                  onClick={() => setPoetryFontSize(size)}
-                  className={`flex-1 py-2 text-[14px] font-mono font-bold transition-all rounded-xl border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-700 ${
-                    poetryFontSize === size
-                      ? "bg-accent-700 text-charcoal-950 border-accent-700 shadow-md shadow-accent-700/20"
-                      : "bg-transparent text-ink-500 hover:text-parchment-100 hover:bg-white/5 border-transparent"
-                  }`}
-                >
-                  {size}
-                </button>
-              ))}
+            <div className="bg-charcoal-900 p-4 border border-white/5 rounded-2xl shadow-inner space-y-3">
+              <input
+                type="range"
+                min={MIN_POETRY_FONT_SIZE}
+                max={MAX_POETRY_FONT_SIZE}
+                step={1}
+                value={poetryFontSize}
+                onChange={(e) => setPoetryFontSize(Number(e.target.value))}
+                className="w-full accent-accent-700 cursor-pointer"
+              />
+              <div className="flex items-center justify-between text-[11px] font-mono text-ink-600">
+                <span>{MIN_POETRY_FONT_SIZE}px (أصغر)</span>
+                <div className="flex items-center gap-1.5">
+                  {[24, 30, 38, 48].map((size) => (
+                    <button
+                      key={size}
+                      type="button"
+                      onClick={() => setPoetryFontSize(size)}
+                      className={`px-2.5 py-1 rounded-lg border text-[12px] font-bold transition-all cursor-pointer ${
+                        poetryFontSize === size
+                          ? "bg-accent-700 text-charcoal-950 border-accent-700"
+                          : "bg-transparent text-ink-500 hover:text-parchment-100 hover:bg-white/5 border-white/10"
+                      }`}
+                    >
+                      {size}
+                    </button>
+                  ))}
+                </div>
+                <span>{MAX_POETRY_FONT_SIZE}px (أكبر)</span>
+              </div>
             </div>
           </div>
 
@@ -165,7 +182,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           <div className="absolute top-0 right-0 w-1.5 h-full bg-accent-700" />
           <p
             className="font-poetry text-parchment-100 font-bold transition-all duration-300 leading-[2.4]"
-            style={{ fontSize: poetryFontSize }}
+            style={{ fontSize: `${poetryFontSize}px` }}
           >
             الخَيلُ وَاللَيلُ وَالبَيداءُ تَعرِفُني ... وَالسَيفُ وَالرُمحُ وَالقِرطاسُ وَالقَلَمُ
           </p>
