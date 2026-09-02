@@ -14,10 +14,44 @@ from ..audio.vad import detect_speech_regions
 
 ProgressCallback = Callable[[float, str], None]
 
-DEFAULT_MODELS_DIR = os.environ.get(
-    "DIWAN_MODELS_DIR",
-    os.path.expanduser("~/.cache/diwan/models"),
-)
+def normalize_windows_path(p: str) -> str:
+    if not p:
+        return p
+    s = str(p)
+    if s.startswith(("\\\\?\\", "\\??\\", "//?/", "/??/")):
+        s = s[4:]
+    return os.path.normpath(s)
+
+def resolve_models_dir() -> str:
+    # 1. Check DIWAN_MODELS_DIR environment variable
+    if "DIWAN_MODELS_DIR" in os.environ:
+        clean = normalize_windows_path(os.environ["DIWAN_MODELS_DIR"])
+        if os.path.exists(clean):
+            return clean
+
+    # 2. Check bundled resource directories relative to sys.executable (PyInstaller on Windows)
+    if getattr(sys, "frozen", False):
+        base_dir = normalize_windows_path(os.path.dirname(sys.executable))
+        for candidate in [
+            os.path.join(base_dir, "..", "models"),
+            os.path.join(base_dir, "models"),
+        ]:
+            if os.path.exists(candidate):
+                return normalize_windows_path(candidate)
+
+    # 3. Check relative models directory in project workspace
+    for candidate in [
+        os.path.join(os.path.dirname(__file__), "..", "..", "..", "src-tauri", "windows-dist", "models"),
+        os.path.join(os.getcwd(), "models"),
+        os.path.join(os.getcwd(), "windows-dist", "models"),
+    ]:
+        if os.path.exists(candidate):
+            return normalize_windows_path(candidate)
+
+    return normalize_windows_path(os.environ.get(
+        "DIWAN_MODELS_DIR",
+        os.path.expanduser("~/.cache/diwan/models"),
+    ))
 
 
 def _resolve_bundled_model_dir(model_size: str) -> Optional[str]:
@@ -102,7 +136,7 @@ def get_free_disk_space_bytes(path: str) -> int:
 
 def generate_mock_arabic_transcript(
     audio_path: str,
-    model_size: str = "small",
+    model_size: str = "tiny",
     device: str = "cpu",
     on_progress: Optional[ProgressCallback] = None,
 ) -> TranscriptResult:
@@ -183,7 +217,7 @@ def generate_mock_arabic_transcript(
 
 def transcribe_arabic_audio(
     audio_path: str,
-    model_size: str = "small",
+    model_size: str = "tiny",
     device: str = "cpu",
     compute_type: str = "default",
     on_progress: Optional[ProgressCallback] = None,
@@ -192,10 +226,12 @@ def transcribe_arabic_audio(
     if not os.path.exists(audio_path):
         raise FileNotFoundError(f"Audio file not found: {audio_path}")
 
-    # Check disk space for cache dir
-    free_space = get_free_disk_space_bytes(DEFAULT_MODELS_DIR)
-    if free_space < 500 * 1024 * 1024:  # At least 500 MB required
-        raise RuntimeError(f"Low disk space in models cache directory ({free_space // (1024*1024)} MB available). At least 500MB is required.")
+    models_dir = resolve_models_dir()
+
+    # Check disk space for models dir (tiny only needs ~80MB)
+    free_space = get_free_disk_space_bytes(models_dir)
+    if free_space < 80 * 1024 * 1024:
+        raise RuntimeError(f"Low disk space in models cache directory ({free_space // (1024*1024)} MB available). At least 80MB is required.")
 
     if mock:
         return generate_mock_arabic_transcript(audio_path, model_size, device, on_progress)
@@ -212,16 +248,22 @@ def transcribe_arabic_audio(
 
     ctranslate2_compute = "int8" if device == "cpu" and compute_type == "default" else compute_type
 
-    bundled_model_dir = _resolve_bundled_model_dir(model_size)
-    if bundled_model_dir is not None:
-        # A pre-converted model shipped with the app is available locally
-        # (see WINDOWS_PACKAGING.md) -- load it directly with no network
-        # access at all, so a fresh install works on the very first run
-        # even with no internet connection.
+    # Check if a direct local offline model folder exists
+    direct_model_path = None
+    for candidate in [
+        os.path.join(models_dir, model_size),
+        os.path.join(models_dir, f"models--Systran--faster-whisper-{model_size}"),
+        _resolve_bundled_model_dir(model_size),
+    ]:
+        if candidate and os.path.isdir(candidate) and os.path.isfile(os.path.join(candidate, "model.bin")):
+            direct_model_path = normalize_windows_path(candidate)
+            break
+
+    if direct_model_path:
         if on_progress:
             on_progress(0.15, f"جاري تحميل نموذج Whisper ({model_size}) المضمّن محليًا على {device}...")
         model = WhisperModel(
-            bundled_model_dir,
+            direct_model_path,
             device=device,
             compute_type=ctranslate2_compute,
         )
@@ -231,11 +273,6 @@ def transcribe_arabic_audio(
 
         _configure_resilient_download_backend()
 
-        # Load model with outside-repo cache directory. The download itself is
-        # retried at the HTTP layer (see _configure_resilient_download_backend),
-        # but a reset can still occur between requests inside huggingface_hub's
-        # own retry loop, so also retry the whole load a few times with backoff
-        # before surfacing a failure to the user.
         max_attempts = 4
         model = None
         last_error: Optional[Exception] = None
@@ -245,10 +282,10 @@ def transcribe_arabic_audio(
                     model_size,
                     device=device,
                     compute_type=ctranslate2_compute,
-                    download_root=DEFAULT_MODELS_DIR,
+                    download_root=normalize_windows_path(models_dir),
                 )
                 break
-            except Exception as exc:  # noqa: BLE001 - network errors vary by platform
+            except Exception as exc:  # noqa: BLE001
                 last_error = exc
                 if attempt < max_attempts:
                     if on_progress:

@@ -21,7 +21,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   } = useAudioPlayerContext();
 
   const [poetryFontSize, setPoetryFontSize] = useState("24px");
-  const [asrModel, setAsrModel] = useState("small");
+  const [asrModel, setAsrModel] = useState("tiny");
   const [computeDevice, setComputeDevice] = useState("cpu");
   const [autoScroll, setAutoScroll] = useState(true);
 

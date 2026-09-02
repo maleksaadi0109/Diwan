@@ -36,7 +36,11 @@
     "longDescription": "منصة ديوان للشعر العربي: الاستماع التفاعلي، المحاذاة الصوتية الدقيقة، تدقيق الحدود الزمنية، وبحور الشعر العربي والمعاجم التراثية.",
     "category": "Education",
     "resources": {
-      "../public/recordings/mutanabbi_waharra_16k.wav": "samples/diagnostic-sample.wav"
+      "../public/recordings/mutanabbi_waharra_16k.wav": "samples/diagnostic-sample.wav",
+      "windows-dist/bin/ffmpeg.exe": "bin/win/ffmpeg.exe",
+      "windows-dist/bin/ffprobe.exe": "bin/win/ffprobe.exe",
+      "windows-dist/worker/": "worker-dist/",
+      "windows-dist/models/": "models/"
     },
     "icon": [
       "icons/32x32.png",

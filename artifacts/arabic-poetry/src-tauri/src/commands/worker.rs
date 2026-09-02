@@ -153,6 +153,17 @@ fn resolve_frozen_worker_exe(_app: &AppHandle) -> Option<PathBuf> {
     None
 }
 
+/// Strips the Windows UNC / extended-length prefix (`\\?\`) that Tauri /
+/// `canonicalize` prepends, which breaks C/C++ libraries like ctranslate2.
+fn clean_windows_path(p: &std::path::Path) -> PathBuf {
+    let s = p.to_string_lossy();
+    if let Some(stripped) = s.strip_prefix(r"\\?\") {
+        PathBuf::from(stripped)
+    } else {
+        p.to_path_buf()
+    }
+}
+
 /// Resolves a bundled binary (ffmpeg.exe/ffprobe.exe) under the app's
 /// resource directory on Windows. Returns `None` when running in dev, on a
 /// non-Windows platform, or when the resource simply isn't bundled, in
@@ -164,6 +175,7 @@ fn resolve_bundled_bin(app: &AppHandle, filename: &str) -> Option<PathBuf> {
         .resolve(format!("bin/win/{}", filename), BaseDirectory::Resource)
         .ok()
         .filter(|p| p.exists())
+        .map(|p| clean_windows_path(&p))
 }
 
 #[cfg(not(target_os = "windows"))]
@@ -171,28 +183,24 @@ fn resolve_bundled_bin(_app: &AppHandle, _filename: &str) -> Option<PathBuf> {
     None
 }
 
-/// Resolves the directory containing pre-converted CTranslate2 Whisper
-/// model(s) bundled as a Tauri resource on Windows (see
-/// WINDOWS_PACKAGING.md), if present. The worker looks for a
-/// `<model_size>/model.bin` subfolder under this directory and, when
-/// found, loads it directly with no network access at all -- letting a
-/// fresh install transcribe successfully on its very first run even with
-/// no internet connection. Dev builds, non-Windows platforms, and Windows
-/// builds that skipped the optional model-bundling step all return `None`
-/// and fall back to the existing huggingface_hub download-on-first-use
-/// behavior, so nothing changes unless the resource was actually bundled.
+/// Resolves the bundled offline models directory under the app's resource
+/// directory on Windows (e.g. `models/` containing faster-whisper weights).
 #[cfg(target_os = "windows")]
 fn resolve_bundled_models_dir(app: &AppHandle) -> Option<PathBuf> {
     app.path()
         .resolve("models", BaseDirectory::Resource)
         .ok()
         .filter(|p| p.exists())
+        .map(|p| clean_windows_path(&p))
 }
 
 #[cfg(not(target_os = "windows"))]
 fn resolve_bundled_models_dir(_app: &AppHandle) -> Option<PathBuf> {
     None
 }
+
+#[cfg(target_os = "windows")]
+const CREATE_NO_WINDOW: u32 = 0x08000000;
 
 fn spawn_worker_process(app: &AppHandle, worker_dir: &PathBuf) -> Result<std::process::Child, String> {
     let ffmpeg_path = resolve_bundled_bin(app, "ffmpeg.exe");
@@ -206,7 +214,11 @@ fn spawn_worker_process(app: &AppHandle, worker_dir: &PathBuf) -> Result<std::pr
     // source path below.
     if let Some(frozen_exe) = resolve_frozen_worker_exe(app) {
         let mut command = Command::new(&frozen_exe);
-        hide_console_window(&mut command);
+        #[cfg(target_os = "windows")]
+        {
+            use std::os::windows::process::CommandExt;
+            command.creation_flags(CREATE_NO_WINDOW);
+        }
         command
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
@@ -216,15 +228,16 @@ fn spawn_worker_process(app: &AppHandle, worker_dir: &PathBuf) -> Result<std::pr
             // otherwise hit Windows' legacy strict-mode console codec.
             .env("PYTHONIOENCODING", "utf-8:backslashreplace")
             .env("PYTHONUTF8", "1")
-            .stderr(Stdio::inherit());
+            .stderr(Stdio::piped());
         if let Some(p) = &ffmpeg_path {
             command.env("DIWAN_FFMPEG_PATH", p);
         }
         if let Some(p) = &ffprobe_path {
             command.env("DIWAN_FFPROBE_PATH", p);
         }
-        if let Some(p) = &models_dir {
-            command.env("DIWAN_BUNDLED_MODELS_DIR", p);
+        if let Some(m) = &models_dir {
+            command.env("DIWAN_MODELS_DIR", m);
+            command.env("DIWAN_BUNDLED_MODELS_DIR", m);
         }
         return command.spawn().map_err(|e| {
             format!(
@@ -241,7 +254,11 @@ fn spawn_worker_process(app: &AppHandle, worker_dir: &PathBuf) -> Result<std::pr
         args.extend(["-m", "diwan_worker.cli"]);
 
         let mut command = Command::new(cmd);
-        hide_console_window(&mut command);
+        #[cfg(target_os = "windows")]
+        {
+            use std::os::windows::process::CommandExt;
+            command.creation_flags(CREATE_NO_WINDOW);
+        }
         command
             .args(&args)
             .env("PYTHONPATH", worker_dir)
@@ -250,15 +267,16 @@ fn spawn_worker_process(app: &AppHandle, worker_dir: &PathBuf) -> Result<std::pr
             .stdout(Stdio::piped())
             .env("PYTHONIOENCODING", "utf-8:backslashreplace")
             .env("PYTHONUTF8", "1")
-            .stderr(Stdio::inherit());
+            .stderr(Stdio::piped());
         if let Some(p) = &ffmpeg_path {
             command.env("DIWAN_FFMPEG_PATH", p);
         }
         if let Some(p) = &ffprobe_path {
             command.env("DIWAN_FFPROBE_PATH", p);
         }
-        if let Some(p) = &models_dir {
-            command.env("DIWAN_BUNDLED_MODELS_DIR", p);
+        if let Some(m) = &models_dir {
+            command.env("DIWAN_MODELS_DIR", m);
+            command.env("DIWAN_BUNDLED_MODELS_DIR", m);
         }
 
         match command.spawn() {
