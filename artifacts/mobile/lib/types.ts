@@ -30,3 +30,10 @@ export interface Poem {
   externalProvider?: string;
   externalId?: string;
 }
+
+export interface Playlist {
+  id: string;
+  name: string;
+  poemIds: string[];
+  createdAt: number;
+}

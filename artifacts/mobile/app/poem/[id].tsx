@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import {
   Alert,
+  Modal,
   Platform,
   Pressable,
   ScrollView,
@@ -15,6 +16,7 @@ import { Feather } from '@expo/vector-icons';
 import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
 import { useColors } from '@/hooks/useColors';
 import { useLibrary } from '@/contexts/LibraryContext';
+import { usePlaylists } from '@/contexts/PlaylistsContext';
 import { useSettings } from '@/contexts/SettingsContext';
 import { ProgressBar } from '@/components/ProgressBar';
 import { formatDuration } from '@/lib/api';
@@ -26,11 +28,15 @@ export default function PoemPlayerScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { getPoem, removePoem, updatePoem } = useLibrary();
+  const { playlists, createPlaylist, addPoemToPlaylist, removePoemFromPlaylist } =
+    usePlaylists();
   const { fontSize } = useSettings();
   const [editingVerseId, setEditingVerseId] = useState<string | null>(null);
   const [editingText, setEditingText] = useState('');
   const [past, setPast] = useState<Verse[][]>([]);
   const [future, setFuture] = useState<Verse[][]>([]);
+  const [playlistModalVisible, setPlaylistModalVisible] = useState(false);
+  const [newPlaylistName, setNewPlaylistName] = useState('');
 
   const poem = getPoem(id);
 
@@ -233,6 +239,13 @@ export default function PoemPlayerScreen() {
               color={future.length === 0 ? colors.border : colors.mutedForeground}
             />
           </Pressable>
+          <Pressable
+            onPress={() => setPlaylistModalVisible(true)}
+            hitSlop={12}
+            testID="player-add-to-playlist-button"
+          >
+            <Feather name="list" size={19} color={colors.mutedForeground} />
+          </Pressable>
           <Pressable onPress={handleDelete} hitSlop={12} testID="player-delete-button">
             <Feather name="trash-2" size={20} color={colors.mutedForeground} />
           </Pressable>
@@ -397,6 +410,94 @@ export default function PoemPlayerScreen() {
           ) : null}
         </View>
       ) : null}
+
+      <Modal
+        visible={playlistModalVisible}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setPlaylistModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View
+            style={[
+              styles.modalCard,
+              { backgroundColor: colors.background, paddingBottom: bottomInset + 20 },
+            ]}
+          >
+            <View style={styles.modalHeader}>
+              <Pressable onPress={() => setPlaylistModalVisible(false)} hitSlop={12}>
+                <Feather name="x" size={20} color={colors.mutedForeground} />
+              </Pressable>
+              <Text style={[styles.modalTitle, { color: colors.foreground }]}>
+                إضافة إلى قائمة تشغيل
+              </Text>
+            </View>
+
+            <ScrollView style={styles.modalList}>
+              {playlists.length === 0 ? (
+                <Text style={[styles.modalEmpty, { color: colors.mutedForeground }]}>
+                  لا توجد قوائم تشغيل بعد
+                </Text>
+              ) : (
+                playlists.map((playlist) => {
+                  const included = playlist.poemIds.includes(poem.id);
+                  return (
+                    <Pressable
+                      key={playlist.id}
+                      onPress={() =>
+                        included
+                          ? removePoemFromPlaylist(playlist.id, poem.id)
+                          : addPoemToPlaylist(playlist.id, poem.id)
+                      }
+                      style={[styles.modalRow, { borderColor: colors.border }]}
+                      testID={`playlist-toggle-${playlist.id}`}
+                    >
+                      <Feather
+                        name={included ? 'check-square' : 'square'}
+                        size={18}
+                        color={included ? colors.primary : colors.mutedForeground}
+                      />
+                      <Text style={[styles.modalRowText, { color: colors.foreground }]}>
+                        {playlist.name}
+                      </Text>
+                    </Pressable>
+                  );
+                })
+              )}
+            </ScrollView>
+
+            <View
+              style={[
+                styles.createRow,
+                { backgroundColor: colors.card, borderColor: colors.border },
+              ]}
+            >
+              <TextInput
+                value={newPlaylistName}
+                onChangeText={setNewPlaylistName}
+                placeholder="قائمة تشغيل جديدة"
+                placeholderTextColor={colors.mutedForeground}
+                style={[styles.createInput, { color: colors.foreground, fontFamily: 'Cairo_400Regular' }]}
+                textAlign="right"
+                testID="new-playlist-input"
+              />
+              <Pressable
+                onPress={async () => {
+                  const trimmed = newPlaylistName.trim();
+                  if (!trimmed) return;
+                  const playlist = await createPlaylist(trimmed);
+                  await addPoemToPlaylist(playlist.id, poem.id);
+                  setNewPlaylistName('');
+                }}
+                hitSlop={10}
+                testID="new-playlist-confirm"
+              >
+                <Feather name="plus" size={18} color={colors.primary} />
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -431,6 +532,63 @@ const styles = StyleSheet.create({
   boundaryButtonText: {
     fontSize: 12,
     fontFamily: 'Cairo_400Regular',
+  },
+  modalOverlay: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0,0,0,0.4)',
+  },
+  modalCard: {
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingTop: 16,
+    paddingHorizontal: 20,
+    maxHeight: '75%',
+    gap: 14,
+  },
+  modalHeader: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  modalTitle: {
+    fontSize: 17,
+    fontFamily: 'Cairo_700Bold',
+    textAlign: 'right',
+  },
+  modalList: {
+    maxHeight: 260,
+  },
+  modalEmpty: {
+    fontSize: 14,
+    fontFamily: 'Cairo_400Regular',
+    textAlign: 'center',
+    paddingVertical: 20,
+  },
+  modalRow: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    gap: 10,
+    paddingVertical: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  modalRowText: {
+    fontSize: 15,
+    fontFamily: 'Cairo_400Regular',
+    textAlign: 'right',
+  },
+  createRow: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    gap: 8,
+    borderRadius: 12,
+    borderWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: 14,
+    height: 44,
+  },
+  createInput: {
+    flex: 1,
+    fontSize: 15,
   },
   headerText: {
     paddingHorizontal: 20,

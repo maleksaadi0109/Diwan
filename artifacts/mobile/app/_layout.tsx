@@ -6,6 +6,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { setBaseUrl } from '@workspace/api-client-react';
 import { LibraryProvider } from '@/contexts/LibraryContext';
+import { PlaylistsProvider } from '@/contexts/PlaylistsContext';
 import { SettingsProvider } from '@/contexts/SettingsContext';
 import {
   Amiri_400Regular,
@@ -36,6 +37,7 @@ function RootLayoutNav() {
     <Stack screenOptions={{ headerBackTitle: 'Back' }}>
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
       <Stack.Screen name="poem" options={{ headerShown: false }} />
+      <Stack.Screen name="playlist" options={{ headerShown: false }} />
     </Stack>
   );
 }
@@ -65,7 +67,9 @@ export default function RootLayout() {
             <KeyboardProvider>
               <SettingsProvider>
                 <LibraryProvider>
-                  <RootLayoutNav />
+                  <PlaylistsProvider>
+                    <RootLayoutNav />
+                  </PlaylistsProvider>
                 </LibraryProvider>
               </SettingsProvider>
             </KeyboardProvider>
