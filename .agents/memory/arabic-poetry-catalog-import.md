@@ -38,3 +38,14 @@ For identifying which poem a given YouTube video actually contains, `yt-dlp
 --skip-download --print "%(title)s | %(uploader)s | %(duration)s" <url>` (no
 download, no auth) is enough — the video title/uploader alone reliably
 disambiguates without needing to touch the audio.
+
+## Mizan API access: native vs. browser
+
+`GET https://mizanalarab.com/api/poems/<id>` returns 200 JSON with no
+User-Agent header required (confirmed via curl) — a desktop-style
+`User-Agent` is not necessary for this endpoint to work. However the
+response carries no `Access-Control-Allow-Origin` header, so a browser
+`fetch()` to it is blocked by CORS (`net::ERR_FAILED`); only requests from a
+context not subject to browser CORS (native mobile fetch, a server-side
+fetch, or a worker-bridge proxy as the desktop app uses) can read the
+response.

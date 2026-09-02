@@ -14,3 +14,5 @@
 - [Windows shell compatibility](windows-shell-compatibility.md) — package lifecycle and dev scripts must avoid Unix-only `sh -c` and inline environment-assignment syntax.
 - [Offline Whisper model bundling](offline-whisper-model-bundling.md) — faster-whisper skips the network entirely when given a local model directory instead of a model name.
 - [Mobile audio path prefix quirk](arabic-poetry-mobile-audio-paths.md) — api-server's youtube/download & align paths use a `/api-worker` prefix that must be rewritten for fetch URLs but kept as-is for /align's audio_path.
+- [Expo web preview testing domain](expo-web-testing-domain.md) — point browser testers at `*.expo.<region>.replit.dev`, not the shared `/mobile/` proxy path, or they hit a blank page or the wrong artifact.
+- [Mizan Al-Arab API access](arabic-poetry-catalog-import.md) — mizanalarab.com's API returns 200 with no User-Agent required, but has no CORS allow-origin header so browser fetch fails (native mobile fetch is unaffected).
