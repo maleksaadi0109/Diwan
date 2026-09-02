@@ -33,6 +33,8 @@ export const Header: React.FC<HeaderProps> = ({
         return activePoem ? activePoem.title : "مشغّل القصيدة";
       case "import":
         return "استيراد قصيدة وتسجيل";
+      case "catalog":
+        return "مكتبة جاهزة";
       case "playlists":
         return "قوائم التشغيل";
       case "settings":
