@@ -30,7 +30,14 @@ import {
   toPlayableAudioUrl,
 } from '@/lib/api';
 import type { Poem, Verse } from '@/lib/types';
-import { CatalogPoemEntry, POEM_CATALOG, fetchMizanPoem, parseMizanPoem } from '@/lib/mizan';
+import {
+  CatalogPoemEntry,
+  POEM_CATALOG,
+  extractMizanPoemId,
+  fetchMizanPoem,
+  parseMizanPoem,
+  type ParsedMizanPoem,
+} from '@/lib/mizan';
 
 type Stage = 'link' | 'details' | 'downloading' | 'aligning';
 type CatalogItemStatus = 'idle' | 'text' | 'downloading' | 'aligning' | 'error';
@@ -63,6 +70,15 @@ export default function ImportScreen() {
   const { poems } = useLibrary();
   const [activeCatalogId, setActiveCatalogId] = useState<string | null>(null);
   const [catalogStatus, setCatalogStatus] = useState<Record<string, CatalogItemStatus>>({});
+
+  const [mizanUrl, setMizanUrl] = useState('');
+  const [mizanLoading, setMizanLoading] = useState(false);
+  const [mizanError, setMizanError] = useState<string | null>(null);
+  const [mizanPreview, setMizanPreview] = useState<{
+    poemId: string;
+    parsed: ParsedMizanPoem;
+  } | null>(null);
+  const [mizanSaving, setMizanSaving] = useState(false);
 
   const importedMizanIds = new Set(
     poems.filter((p) => p.externalProvider === 'mizan_al_arab').map((p) => p.externalId),
@@ -193,6 +209,64 @@ export default function ImportScreen() {
         setNeedsCookies(true);
       }
       setError(extractErrorMessage(err, 'حدث خطأ أثناء الاستيراد، حاول مرة أخرى'));
+    }
+  };
+
+  const handleMizanFetch = async () => {
+    const trimmed = mizanUrl.trim();
+    if (!trimmed) return;
+    setMizanError(null);
+    setMizanPreview(null);
+    setMizanLoading(true);
+    try {
+      const poemId = extractMizanPoemId(trimmed);
+      const existing = poems.find(
+        (p) => p.externalProvider === 'mizan_al_arab' && p.externalId === poemId,
+      );
+      if (existing) {
+        router.push({ pathname: '/poem/[id]', params: { id: existing.id } });
+        return;
+      }
+      const data = await fetchMizanPoem(poemId);
+      const parsed = parseMizanPoem(data);
+      setMizanPreview({ poemId, parsed });
+    } catch (err) {
+      setMizanError(extractErrorMessage(err, 'تعذر جلب القصيدة من ميزان العرب'));
+    } finally {
+      setMizanLoading(false);
+    }
+  };
+
+  const handleMizanImport = async () => {
+    if (!mizanPreview) return;
+    setMizanSaving(true);
+    setMizanError(null);
+    try {
+      const { poemId, parsed } = mizanPreview;
+      const verses: Verse[] = parsed.verses.map((v, index) => ({
+        id: makeLocalId('verse'),
+        orderIndex: index,
+        text: v.text,
+      }));
+      const poem: Poem = {
+        id: makeLocalId('poem'),
+        title: parsed.title,
+        poetName: parsed.poetName,
+        verses,
+        createdAt: Date.now(),
+        sourceUrl: mizanUrl.trim(),
+        externalProvider: 'mizan_al_arab',
+        externalId: poemId,
+      };
+      await addPoem(poem);
+      const importedId = poem.id;
+      setMizanUrl('');
+      setMizanPreview(null);
+      router.push({ pathname: '/poem/[id]', params: { id: importedId } });
+    } catch (err) {
+      setMizanError(extractErrorMessage(err, 'تعذر حفظ القصيدة، حاول مرة أخرى'));
+    } finally {
+      setMizanSaving(false);
     }
   };
 
@@ -393,7 +467,107 @@ export default function ImportScreen() {
             <View style={styles.dividerRow}>
               <View style={[styles.dividerLine, { backgroundColor: colors.border }]} />
               <Text style={[styles.dividerText, { color: colors.mutedForeground }]}>
-                أو استيراد يدوي من رابط
+                أو استيراد نص فقط من رابط ميزان العرب
+              </Text>
+              <View style={[styles.dividerLine, { backgroundColor: colors.border }]} />
+            </View>
+
+            <Text style={[styles.pageHint, { color: colors.mutedForeground }]}>
+              الصق رابط أي قصيدة من mizanalarab.com لاستيراد نصها الموثّق (بدون صوت، يمكن
+              إضافته لاحقًا)
+            </Text>
+
+            <View
+              style={[
+                styles.inputRow,
+                { backgroundColor: colors.card, borderColor: colors.border },
+              ]}
+            >
+              <TextInput
+                value={mizanUrl}
+                onChangeText={(v) => {
+                  setMizanUrl(v);
+                  setMizanPreview(null);
+                  setMizanError(null);
+                }}
+                placeholder="https://mizanalarab.com/poem/..."
+                placeholderTextColor={colors.mutedForeground}
+                autoCapitalize="none"
+                autoCorrect={false}
+                keyboardType="url"
+                style={[styles.textInput, { color: colors.foreground }]}
+                editable={!mizanLoading && !mizanSaving}
+                testID="mizan-url-input"
+              />
+              <Pressable
+                onPress={handleMizanFetch}
+                disabled={mizanLoading || mizanSaving || !mizanUrl.trim()}
+                testID="mizan-fetch-button"
+                style={({ pressed }) => [
+                  styles.iconButton,
+                  {
+                    backgroundColor: colors.primary,
+                    opacity: !mizanUrl.trim() || mizanLoading ? 0.4 : pressed ? 0.8 : 1,
+                  },
+                ]}
+              >
+                {mizanLoading ? (
+                  <ActivityIndicator size="small" color={colors.primaryForeground} />
+                ) : (
+                  <Feather name="arrow-left" size={18} color={colors.primaryForeground} />
+                )}
+              </Pressable>
+            </View>
+
+            {mizanError ? (
+              <Text style={[styles.errorText, { color: colors.destructive }]}>
+                {mizanError}
+              </Text>
+            ) : null}
+
+            {mizanPreview ? (
+              <View
+                style={[
+                  styles.videoCard,
+                  { backgroundColor: colors.card, borderColor: colors.border, padding: 12 },
+                ]}
+              >
+                <View style={styles.videoInfoText}>
+                  <Text
+                    style={[styles.videoTitle, { color: colors.foreground, fontFamily: 'Amiri_700Bold' }]}
+                    numberOfLines={2}
+                  >
+                    {mizanPreview.parsed.title}
+                  </Text>
+                  <Text style={[styles.videoMeta, { color: colors.mutedForeground }]}>
+                    {mizanPreview.parsed.poetName} · {mizanPreview.parsed.verses.length} بيتًا
+                  </Text>
+                </View>
+                <Pressable
+                  onPress={handleMizanImport}
+                  disabled={mizanSaving}
+                  testID="mizan-import-confirm-button"
+                  style={({ pressed }) => [
+                    styles.iconButton,
+                    {
+                      backgroundColor: colors.primary,
+                      opacity: mizanSaving ? 0.6 : pressed ? 0.8 : 1,
+                    },
+                  ]}
+                >
+                  {mizanSaving ? (
+                    <ActivityIndicator size="small" color={colors.primaryForeground} />
+                  ) : (
+                    <Feather name="check" size={18} color={colors.primaryForeground} />
+                  )}
+                </Pressable>
+              </View>
+            ) : null}
+
+            <View style={styles.dividerRow}>
+              <View style={[styles.dividerLine, { backgroundColor: colors.border }]} />
+              <Text style={[styles.dividerText, { color: colors.mutedForeground }]}>
+                أو استيراد يدوي من رابط يوتيوب
               </Text>
               <View style={[styles.dividerLine, { backgroundColor: colors.border }]} />
             </View>
