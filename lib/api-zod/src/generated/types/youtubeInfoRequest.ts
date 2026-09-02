@@ -6,6 +6,8 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface HealthStatus {
-  status: string;
+export interface YoutubeInfoRequest {
+  url: string;
+  max_duration_seconds?: number;
+  cookies_content?: string;
 }

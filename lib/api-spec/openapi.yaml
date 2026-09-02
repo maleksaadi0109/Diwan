@@ -10,6 +10,8 @@ servers:
 tags:
   - name: health
     description: Health operations
+  - name: youtube
+    description: YouTube import pipeline (metadata lookup, audio download, verse alignment)
 paths:
   /healthz:
     get:
@@ -24,6 +26,99 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /youtube/info:
+    post:
+      operationId: getYoutubeInfo
+      tags: [youtube]
+      summary: Look up metadata for a YouTube video
+      description: Fetches title, channel, duration, and thumbnail for a YouTube URL without downloading audio.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/YoutubeInfoRequest"
+      responses:
+        "200":
+          description: Video metadata
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/YoutubeInfoResponse"
+        "400":
+          description: Invalid URL
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "502":
+          description: Lookup failed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+  /youtube/download:
+    post:
+      operationId: downloadYoutubeAudio
+      tags: [youtube]
+      summary: Download and normalize audio from a YouTube video
+      description: Downloads the video's audio track and returns server-relative paths usable by /align (and /transcribe).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/YoutubeDownloadRequest"
+      responses:
+        "200":
+          description: Download complete
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/YoutubeDownloadResponse"
+        "400":
+          description: Invalid URL
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "502":
+          description: Download failed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/YoutubeDownloadErrorEnvelope"
+  /align:
+    post:
+      operationId: alignPoemVerses
+      tags: [youtube]
+      summary: Align poem verses to a downloaded audio recording
+      description: Runs the local forced-alignment worker against previously downloaded audio and the given verse texts, returning start/end timestamps per verse.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AlignRequest"
+      responses:
+        "200":
+          description: Alignment complete
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AlignResponse"
+        "400":
+          description: Invalid verses
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "502":
+          description: Alignment failed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
 components:
   schemas:
     HealthStatus:
@@ -33,4 +128,176 @@ components:
           type: string
       required:
         - status
+    ErrorEnvelope:
+      type: object
+      properties:
+        error_code:
+          type: string
+        error_message:
+          type: string
+      required:
+        - error_code
+    YoutubeDownloadErrorEnvelope:
+      type: object
+      properties:
+        error_code:
+          type: string
+        error_message:
+          type: string
+        job_id:
+          type: string
+      required:
+        - error_code
+    YoutubeInfoRequest:
+      type: object
+      properties:
+        url:
+          type: string
+        max_duration_seconds:
+          type: number
+        cookies_content:
+          type: string
+      required:
+        - url
+    YoutubeInfoResponse:
+      type: object
+      properties:
+        video_id:
+          type: string
+        title:
+          type: string
+        channel:
+          type: string
+        duration_seconds:
+          type: number
+        duration_ms:
+          type: number
+        thumbnail:
+          type: string
+        description:
+          type: string
+        webpage_url:
+          type: string
+        is_available:
+          type: boolean
+      required:
+        - video_id
+        - title
+        - duration_seconds
+        - duration_ms
+        - is_available
+    YoutubeDownloadRequest:
+      type: object
+      properties:
+        url:
+          type: string
+        quality:
+          type: string
+          enum: ["128k", "192k"]
+        job_id:
+          type: string
+        cookies_content:
+          type: string
+      required:
+        - url
+    YoutubeDownloadResponse:
+      type: object
+      properties:
+        job_id:
+          type: string
+        duration_ms:
+          type: number
+        duration_seconds:
+          type: number
+        sample_rate:
+          type: number
+        channels:
+          type: number
+        leading_silence_removed_ms:
+          type: number
+        downloaded_at:
+          type: string
+        raw_format:
+          type: string
+        raw_audio_path:
+          type: string
+        playback_audio_path:
+          type: string
+        processing_audio_path:
+          type: string
+      required:
+        - job_id
+        - playback_audio_path
+        - processing_audio_path
+    AlignRequestVerse:
+      type: object
+      properties:
+        id:
+          type: string
+        text:
+          type: string
+      required:
+        - id
+        - text
+    AlignRequest:
+      type: object
+      properties:
+        audio_path:
+          type: string
+        verses:
+          type: array
+          items:
+            $ref: "#/components/schemas/AlignRequestVerse"
+        poem_id:
+          type: string
+        recording_id:
+          type: string
+      required:
+        - audio_path
+        - verses
+    AlignmentEntry:
+      type: object
+      properties:
+        verse_id:
+          type: string
+        order_index:
+          type: number
+        start_ms:
+          type: number
+        end_ms:
+          type: number
+        confidence:
+          type: number
+        status:
+          type: string
+        matched_words_count:
+          type: number
+        total_words_count:
+          type: number
+      required:
+        - verse_id
+        - order_index
+        - start_ms
+        - end_ms
+        - confidence
+        - status
+    AlignResponse:
+      type: object
+      properties:
+        poem_id:
+          type: string
+        recording_id:
+          type: string
+        overall_confidence:
+          type: number
+        intro_offset_ms:
+          type: number
+        alignments:
+          type: array
+          items:
+            $ref: "#/components/schemas/AlignmentEntry"
+      required:
+        - poem_id
+        - recording_id
+        - alignments
 

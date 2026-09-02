@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface HealthStatus {
-  status: string;
+export interface ErrorEnvelope {
+  error_code: string;
+  error_message?: string;
 }
