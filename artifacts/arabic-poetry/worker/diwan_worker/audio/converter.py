@@ -3,7 +3,7 @@ import os
 import subprocess
 from typing import Callable, Optional
 from .inspector import inspect_audio, AudioMetadata
-from ..bin_paths import ffmpeg_path
+from ..bin_paths import ffmpeg_path, subprocess_creation_flags
 
 ProgressCallback = Callable[[float, str], None]
 
@@ -41,8 +41,11 @@ def convert_to_wav_16k_mono(
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
+            encoding="utf-8",
+            errors="replace",
             timeout=timeout_seconds,
             check=True,
+            creationflags=subprocess_creation_flags(),
         )
     except subprocess.CalledProcessError as e:
         raise RuntimeError(f"ffmpeg conversion failed: {e.stderr.strip()}") from e
@@ -104,8 +107,11 @@ def convert_to_playback_wav(
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
+            encoding="utf-8",
+            errors="replace",
             timeout=timeout_seconds,
             check=True,
+            creationflags=subprocess_creation_flags(),
         )
     except subprocess.CalledProcessError as e:
         raise RuntimeError(f"ffmpeg playback WAV conversion failed: {e.stderr.strip()}") from e

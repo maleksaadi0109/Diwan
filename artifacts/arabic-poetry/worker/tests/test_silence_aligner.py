@@ -146,30 +146,30 @@ def test_4_long_silence_before_next_verse(sample_verses):
     assert result.alignments[0].end_ms == 9600
     assert result.alignments[1].start_ms == 9600
 
-def test_5_background_noise_adaptive_threshold():
+def test_5_background_noise_adaptive_threshold(tmp_path):
     from diwan_worker.audio.vad import analyze_audio_vad
-    import tempfile, wave, struct, math
+    import wave, struct, math
 
-    with tempfile.NamedTemporaryFile(suffix=".wav") as tmp:
-        framerate = 16000
-        n_samples = framerate * 2
-        samples = []
-        for i in range(n_samples):
-            t = i / framerate
-            noise = int(300 * math.sin(2 * math.pi * 50 * t))
-            speech = int(10000 * math.sin(2 * math.pi * 350 * t)) if 0.5 <= t <= 1.5 else 0
-            samples.append(noise + speech)
+    wav_file = tmp_path / "noise_test.wav"
+    framerate = 16000
+    n_samples = framerate * 2
+    samples = []
+    for i in range(n_samples):
+        t = i / framerate
+        noise = int(300 * math.sin(2 * math.pi * 50 * t))
+        speech = int(10000 * math.sin(2 * math.pi * 350 * t)) if 0.5 <= t <= 1.5 else 0
+        samples.append(noise + speech)
 
-        data = struct.pack(f"<{len(samples)}h", *samples)
-        with wave.open(tmp.name, "wb") as wf:
-            wf.setnchannels(1)
-            wf.setsampwidth(2)
-            wf.setframerate(framerate)
-            wf.writeframes(data)
+    data = struct.pack(f"<{len(samples)}h", *samples)
+    with wave.open(str(wav_file), "wb") as wf:
+        wf.setnchannels(1)
+        wf.setsampwidth(2)
+        wf.setframerate(framerate)
+        wf.writeframes(data)
 
-        vad_res = analyze_audio_vad(tmp.name)
-        assert len(vad_res.speech_regions) >= 1
-        assert vad_res.threshold_rms > vad_res.noise_floor_rms
+    vad_res = analyze_audio_vad(str(wav_file))
+    assert len(vad_res.speech_regions) >= 1
+    assert vad_res.threshold_rms > vad_res.noise_floor_rms
 
 def test_6_recitation_with_no_clear_silence(sample_verses):
     # No silence regions detected (continuous speech) -> fallback to ASR midpoint

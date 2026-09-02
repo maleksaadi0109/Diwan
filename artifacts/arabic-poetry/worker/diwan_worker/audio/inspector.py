@@ -4,7 +4,7 @@ import os
 import subprocess
 from dataclasses import dataclass
 from typing import Optional, Dict, Any
-from ..bin_paths import ffprobe_path
+from ..bin_paths import ffprobe_path, subprocess_creation_flags
 
 MAX_FILE_SIZE_BYTES = 500 * 1024 * 1024  # 500 MB limit
 
@@ -57,8 +57,11 @@ def inspect_audio(file_path: str) -> AudioMetadata:
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
+            encoding="utf-8",
+            errors="replace",
             timeout=15,
             check=True,
+            creationflags=subprocess_creation_flags(),
         )
     except subprocess.CalledProcessError as e:
         raise RuntimeError(f"ffprobe failed to inspect file: {e.stderr.strip()}") from e

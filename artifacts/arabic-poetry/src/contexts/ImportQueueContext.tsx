@@ -376,7 +376,7 @@ export function ImportQueueProvider({ children }: { children: React.ReactNode })
       // Stage 4: ASR
       await setStage("asr", 0.6);
       const transcription = await transcribeArabicAudio(processingWavPath, undefined, {
-        model_size: "small",
+        model_size: "tiny",
         device: "cpu",
       });
       await setStage("asr", 0.75);

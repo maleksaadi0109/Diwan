@@ -14,7 +14,25 @@ For dev/non-frozen use, nothing changes: `python -m diwan_worker.cli` (used
 by the Tauri host) already imports the module as part of its package and is
 unaffected by this file.
 """
+import os
+import sys
+
+# Disable noisy Hugging Face symlink warnings on Windows
+os.environ.setdefault("HF_HUB_DISABLE_SYMLINKS_WARNING", "1")
+
+# Ensure UTF-8 standard streams on Windows before any package or library imports
+for stream in (sys.stdin, sys.stdout, sys.stderr):
+    try:
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(
+                encoding="utf-8",
+                errors="strict" if stream is sys.stdin else "backslashreplace",
+            )
+    except (AttributeError, OSError, ValueError):
+        pass
+
 from diwan_worker.cli import main
 
 if __name__ == "__main__":
     main()
+

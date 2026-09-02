@@ -134,9 +134,28 @@ def test_fetch_metadata_without_cookies_has_no_cookiefile():
         instance = mock_ydl.return_value.__enter__.return_value
         instance.extract_info.return_value = mock_info
         fetch_youtube_video_info("https://www.youtube.com/watch?v=dQw4w9WgXcQ")
-        _, called_opts = mock_ydl.call_args
         opts_arg = mock_ydl.call_args[0][0]
         assert "cookiefile" not in opts_arg
+
+
+def test_fetch_metadata_with_emojis_and_unicode():
+    """Verify video title with emoji \U0001f31f (🌟) and Arabic is safely parsed and returned."""
+    mock_info = {
+        "id": "dQw4w9WgXcQ",
+        "title": "🌟 قصيدة المتنبي \U0001f31f بصوت رائع 🎵",
+        "uploader": "قناة الأدب العربي 📚",
+        "duration": 180,
+        "description": "وصف الفيديو مع إيموجي ✨",
+    }
+    with patch("yt_dlp.YoutubeDL") as mock_ydl:
+        instance = mock_ydl.return_value.__enter__.return_value
+        instance.extract_info.return_value = mock_info
+        res = fetch_youtube_video_info("https://www.youtube.com/watch?v=dQw4w9WgXcQ")
+        assert "🌟" in res["title"]
+        assert "\U0001f31f" in res["title"]
+        assert "📚" in res["channel"]
+        assert res["duration_seconds"] == 180
+
 
 
 def test_fetch_metadata_mocked():
@@ -331,7 +350,7 @@ def test_download_audio_conversion_failure_preserves_raw_file(tmp_path: Path):
     orig_run = real_subprocess.run
 
     def mock_run_fn(cmd, *args, **kwargs):
-        if len(cmd) > 0 and cmd[0] == "ffmpeg":
+        if len(cmd) > 0 and ("ffmpeg" in str(cmd[0]).lower()):
             return MagicMock(returncode=1, stderr="Mocked FFmpeg conversion error")
         return orig_run(cmd, *args, **kwargs)
 
