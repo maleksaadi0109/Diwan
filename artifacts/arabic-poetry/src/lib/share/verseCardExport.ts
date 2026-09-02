@@ -21,6 +21,28 @@ function sanitizeFilename(name: string): string {
   return name.replace(/[\\/:*?"<>|]/g, "_").trim() || "بيت-شعر";
 }
 
+/**
+ * Rasterizes a verse-share card node to a PNG `File`, without triggering a
+ * download or a Tauri save dialog. Used by share actions (native share
+ * sheet, WhatsApp/Telegram) that need the image bytes directly rather than
+ * writing them to disk.
+ */
+export async function buildCardPngFile(node: HTMLElement, suggestedFilename: string): Promise<File> {
+  if (typeof document !== "undefined" && "fonts" in document) {
+    await document.fonts.ready;
+  }
+  const { toPng } = await import("html-to-image");
+  const dataUrl = await toPng(node, {
+    cacheBust: true,
+    pixelRatio: 2,
+    backgroundColor: undefined,
+    skipFonts: true,
+  });
+  const bytes = dataUrlToUint8Array(dataUrl);
+  const filename = `${sanitizeFilename(suggestedFilename)}.png`;
+  return new File([bytes.buffer as ArrayBuffer], filename, { type: "image/png" });
+}
+
 export async function exportCardNodeToPng(
   node: HTMLElement,
   suggestedFilename: string

@@ -15,6 +15,7 @@ import { DiwanRepository } from "./lib/db/repository";
 import { normalizeArabic } from "./lib/utils";
 import { ParsedExplanationBlock } from "./lib/import/pasteExplanationParser";
 import { AudioPlayerProvider, useAudioPlayerContext } from "./contexts/AudioPlayerContext";
+import { SettingsProvider } from "./contexts/SettingsContext";
 import { ImportQueueProvider, useImportQueueContext } from "./contexts/ImportQueueContext";
 import { ImportQueueTray } from "./components/ImportQueueTray";
 import { UndoHistoryProvider, useUndoHistory } from "./contexts/UndoHistoryContext";
@@ -25,11 +26,13 @@ import { markVerseBoundary } from "./lib/verseBoundary";
 export function App() {
   return (
     <AudioPlayerProvider>
-      <ImportQueueProvider>
-        <UndoHistoryProvider>
-          <AppShell />
-        </UndoHistoryProvider>
-      </ImportQueueProvider>
+      <SettingsProvider>
+        <ImportQueueProvider>
+          <UndoHistoryProvider>
+            <AppShell />
+          </UndoHistoryProvider>
+        </ImportQueueProvider>
+      </SettingsProvider>
     </AudioPlayerProvider>
   );
 }

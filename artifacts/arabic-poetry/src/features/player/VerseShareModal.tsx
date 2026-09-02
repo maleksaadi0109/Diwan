@@ -1,7 +1,7 @@
 import React, { useMemo, useRef, useState } from "react";
 import { Poem } from "@/types";
-import { X, Download, ChevronUp, ChevronDown, Loader2, Feather } from "lucide-react";
-import { exportCardNodeToPng } from "@/lib/share/verseCardExport";
+import { X, Download, ChevronUp, ChevronDown, Loader2, Feather, Share2, MessageCircle, Send } from "lucide-react";
+import { exportCardNodeToPng, buildCardPngFile } from "@/lib/share/verseCardExport";
 import { cn } from "@/lib/utils";
 
 interface VerseShareModalProps {
@@ -12,6 +12,27 @@ interface VerseShareModalProps {
 
 const MAX_VERSES_IN_CARD = 6;
 
+// Font choices for the exported card, reusing the same Arabic webfont
+// families already loaded app-wide (see src/styles/globals.css tokens) so
+// no extra font loading is needed.
+const CARD_FONT_OPTIONS: { value: string; label: string; family: string }[] = [
+  { value: "amiri", label: "أميري (تقليدي)", family: '"Amiri", "Traditional Arabic", serif' },
+  { value: "scheherazade", label: "شهرزاد الجديد", family: '"Scheherazade New", serif' },
+  { value: "naskh", label: "نسخ عثماني", family: '"Noto Naskh Arabic", serif' },
+  { value: "cairo", label: "القاهرة (عصري)", family: '"Cairo", "Almarai", sans-serif' },
+];
+
+const MIN_CARD_FONT_SIZE = 14;
+const MAX_CARD_FONT_SIZE = 34;
+
+// Base sizes (px) mirroring the previous density-derived Tailwind classes,
+// used as the default before the user drags the size slider.
+function defaultCardFontSize(verseCount: number): number {
+  if (verseCount <= 2) return 24;
+  if (verseCount <= 4) return 19;
+  return 15;
+}
+
 export const VerseShareModal: React.FC<VerseShareModalProps> = ({
   poem,
   initialVerseIndex,
@@ -21,6 +42,7 @@ export const VerseShareModal: React.FC<VerseShareModalProps> = ({
   const [rangeEnd, setRangeEnd] = useState(initialVerseIndex);
   const [isExporting, setIsExporting] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
+  const [isSharing, setIsSharing] = useState<"native" | "whatsapp" | "telegram" | null>(null);
   const cardRef = useRef<HTMLDivElement | null>(null);
 
   const verses = useMemo(
@@ -33,30 +55,86 @@ export const VerseShareModal: React.FC<VerseShareModalProps> = ({
   const canExtendDown = rangeEnd < poem.verses.length - 1 && verseCount < MAX_VERSES_IN_CARD;
   const canShrink = verseCount > 1;
 
-  // Verse typography/spacing scale down as more verses are added so a
-  // full 6-verse range still fits comfortably without being clipped by a
-  // fixed card height. The card's height is intrinsic (not a fixed aspect
-  // ratio), so it grows with content -- this scaling just keeps larger
-  // selections visually balanced rather than absurdly tall.
-  const density =
-    verseCount <= 2
-      ? { textClass: "text-lg md:text-2xl", leadingClass: "leading-[1.9]", gapClass: "gap-5 md:gap-6", rowGapClass: "gap-2" }
-      : verseCount <= 4
-      ? { textClass: "text-base md:text-xl", leadingClass: "leading-[1.7]", gapClass: "gap-3.5 md:gap-4", rowGapClass: "gap-1.5" }
-      : { textClass: "text-sm md:text-base", leadingClass: "leading-[1.5]", gapClass: "gap-2.5 md:gap-3", rowGapClass: "gap-1" };
+  // User-adjustable typography for the exported card. The size resets to a
+  // sensible default whenever the verse count changes (more verses -> a
+  // smaller default so a 6-verse card still fits comfortably), but once the
+  // user drags the slider for a given range, their choice sticks.
+  const [cardFontSize, setCardFontSize] = useState(() => defaultCardFontSize(verseCount));
+  const [cardFontOption, setCardFontOption] = useState(CARD_FONT_OPTIONS[0].value);
+  const lastAutoVerseCount = useRef(verseCount);
+  if (lastAutoVerseCount.current !== verseCount) {
+    lastAutoVerseCount.current = verseCount;
+    // Re-derive the default only on range-size changes, not on every render.
+    // (Kept as a plain conditional instead of useEffect so the new size is
+    // ready before the card re-renders with the new verse list.)
+    const nextDefault = defaultCardFontSize(verseCount);
+    if (cardFontSize !== nextDefault) setCardFontSize(nextDefault);
+  }
+
+  const cardFontFamily =
+    CARD_FONT_OPTIONS.find((opt) => opt.value === cardFontOption)?.family ?? CARD_FONT_OPTIONS[0].family;
+
+  const rowGapClass = verseCount <= 2 ? "gap-2" : verseCount <= 4 ? "gap-1.5" : "gap-1";
+  const gapClass = verseCount <= 2 ? "gap-5 md:gap-6" : verseCount <= 4 ? "gap-3.5 md:gap-4" : "gap-2.5 md:gap-3";
+  const leadingClass = verseCount <= 2 ? "leading-[1.9]" : verseCount <= 4 ? "leading-[1.7]" : "leading-[1.5]";
+
+  const cardFilename = `${poem.title}-${poem.poet.name}`;
+  const shareCaption = `${poem.title} - ${poem.poet.name}\n\n${verses
+    .map((v) => `${v.firstHemistich} ${v.secondHemistich}`)
+    .join("\n")}`;
 
   const handleDownload = async () => {
     if (!cardRef.current) return;
     setIsExporting(true);
     setExportError(null);
-    const filename = `${poem.title}-${poem.poet.name}`;
-    const result = await exportCardNodeToPng(cardRef.current, filename);
+    const result = await exportCardNodeToPng(cardRef.current, cardFilename);
     setIsExporting(false);
     if (!result.success && result.error !== "cancelled") {
       setExportError("تعذّر إنشاء الصورة. يرجى المحاولة مرة أخرى.");
     } else if (result.success) {
       onClose();
     }
+  };
+
+  // Native OS share sheet (WhatsApp, Telegram, Mail, AirDrop, etc. depending
+  // on platform) with the actual rendered image attached, when supported.
+  const canShareNatively =
+    typeof navigator !== "undefined" &&
+    typeof navigator.share === "function" &&
+    typeof navigator.canShare === "function";
+
+  const handleNativeShare = async () => {
+    if (!cardRef.current) return;
+    setIsSharing("native");
+    setExportError(null);
+    try {
+      const file = await buildCardPngFile(cardRef.current, cardFilename);
+      if (navigator.canShare({ files: [file] })) {
+        await navigator.share({ files: [file], title: poem.title, text: shareCaption });
+      } else {
+        await navigator.share({ title: poem.title, text: shareCaption });
+      }
+    } catch (err) {
+      // AbortError just means the user closed the share sheet -- not a failure.
+      if (!(err instanceof Error) || err.name !== "AbortError") {
+        setExportError("تعذّرت المشاركة. يمكنك تنزيل الصورة ومشاركتها يدويًا.");
+      }
+    } finally {
+      setIsSharing(null);
+    }
+  };
+
+  // WhatsApp/Telegram web share only accept text (not raw image bytes) via
+  // URL, so these open a pre-filled share dialog with the verse text; the
+  // image itself is shared via the download or the native share sheet above.
+  const handleWhatsAppShare = () => {
+    const url = `https://wa.me/?text=${encodeURIComponent(shareCaption)}`;
+    window.open(url, "_blank", "noopener,noreferrer");
+  };
+
+  const handleTelegramShare = () => {
+    const url = `https://t.me/share/url?url=&text=${encodeURIComponent(shareCaption)}`;
+    window.open(url, "_blank", "noopener,noreferrer");
   };
 
   return (
@@ -116,11 +194,43 @@ export const VerseShareModal: React.FC<VerseShareModalProps> = ({
           )}
         </div>
 
+        {/* Typography controls for the exported card */}
+        <div className="px-6 pt-4 flex flex-col sm:flex-row items-stretch sm:items-center gap-3 shrink-0">
+          <div className="flex-1 flex items-center gap-2 bg-charcoal-900 border border-white/5 rounded-xl px-3 py-2">
+            <label className="text-[11px] font-bold text-ink-600 font-sans shrink-0">حجم الخط</label>
+            <input
+              type="range"
+              min={MIN_CARD_FONT_SIZE}
+              max={MAX_CARD_FONT_SIZE}
+              step={1}
+              value={cardFontSize}
+              onChange={(e) => setCardFontSize(Number(e.target.value))}
+              className="flex-1 accent-accent-700 cursor-pointer"
+            />
+            <span className="text-[11px] font-mono font-bold text-ink-500 w-7 text-center">{cardFontSize}</span>
+          </div>
+          <div className="flex items-center gap-2 bg-charcoal-900 border border-white/5 rounded-xl px-3 py-2">
+            <label className="text-[11px] font-bold text-ink-600 font-sans shrink-0">نوع الخط</label>
+            <select
+              value={cardFontOption}
+              onChange={(e) => setCardFontOption(e.target.value)}
+              className="bg-transparent text-parchment-100 text-[12px] font-bold focus:outline-none cursor-pointer"
+            >
+              {CARD_FONT_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value} className="bg-charcoal-900">
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
         {/* Card preview (this exact node is rasterized to PNG) */}
         <div className="p-6 overflow-y-auto flex-1">
           <div
             ref={cardRef}
             className="relative w-full min-h-[420px] rounded-3xl overflow-hidden bg-gradient-to-br from-charcoal-950 via-charcoal-900 to-charcoal-950 border border-accent-700/30 flex flex-col items-center justify-center px-8 py-10 text-center shadow-2xl"
+            style={{ fontFamily: cardFontFamily }}
           >
             {/* Decorative corner ornaments */}
             <div className="absolute top-5 left-5 w-10 h-10 border-t-2 border-l-2 border-accent-700/50 rounded-tl-xl" />
@@ -128,31 +238,25 @@ export const VerseShareModal: React.FC<VerseShareModalProps> = ({
             <div className="absolute bottom-5 left-5 w-10 h-10 border-b-2 border-l-2 border-accent-700/50 rounded-bl-xl" />
             <div className="absolute bottom-5 right-5 w-10 h-10 border-b-2 border-r-2 border-accent-700/50 rounded-br-xl" />
 
-            <h2 className="font-poetry text-xl md:text-2xl font-bold text-accent-700/90 mb-1">
+            <h2 className="text-xl md:text-2xl font-bold text-accent-700/90 mb-1" style={{ fontFamily: cardFontFamily }}>
               {poem.title}
             </h2>
             <span className="text-[11px] font-sans font-bold text-ink-500 mb-8 tracking-wide">
               {poem.poet.name}
             </span>
 
-            <div className={cn("flex flex-col w-full", density.gapClass)}>
+            <div className={cn("flex flex-col w-full", gapClass)}>
               {verses.map((verse) => (
-                <div key={verse.id} className={cn("flex flex-col", density.rowGapClass)}>
+                <div key={verse.id} className={cn("flex flex-col", rowGapClass)}>
                   <p
-                    className={cn(
-                      "font-poetry text-center text-parchment-100 font-bold text-shadow-gold",
-                      density.textClass,
-                      density.leadingClass
-                    )}
+                    className={cn("text-center text-parchment-100 font-bold text-shadow-gold", leadingClass)}
+                    style={{ fontFamily: cardFontFamily, fontSize: `${cardFontSize}px` }}
                   >
                     {verse.firstHemistich}
                   </p>
                   <p
-                    className={cn(
-                      "font-poetry text-center text-parchment-100 font-bold text-shadow-gold",
-                      density.textClass,
-                      density.leadingClass
-                    )}
+                    className={cn("text-center text-parchment-100 font-bold text-shadow-gold", leadingClass)}
+                    style={{ fontFamily: cardFontFamily, fontSize: `${cardFontSize}px` }}
                   >
                     {verse.secondHemistich}
                   </p>
@@ -169,20 +273,53 @@ export const VerseShareModal: React.FC<VerseShareModalProps> = ({
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-4 border-t border-white/5 bg-charcoal-850 flex items-center justify-between gap-3 shrink-0">
-          {exportError ? (
+        <div className="px-6 py-4 border-t border-white/5 bg-charcoal-850 flex flex-col gap-3 shrink-0">
+          {exportError && (
             <span className="text-[12px] font-bold text-crimson-500 font-ui">{exportError}</span>
-          ) : (
-            <span className="text-[12px] font-bold text-ink-600 font-ui">صورة بجودة عالية جاهزة للمشاركة</span>
           )}
-          <button
-            onClick={handleDownload}
-            disabled={isExporting}
-            className="shrink-0 flex items-center gap-2 px-5 py-2.5 bg-accent-700 hover:bg-accent-600 text-charcoal-950 text-[14px] font-bold transition-colors rounded-2xl font-ui disabled:opacity-60 cursor-pointer"
-          >
-            {isExporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
-            تنزيل الصورة
-          </button>
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleWhatsAppShare}
+                title="مشاركة عبر واتساب"
+                className="p-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-ink-500 hover:text-parchment-100 border border-white/10 transition-all cursor-pointer"
+              >
+                <MessageCircle className="w-4 h-4" />
+              </button>
+              <button
+                type="button"
+                onClick={handleTelegramShare}
+                title="مشاركة عبر تيليجرام"
+                className="p-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-ink-500 hover:text-parchment-100 border border-white/10 transition-all cursor-pointer"
+              >
+                <Send className="w-4 h-4" />
+              </button>
+              {canShareNatively && (
+                <button
+                  type="button"
+                  onClick={handleNativeShare}
+                  disabled={isSharing === "native"}
+                  title="مشاركة عبر تطبيقات أخرى"
+                  className="p-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-ink-500 hover:text-parchment-100 border border-white/10 transition-all cursor-pointer disabled:opacity-60"
+                >
+                  {isSharing === "native" ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Share2 className="w-4 h-4" />
+                  )}
+                </button>
+              )}
+            </div>
+            <button
+              onClick={handleDownload}
+              disabled={isExporting}
+              className="shrink-0 flex items-center gap-2 px-5 py-2.5 bg-accent-700 hover:bg-accent-600 text-charcoal-950 text-[14px] font-bold transition-colors rounded-2xl font-ui disabled:opacity-60 cursor-pointer"
+            >
+              {isExporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+              تنزيل الصورة
+            </button>
+          </div>
         </div>
       </div>
     </div>

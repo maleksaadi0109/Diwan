@@ -199,6 +199,9 @@ fn resolve_bundled_models_dir(_app: &AppHandle) -> Option<PathBuf> {
     None
 }
 
+#[cfg(target_os = "windows")]
+const CREATE_NO_WINDOW: u32 = 0x08000000;
+
 fn spawn_worker_process(app: &AppHandle, worker_dir: &PathBuf) -> Result<std::process::Child, String> {
     let ffmpeg_path = resolve_bundled_bin(app, "ffmpeg.exe");
     let ffprobe_path = resolve_bundled_bin(app, "ffprobe.exe");
@@ -211,7 +214,11 @@ fn spawn_worker_process(app: &AppHandle, worker_dir: &PathBuf) -> Result<std::pr
     // source path below.
     if let Some(frozen_exe) = resolve_frozen_worker_exe(app) {
         let mut command = Command::new(&frozen_exe);
-        hide_console_window(&mut command);
+        #[cfg(target_os = "windows")]
+        {
+            use std::os::windows::process::CommandExt;
+            command.creation_flags(CREATE_NO_WINDOW);
+        }
         command
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
@@ -247,7 +254,11 @@ fn spawn_worker_process(app: &AppHandle, worker_dir: &PathBuf) -> Result<std::pr
         args.extend(["-m", "diwan_worker.cli"]);
 
         let mut command = Command::new(cmd);
-        hide_console_window(&mut command);
+        #[cfg(target_os = "windows")]
+        {
+            use std::os::windows::process::CommandExt;
+            command.creation_flags(CREATE_NO_WINDOW);
+        }
         command
             .args(&args)
             .env("PYTHONPATH", worker_dir)
