@@ -8,9 +8,6 @@
     "scheme": "mobile",
     "userInterfaceStyle": "dark",
     "backgroundColor": "#0a0b0e",
-    "splash": {
-      "backgroundColor": "#0a0b0e"
-    },
     "ios": {
       "supportsTablet": false
     },
@@ -28,7 +25,8 @@
           "enableBackgroundPlayback": true
         }
       ],
-      "expo-sharing"
+      "expo-sharing",
+      "expo-asset"
     ],
     "experiments": {
       "typedRoutes": true,
