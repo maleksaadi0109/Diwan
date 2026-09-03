@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
 import multer from "multer";
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
-import { createReadStream, existsSync } from "node:fs";
+import { createReadStream, existsSync, statSync } from "node:fs";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
@@ -472,8 +472,38 @@ router.get("/youtube/audio/:jobId/:fileName", (req, res): void => {
     return;
   }
 
+  const fileSize = statSync(resolvedPath).size;
+  const range = req.headers.range;
   res.type(fileName.endsWith(".wav") ? "audio/wav" : "audio/mpeg");
-  createReadStream(resolvedPath).pipe(res);
+  res.setHeader("Accept-Ranges", "bytes");
+
+  if (!range) {
+    res.setHeader("Content-Length", fileSize);
+    createReadStream(resolvedPath).pipe(res);
+    return;
+  }
+
+  const match = /^bytes=(\d*)-(\d*)$/.exec(range);
+  if (!match) {
+    res.status(416).setHeader("Content-Range", `bytes */${fileSize}`);
+    res.end();
+    return;
+  }
+
+  const start = match[1] ? Number.parseInt(match[1], 10) : 0;
+  const requestedEnd = match[2] ? Number.parseInt(match[2], 10) : fileSize - 1;
+  const end = Math.min(requestedEnd, fileSize - 1);
+
+  if (start < 0 || start >= fileSize || end < start) {
+    res.status(416).setHeader("Content-Range", `bytes */${fileSize}`);
+    res.end();
+    return;
+  }
+
+  res.status(206);
+  res.setHeader("Content-Range", `bytes ${start}-${end}/${fileSize}`);
+  res.setHeader("Content-Length", end - start + 1);
+  createReadStream(resolvedPath, { start, end }).pipe(res);
 });
 
 export default router;

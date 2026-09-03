@@ -45,6 +45,7 @@ export default function PoemPlayerScreen() {
   const [newPlaylistName, setNewPlaylistName] = useState('');
   const [shareVerseIndex, setShareVerseIndex] = useState<number | null>(null);
   const [playerExpanded, setPlayerExpanded] = useState(true);
+  const [pendingVerseSeekMs, setPendingVerseSeekMs] = useState<number | null>(null);
 
   const poem = getPoem(id);
 
@@ -80,6 +81,13 @@ export default function PoemPlayerScreen() {
   React.useEffect(() => {
     if (poem?.recording) loadPoem(poem);
   }, [poem, loadPoem]);
+
+  React.useEffect(() => {
+    if (pendingVerseSeekMs === null || !status.isLoaded) return;
+    const targetMs = pendingVerseSeekMs;
+    setPendingVerseSeekMs(null);
+    void player.seekTo(targetMs / 1000).then(() => player.play());
+  }, [pendingVerseSeekMs, player, status.isLoaded]);
 
   const currentMs = (status.currentTime ?? 0) * 1000;
   const durationMs =
@@ -158,14 +166,19 @@ export default function PoemPlayerScreen() {
     player.seekTo((ratio * durationMs) / 1000);
   };
 
-  const seekToVerse = (startMs: number) => {
-    player.seekTo(startMs / 1000);
-    if (!status.playing) player.play();
+  const seekToVerse = async (startMs: number) => {
+    if (!status.isLoaded) {
+      setPendingVerseSeekMs(startMs);
+      loadPoem(poem);
+      return;
+    }
+    await player.seekTo(startMs / 1000);
+    player.play();
   };
 
-  const seekToAdjacentVerse = (direction: -1 | 1) => {
+  const seekToAdjacentVerse = async (direction: -1 | 1) => {
     const target = timedVerses[verseNavigationIndex + direction];
-    if (target?.alignment) seekToVerse(target.alignment.startMs);
+    if (target?.alignment) await seekToVerse(target.alignment.startMs);
   };
 
   const handleDelete = () => {
