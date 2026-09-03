@@ -25,6 +25,49 @@ const CARD_FONT_OPTIONS: { value: string; label: string; family: string }[] = [
 const MIN_CARD_FONT_SIZE = 14;
 const MAX_CARD_FONT_SIZE = 34;
 
+const CARD_THEMES = [
+  {
+    id: "ink",
+    label: "حبر",
+    background: "linear-gradient(135deg, #0f1117 0%, #151922 50%, #0f1117 100%)",
+    swatch: "#151922",
+    foreground: "#f5ebdd",
+    accent: "#d3ad3d",
+    border: "rgba(211, 173, 61, 0.38)",
+    muted: "#8f8a82",
+  },
+  {
+    id: "paper",
+    label: "ورق",
+    background: "linear-gradient(135deg, #f6ecd8 0%, #e8d4ad 50%, #f3e5ca 100%)",
+    swatch: "#ead7b2",
+    foreground: "#2b211b",
+    accent: "#8b5e34",
+    border: "rgba(139, 94, 52, 0.46)",
+    muted: "#766451",
+  },
+  {
+    id: "midnight",
+    label: "ليل",
+    background: "linear-gradient(135deg, #09111f 0%, #132139 50%, #0a1425 100%)",
+    swatch: "#132139",
+    foreground: "#f1e8d8",
+    accent: "#d3a768",
+    border: "rgba(211, 167, 104, 0.42)",
+    muted: "#8794a8",
+  },
+  {
+    id: "olive",
+    label: "زيتون",
+    background: "linear-gradient(135deg, #111a15 0%, #243328 50%, #151f19 100%)",
+    swatch: "#243328",
+    foreground: "#efe8d9",
+    accent: "#c6a15b",
+    border: "rgba(198, 161, 91, 0.42)",
+    muted: "#94a093",
+  },
+] as const;
+
 // Base sizes (px) mirroring the previous density-derived Tailwind classes,
 // used as the default before the user drags the size slider.
 function defaultCardFontSize(verseCount: number): number {
@@ -61,6 +104,7 @@ export const VerseShareModal: React.FC<VerseShareModalProps> = ({
   // user drags the slider for a given range, their choice sticks.
   const [cardFontSize, setCardFontSize] = useState(() => defaultCardFontSize(verseCount));
   const [cardFontOption, setCardFontOption] = useState(CARD_FONT_OPTIONS[0].value);
+  const [cardThemeId, setCardThemeId] = useState<(typeof CARD_THEMES)[number]["id"]>("ink");
   const lastAutoVerseCount = useRef(verseCount);
   if (lastAutoVerseCount.current !== verseCount) {
     lastAutoVerseCount.current = verseCount;
@@ -73,6 +117,7 @@ export const VerseShareModal: React.FC<VerseShareModalProps> = ({
 
   const cardFontFamily =
     CARD_FONT_OPTIONS.find((opt) => opt.value === cardFontOption)?.family ?? CARD_FONT_OPTIONS[0].family;
+  const cardTheme = CARD_THEMES.find((theme) => theme.id === cardThemeId) ?? CARD_THEMES[0];
 
   const rowGapClass = verseCount <= 2 ? "gap-2" : verseCount <= 4 ? "gap-1.5" : "gap-1";
   const gapClass = verseCount <= 2 ? "gap-5 md:gap-6" : verseCount <= 4 ? "gap-3.5 md:gap-4" : "gap-2.5 md:gap-3";
@@ -229,19 +274,23 @@ export const VerseShareModal: React.FC<VerseShareModalProps> = ({
         <div className="p-6 overflow-y-auto flex-1">
           <div
             ref={cardRef}
-            className="relative w-full min-h-[420px] rounded-3xl overflow-hidden bg-gradient-to-br from-charcoal-950 via-charcoal-900 to-charcoal-950 border border-accent-700/30 flex flex-col items-center justify-center px-8 py-10 text-center shadow-2xl"
-            style={{ fontFamily: cardFontFamily }}
+            className="relative w-full min-h-[420px] rounded-3xl overflow-hidden border flex flex-col items-center justify-center px-8 py-10 text-center shadow-2xl"
+            style={{
+              fontFamily: cardFontFamily,
+              background: cardTheme.background,
+              borderColor: cardTheme.border,
+            }}
           >
             {/* Decorative corner ornaments */}
-            <div className="absolute top-5 left-5 w-10 h-10 border-t-2 border-l-2 border-accent-700/50 rounded-tl-xl" />
-            <div className="absolute top-5 right-5 w-10 h-10 border-t-2 border-r-2 border-accent-700/50 rounded-tr-xl" />
-            <div className="absolute bottom-5 left-5 w-10 h-10 border-b-2 border-l-2 border-accent-700/50 rounded-bl-xl" />
-            <div className="absolute bottom-5 right-5 w-10 h-10 border-b-2 border-r-2 border-accent-700/50 rounded-br-xl" />
+            <div className="absolute top-5 left-5 w-10 h-10 border-t-2 border-l-2 rounded-tl-xl" style={{ borderColor: cardTheme.accent }} />
+            <div className="absolute top-5 right-5 w-10 h-10 border-t-2 border-r-2 rounded-tr-xl" style={{ borderColor: cardTheme.accent }} />
+            <div className="absolute bottom-5 left-5 w-10 h-10 border-b-2 border-l-2 rounded-bl-xl" style={{ borderColor: cardTheme.accent }} />
+            <div className="absolute bottom-5 right-5 w-10 h-10 border-b-2 border-r-2 rounded-br-xl" style={{ borderColor: cardTheme.accent }} />
 
-            <h2 className="text-xl md:text-2xl font-bold text-accent-700/90 mb-1" style={{ fontFamily: cardFontFamily }}>
+            <h2 className="text-xl md:text-2xl font-bold mb-1" style={{ fontFamily: cardFontFamily, color: cardTheme.accent }}>
               {poem.title}
             </h2>
-            <span className="text-[11px] font-sans font-bold text-ink-500 mb-8 tracking-wide">
+            <span className="text-[11px] font-sans font-bold mb-8 tracking-wide" style={{ color: cardTheme.muted }}>
               {poem.poet.name}
             </span>
 
@@ -249,14 +298,14 @@ export const VerseShareModal: React.FC<VerseShareModalProps> = ({
               {verses.map((verse) => (
                 <div key={verse.id} className={cn("flex flex-col", rowGapClass)}>
                   <p
-                    className={cn("text-center text-parchment-100 font-bold text-shadow-gold", leadingClass)}
-                    style={{ fontFamily: cardFontFamily, fontSize: `${cardFontSize}px` }}
+                    className={cn("text-center font-bold text-shadow-gold", leadingClass)}
+                    style={{ fontFamily: cardFontFamily, fontSize: `${cardFontSize}px`, color: cardTheme.foreground }}
                   >
                     {verse.firstHemistich}
                   </p>
                   <p
-                    className={cn("text-center text-parchment-100 font-bold text-shadow-gold", leadingClass)}
-                    style={{ fontFamily: cardFontFamily, fontSize: `${cardFontSize}px` }}
+                    className={cn("text-center font-bold text-shadow-gold", leadingClass)}
+                    style={{ fontFamily: cardFontFamily, fontSize: `${cardFontSize}px`, color: cardTheme.foreground }}
                   >
                     {verse.secondHemistich}
                   </p>
@@ -264,10 +313,49 @@ export const VerseShareModal: React.FC<VerseShareModalProps> = ({
               ))}
             </div>
 
-            <div className="mt-10 flex items-center gap-2 text-ink-600">
-              <div className="w-8 h-px bg-ink-600/50" />
+            <div className="mt-10 flex items-center gap-2" style={{ color: cardTheme.muted }}>
+              <div className="w-8 h-px" style={{ backgroundColor: cardTheme.border }} />
               <span className="text-[10px] font-sans font-bold tracking-[0.2em]">ديوان</span>
-              <div className="w-8 h-px bg-ink-600/50" />
+              <div className="w-8 h-px" style={{ backgroundColor: cardTheme.border }} />
+            </div>
+          </div>
+        </div>
+
+        {/* Background is the final customization option before export */}
+        <div className="px-6 pb-4 shrink-0">
+          <div className="flex items-center justify-between gap-4 rounded-xl border border-white/5 bg-white/[0.025] px-4 py-3">
+            <span className="text-[11px] font-bold text-ink-500 font-sans">الخلفية</span>
+            <div className="flex items-center gap-3">
+              {CARD_THEMES.map((theme) => {
+                const selected = theme.id === cardTheme.id;
+                return (
+                  <button
+                    key={theme.id}
+                    type="button"
+                    onClick={() => setCardThemeId(theme.id)}
+                    title={`خلفية ${theme.label}`}
+                    aria-label={`خلفية ${theme.label}`}
+                    className={cn(
+                      "flex flex-col items-center gap-1 text-[10px] font-bold transition-colors cursor-pointer",
+                      selected ? "text-accent-700" : "text-ink-600 hover:text-parchment-100"
+                    )}
+                  >
+                    <span
+                      className={cn(
+                        "grid h-7 w-7 place-items-center rounded-full border-2 transition-transform",
+                        selected && "scale-110"
+                      )}
+                      style={{
+                        backgroundColor: theme.swatch,
+                        borderColor: selected ? theme.accent : "rgba(255,255,255,0.16)",
+                      }}
+                    >
+                      {selected && <span className="h-2 w-2 rounded-full" style={{ backgroundColor: theme.accent }} />}
+                    </span>
+                    {theme.label}
+                  </button>
+                );
+              })}
             </div>
           </div>
         </div>
