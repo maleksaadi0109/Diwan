@@ -288,14 +288,14 @@ export default function PoemPlayerScreen() {
         <Text style={[styles.title, { color: colors.foreground }]}>
           {poem.title}
         </Text>
-        <Text style={[styles.poet, { color: colors.mutedForeground }]}>
+        <Text style={[styles.poet, { color: colors.primary }]}>
           {poem.poetName}
         </Text>
       </View>
 
       <ScrollView
         style={styles.versesScroll}
-        contentContainerStyle={{ paddingBottom: 24 }}
+        contentContainerStyle={{ paddingBottom: poem.recording ? 24 : 24 + bottomInset }}
       >
         {poem.verses.map((verse) => {
           const isActive = verse.id === activeVerseId;
@@ -574,7 +574,7 @@ export default function PoemPlayerScreen() {
             ref={focusScrollRef}
             contentContainerStyle={styles.focusScrollContent}
           >
-            <Text style={[styles.focusPoemTitle, { color: colors.primary }]}>
+            <Text style={[styles.focusPoemTitle, { color: colors.foreground }]}>
               {poem.title}
             </Text>
             {poem.verses.map((verse) => {
@@ -748,39 +748,42 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   topBar: {
-    flexDirection: 'row',
+    flexDirection: 'row-reverse',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingBottom: 8,
+    alignItems: 'center',
+    paddingHorizontal: 24,
+    paddingBottom: 12,
   },
   topBarActions: {
-    flexDirection: 'row',
+    flexDirection: 'row-reverse',
     alignItems: 'center',
-    gap: 18,
+    gap: 20,
   },
   boundaryButton: {
     flexDirection: 'row-reverse',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
-    marginTop: 4,
+    gap: 8,
+    marginTop: 8,
   },
   boundaryButtonText: {
-    fontSize: 12,
-    fontFamily: 'Cairo_400Regular',
+    fontSize: 13,
+    fontFamily: 'Cairo_600SemiBold',
   },
   modalOverlay: {
     flex: 1,
     justifyContent: 'flex-end',
-    backgroundColor: 'rgba(0,0,0,0.4)',
+    backgroundColor: 'rgba(0,0,0,0.6)',
   },
   modalCard: {
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    paddingTop: 16,
-    paddingHorizontal: 20,
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    borderWidth: 1,
+    borderBottomWidth: 0,
+    paddingTop: 20,
+    paddingHorizontal: 24,
     maxHeight: '75%',
-    gap: 14,
+    gap: 16,
   },
   modalHeader: {
     flexDirection: 'row-reverse',
@@ -788,39 +791,40 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   modalTitle: {
-    fontSize: 17,
+    fontSize: 18,
     fontFamily: 'Cairo_700Bold',
     textAlign: 'right',
   },
   modalList: {
-    maxHeight: 260,
+    maxHeight: 300,
   },
   modalEmpty: {
-    fontSize: 14,
+    fontSize: 15,
     fontFamily: 'Cairo_400Regular',
     textAlign: 'center',
-    paddingVertical: 20,
+    paddingVertical: 24,
   },
   modalRow: {
     flexDirection: 'row-reverse',
     alignItems: 'center',
-    gap: 10,
-    paddingVertical: 12,
-    borderBottomWidth: StyleSheet.hairlineWidth,
+    gap: 12,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
   },
   modalRowText: {
-    fontSize: 15,
+    fontSize: 16,
     fontFamily: 'Cairo_400Regular',
     textAlign: 'right',
   },
   createRow: {
     flexDirection: 'row-reverse',
     alignItems: 'center',
-    gap: 8,
-    borderRadius: 12,
-    borderWidth: StyleSheet.hairlineWidth,
-    paddingHorizontal: 14,
-    height: 44,
+    gap: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    paddingHorizontal: 16,
+    height: 52,
+    marginBottom: 20,
   },
   createInput: {
     flex: 1,
@@ -830,28 +834,28 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   focusTopBar: {
-    flexDirection: 'row',
+    flexDirection: 'row-reverse',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingBottom: 8,
+    paddingHorizontal: 24,
+    paddingBottom: 12,
   },
   focusFontControls: {
-    flexDirection: 'row',
-    gap: 16,
+    flexDirection: 'row-reverse',
+    gap: 20,
   },
   focusScrollContent: {
     paddingHorizontal: 24,
-    paddingTop: 20,
+    paddingTop: 24,
     alignItems: 'center',
   },
   focusPoemTitle: {
-    fontSize: 20,
+    fontSize: 26,
     fontFamily: 'Amiri_700Bold',
-    marginBottom: 24,
+    marginBottom: 32,
     textAlign: 'center',
   },
   focusVerseRow: {
-    paddingVertical: 14,
+    paddingVertical: 18,
     width: '100%',
     alignItems: 'center',
   },
@@ -859,37 +863,43 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   focusVerseDivider: {
-    paddingVertical: 4,
+    paddingVertical: 8,
   },
   focusPlayButton: {
     position: 'absolute',
     bottom: 40,
     alignSelf: 'center',
-    width: 60,
-    height: 60,
-    borderRadius: 30,
+    width: 64,
+    height: 64,
+    borderRadius: 32,
     alignItems: 'center',
     justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 10,
+    elevation: 8,
   },
   headerText: {
-    paddingHorizontal: 20,
-    paddingBottom: 12,
-    gap: 2,
+    paddingHorizontal: 24,
+    paddingBottom: 20,
+    gap: 4,
   },
   coverImage: {
     width: '100%',
-    height: 210,
-    borderRadius: 16,
-    marginBottom: 12,
+    height: 240,
+    borderRadius: 8,
+    marginBottom: 16,
   },
   title: {
-    fontSize: 22,
+    fontSize: 28,
     fontFamily: 'Amiri_700Bold',
     textAlign: 'right',
+    lineHeight: 40,
   },
   poet: {
-    fontSize: 14,
-    fontFamily: 'Cairo_400Regular',
+    fontSize: 16,
+    fontFamily: 'Cairo_600SemiBold',
     textAlign: 'right',
   },
   versesScroll: {
@@ -897,11 +907,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   verseCard: {
-    paddingVertical: 14,
-    paddingHorizontal: 14,
-    borderRadius: 16,
-    borderWidth: StyleSheet.hairlineWidth,
-    marginBottom: 10,
+    paddingVertical: 20,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    borderWidth: 1,
+    marginBottom: 12,
   },
   verseMetaRow: {
     flexDirection: 'row-reverse',
@@ -911,40 +921,40 @@ const styles = StyleSheet.create({
   verseMetaBadges: {
     flexDirection: 'row-reverse',
     alignItems: 'center',
-    gap: 6,
+    gap: 8,
   },
   verseNumberBadge: {
-    width: 24,
-    height: 24,
+    width: 28,
+    height: 28,
     borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: StyleSheet.hairlineWidth,
+    borderWidth: 1,
   },
   verseNumberText: {
-    fontSize: 11,
+    fontSize: 12,
     fontFamily: 'Cairo_700Bold',
   },
   verseTimeBadge: {
     flexDirection: 'row-reverse',
     alignItems: 'center',
-    gap: 4,
-    borderWidth: StyleSheet.hairlineWidth,
+    gap: 6,
+    borderWidth: 1,
     borderRadius: 8,
-    paddingHorizontal: 6,
-    paddingVertical: 3,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
   },
   verseTimeText: {
-    fontSize: 10,
-    fontFamily: 'Cairo_400Regular',
+    fontSize: 11,
+    fontFamily: 'Cairo_600SemiBold',
   },
   verseHemistichBlock: {
     alignItems: 'center',
-    marginTop: 12,
-    gap: 2,
+    marginTop: 16,
+    gap: 4,
   },
   verseDivider: {
-    paddingVertical: 6,
+    paddingVertical: 8,
   },
   verseText: {
     fontFamily: 'Amiri_400Regular',
@@ -953,54 +963,59 @@ const styles = StyleSheet.create({
   verseActionsRow: {
     flexDirection: 'row-reverse',
     justifyContent: 'flex-start',
-    gap: 16,
+    gap: 20,
   },
   verseEditRow: {
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    borderRadius: 10,
-    marginBottom: 4,
-    borderWidth: StyleSheet.hairlineWidth,
-    gap: 8,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    marginBottom: 12,
+    borderWidth: 1,
+    gap: 12,
   },
   verseEditInput: {
     textAlignVertical: 'top',
-    minHeight: 60,
+    minHeight: 80,
   },
   verseEditActions: {
-    flexDirection: 'row',
+    flexDirection: 'row-reverse',
     justifyContent: 'flex-start',
-    gap: 20,
+    gap: 24,
   },
   verseEditAction: {
-    fontSize: 13,
+    fontSize: 14,
     fontFamily: 'Cairo_700Bold',
   },
   playerBar: {
-    paddingHorizontal: 20,
-    paddingTop: 12,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    gap: 10,
+    paddingHorizontal: 24,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    gap: 12,
   },
   timeRow: {
     flexDirection: 'row-reverse',
     justifyContent: 'space-between',
   },
   timeText: {
-    fontSize: 11,
-    fontFamily: 'Cairo_400Regular',
+    fontSize: 12,
+    fontFamily: 'Cairo_600SemiBold',
   },
   controlsRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 32,
+    gap: 40,
   },
   playButton: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: 64,
+    height: 64,
+    borderRadius: 32,
     alignItems: 'center',
     justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 6,
   },
 });
