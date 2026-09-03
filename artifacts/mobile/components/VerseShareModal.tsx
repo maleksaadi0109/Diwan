@@ -12,11 +12,56 @@ import * as Sharing from 'expo-sharing';
 import ViewShot from 'react-native-view-shot';
 import { Feather } from '@expo/vector-icons';
 import { useColors } from '@/hooks/useColors';
+import { splitHemistichs } from '@/lib/utils';
 import type { Poem } from '@/lib/types';
 
 const MAX_VERSES_IN_CARD = 6;
 const MIN_CARD_FONT_SIZE = 14;
 const MAX_CARD_FONT_SIZE = 30;
+
+interface CardTheme {
+  id: string;
+  label: string;
+  background: string;
+  foreground: string;
+  accent: string;
+  border: string;
+}
+
+const CARD_THEMES: CardTheme[] = [
+  {
+    id: 'ink',
+    label: 'حبر',
+    background: '#181311',
+    foreground: '#F5EBDD',
+    accent: '#C79A5E',
+    border: '#5D4936',
+  },
+  {
+    id: 'paper',
+    label: 'ورق',
+    background: '#F2E5CB',
+    foreground: '#2B211B',
+    accent: '#8B5E34',
+    border: '#C8B28E',
+  },
+  {
+    id: 'midnight',
+    label: 'ليل',
+    background: '#101827',
+    foreground: '#F1E8D8',
+    accent: '#D3A768',
+    border: '#35445E',
+  },
+  {
+    id: 'olive',
+    label: 'زيتون',
+    background: '#18201B',
+    foreground: '#EFE8D9',
+    accent: '#C6A15B',
+    border: '#405043',
+  },
+];
 
 function defaultCardFontSize(verseCount: number): number {
   if (verseCount <= 2) return 22;
@@ -55,7 +100,7 @@ async function downloadWebVerseCard(
   poem: Poem,
   verses: Poem['verses'],
   fontSize: number,
-  colors: { background: string; foreground: string; primary: string; border: string },
+  theme: CardTheme,
 ) {
   const browserWindow = globalThis.window;
   const document = globalThis.document;
@@ -63,7 +108,13 @@ async function downloadWebVerseCard(
     throw new Error('Web image export is unavailable');
   }
 
-  const verseLines = verses.flatMap((verse) => wrapArabicText(verse.text, 42));
+  const verseLines = verses.flatMap((verse) => {
+    const { first, second } = splitHemistichs(verse.text);
+    return [
+      ...wrapArabicText(first, 42),
+      ...(second ? wrapArabicText(second, 42) : []),
+    ];
+  });
   const lineHeight = Math.max(32, fontSize * 1.7);
   const height = Math.max(520, 250 + verseLines.length * lineHeight);
   const verseMarkup = verseLines
@@ -74,14 +125,15 @@ async function downloadWebVerseCard(
     .join('');
   const svg = `
     <svg xmlns="http://www.w3.org/2000/svg" width="900" height="${height}" viewBox="0 0 900 ${height}">
-      <rect width="900" height="${height}" fill="${escapeXml(colors.background)}"/>
-      <rect x="24" y="24" width="852" height="${height - 48}" rx="12" fill="none" stroke="${escapeXml(colors.primary)}" stroke-width="4"/>
-      <text x="450" y="100" text-anchor="middle" direction="rtl" fill="${escapeXml(colors.foreground)}" font-family="Amiri, serif" font-size="34" font-weight="700">${escapeXml(poem.title)}</text>
-      <text x="450" y="145" text-anchor="middle" direction="rtl" fill="${escapeXml(colors.primary)}" font-family="Cairo, sans-serif" font-size="20">${escapeXml(poem.poetName)}</text>
-      <line x1="150" y1="175" x2="750" y2="175" stroke="${escapeXml(colors.border)}" stroke-width="2"/>
-      <g fill="${escapeXml(colors.foreground)}" font-family="Amiri, serif" font-size="${fontSize * 1.7}">${verseMarkup}</g>
-      <line x1="150" y1="${height - 72}" x2="750" y2="${height - 72}" stroke="${escapeXml(colors.border)}" stroke-width="2"/>
-      <text x="450" y="${height - 38}" text-anchor="middle" fill="${escapeXml(colors.primary)}" font-family="Cairo, sans-serif" font-size="16">ديوان</text>
+      <rect width="900" height="${height}" fill="${escapeXml(theme.background)}"/>
+      <rect x="24" y="24" width="852" height="${height - 48}" rx="12" fill="none" stroke="${escapeXml(theme.accent)}" stroke-width="4"/>
+      <circle cx="450" cy="58" r="5" fill="${escapeXml(theme.accent)}"/>
+      <text x="450" y="105" text-anchor="middle" direction="rtl" fill="${escapeXml(theme.foreground)}" font-family="Amiri_700Bold, Amiri, serif" font-size="38" font-weight="700">${escapeXml(poem.title)}</text>
+      <text x="450" y="148" text-anchor="middle" direction="rtl" fill="${escapeXml(theme.accent)}" font-family="Cairo_600SemiBold, Cairo, sans-serif" font-size="20">${escapeXml(poem.poetName)}</text>
+      <line x1="250" y1="178" x2="650" y2="178" stroke="${escapeXml(theme.border)}" stroke-width="2"/>
+      <g fill="${escapeXml(theme.foreground)}" font-family="Amiri_700Bold, Amiri, serif" font-size="${fontSize * 1.7}" font-weight="700">${verseMarkup}</g>
+      <line x1="250" y1="${height - 72}" x2="650" y2="${height - 72}" stroke="${escapeXml(theme.border)}" stroke-width="2"/>
+      <text x="450" y="${height - 38}" text-anchor="middle" fill="${escapeXml(theme.accent)}" font-family="Cairo_600SemiBold, Cairo, sans-serif" font-size="16">ديوان</text>
     </svg>
   `.trim();
 
@@ -130,6 +182,9 @@ export function VerseShareModal({
   const [rangeEnd, setRangeEnd] = useState(initialVerseIndex);
   const [isExporting, setIsExporting] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
+  const [cardThemeId, setCardThemeId] = useState(CARD_THEMES[0].id);
+  const cardTheme =
+    CARD_THEMES.find((theme) => theme.id === cardThemeId) ?? CARD_THEMES[0];
 
   const verses = useMemo(
     () => poem.verses.slice(rangeStart, rangeEnd + 1),
@@ -156,7 +211,7 @@ export function VerseShareModal({
     setExportError(null);
     try {
       if (Platform.OS === 'web') {
-        await downloadWebVerseCard(poem, verses, cardFontSize, colors);
+        await downloadWebVerseCard(poem, verses, cardFontSize, cardTheme);
         return;
       }
       if (!viewShotRef.current?.capture) {
@@ -271,41 +326,138 @@ export function VerseShareModal({
             ) : null}
           </View>
 
+          <View style={styles.themeSection}>
+            <Text style={[styles.themeLabel, { color: colors.mutedForeground }]}>
+              خلفية البطاقة
+            </Text>
+            <View style={styles.themeRow}>
+              {CARD_THEMES.map((theme) => {
+                const selected = theme.id === cardTheme.id;
+                return (
+                  <Pressable
+                    key={theme.id}
+                    onPress={() => setCardThemeId(theme.id)}
+                    style={styles.themeOption}
+                    accessibilityLabel={`خلفية ${theme.label}`}
+                    testID={`verse-share-theme-${theme.id}`}
+                  >
+                    <View
+                      style={[
+                        styles.themeSwatch,
+                        {
+                          backgroundColor: theme.background,
+                          borderColor: selected ? colors.primary : colors.border,
+                          borderWidth: selected ? 3 : 1,
+                        },
+                      ]}
+                    >
+                      {selected ? (
+                        <Feather name="check" size={14} color={theme.accent} />
+                      ) : null}
+                    </View>
+                    <Text
+                      style={[
+                        styles.themeOptionLabel,
+                        { color: selected ? colors.primary : colors.mutedForeground },
+                      ]}
+                    >
+                      {theme.label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
+
           <ScrollView style={styles.previewScroll}>
             <ViewShot
               ref={viewShotRef}
               options={{ format: 'png', quality: 1 }}
-              style={[styles.cardPreview, { backgroundColor: colors.background, borderColor: colors.primary }]}
+              style={[
+                styles.cardPreview,
+                {
+                  backgroundColor: cardTheme.background,
+                  borderColor: cardTheme.accent,
+                },
+              ]}
             >
-              <Text style={[styles.cardTitle, { color: colors.foreground }]}>
+              <View style={[styles.cardOrnament, { backgroundColor: cardTheme.accent }]} />
+              <Text style={[styles.cardTitle, { color: cardTheme.foreground }]}>
                 {poem.title}
               </Text>
-              <Text style={[styles.cardPoet, { color: colors.primary }]}>
+              <Text style={[styles.cardPoet, { color: cardTheme.accent }]}>
                 {poem.poetName}
               </Text>
+              <View
+                style={[styles.cardTitleDivider, { backgroundColor: cardTheme.border }]}
+              />
               <View style={styles.cardVerses}>
-                {verses.map((verse) => (
-                  <Text
-                    key={verse.id}
-                    style={[
-                      styles.cardVerseText,
-                      {
-                        fontSize: cardFontSize,
-                        lineHeight: cardFontSize * 1.7,
-                        color: colors.foreground,
-                      },
-                    ]}
-                  >
-                    {verse.text}
-                  </Text>
-                ))}
+                {verses.map((verse) => {
+                  const { first, second } = splitHemistichs(verse.text);
+                  return (
+                    <View key={verse.id} style={styles.cardVersePair}>
+                      <Text
+                        style={[
+                          styles.cardVerseText,
+                          {
+                            fontSize: cardFontSize,
+                            lineHeight: cardFontSize * 1.7,
+                            color: cardTheme.foreground,
+                          },
+                        ]}
+                      >
+                        {first}
+                      </Text>
+                      {second ? (
+                        <>
+                          <View style={styles.hemistichSeparator}>
+                            <View
+                              style={[
+                                styles.hemistichLine,
+                                { backgroundColor: cardTheme.border },
+                              ]}
+                            />
+                            <View
+                              style={[
+                                styles.hemistichDot,
+                                { backgroundColor: cardTheme.accent },
+                              ]}
+                            />
+                            <View
+                              style={[
+                                styles.hemistichLine,
+                                { backgroundColor: cardTheme.border },
+                              ]}
+                            />
+                          </View>
+                          <Text
+                            style={[
+                              styles.cardVerseText,
+                              {
+                                fontSize: cardFontSize,
+                                lineHeight: cardFontSize * 1.7,
+                                color: cardTheme.foreground,
+                              },
+                            ]}
+                          >
+                            {second}
+                          </Text>
+                        </>
+                      ) : null}
+                    </View>
+                  );
+                })}
               </View>
               <View style={styles.cardFooterRow}>
-                <View style={[styles.cardFooterLine, { backgroundColor: colors.border }]} />
-                <Text style={[styles.cardFooterLabel, { color: colors.mutedForeground }]}>
+                <View
+                  style={[styles.cardFooterLine, { backgroundColor: cardTheme.border }]}
+                />
+                <Text style={[styles.cardFooterLabel, { color: cardTheme.accent }]}>
                   ديوان
                 </Text>
-                <View style={[styles.cardFooterLine, { backgroundColor: colors.border }]} />
+                <View
+                  style={[styles.cardFooterLine, { backgroundColor: cardTheme.border }]}
+                />
               </View>
             </ViewShot>
           </ScrollView>
@@ -394,6 +546,35 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontFamily: 'Cairo_600SemiBold',
   },
+  themeSection: {
+    gap: 8,
+  },
+  themeLabel: {
+    fontSize: 12,
+    fontFamily: 'Cairo_600SemiBold',
+    textAlign: 'right',
+  },
+  themeRow: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  themeOption: {
+    minWidth: 52,
+    alignItems: 'center',
+    gap: 5,
+  },
+  themeSwatch: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  themeOptionLabel: {
+    fontSize: 10,
+    fontFamily: 'Cairo_600SemiBold',
+  },
   previewScroll: {
     maxHeight: 400,
   },
@@ -404,6 +585,12 @@ const styles = StyleSheet.create({
     paddingVertical: 32,
     alignItems: 'center',
   },
+  cardOrnament: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+    marginBottom: 14,
+  },
   cardTitle: {
     fontSize: 22,
     fontFamily: 'Amiri_700Bold',
@@ -413,15 +600,40 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontFamily: 'Cairo_600SemiBold',
     marginTop: 6,
+    marginBottom: 18,
+  },
+  cardTitleDivider: {
+    width: 80,
+    height: 1,
     marginBottom: 24,
   },
   cardVerses: {
-    gap: 16,
+    gap: 24,
     width: '100%',
+  },
+  cardVersePair: {
+    width: '100%',
+    alignItems: 'center',
   },
   cardVerseText: {
     textAlign: 'center',
     fontFamily: 'Amiri_700Bold',
+  },
+  hemistichSeparator: {
+    width: 70,
+    height: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+  },
+  hemistichLine: {
+    flex: 1,
+    height: 1,
+  },
+  hemistichDot: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
   },
   cardFooterRow: {
     flexDirection: 'row',
