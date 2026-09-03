@@ -21,6 +21,7 @@ import { useSettings } from '@/contexts/SettingsContext';
 import { ProgressBar } from '@/components/ProgressBar';
 import { VerseShareModal } from '@/components/VerseShareModal';
 import { formatDuration } from '@/lib/api';
+import { splitHemistichs } from '@/lib/utils';
 import type { Verse } from '@/lib/types';
 
 export default function PoemPlayerScreen() {
@@ -337,6 +338,17 @@ export default function PoemPlayerScreen() {
             );
           }
 
+          const { first, second } = splitHemistichs(verse.text);
+          const confidence = verse.alignment?.confidence;
+          const confidenceColor =
+            confidence === undefined
+              ? colors.mutedForeground
+              : confidence >= 0.8
+                ? '#34d399'
+                : confidence >= 0.65
+                  ? '#fbbf24'
+                  : colors.destructive;
+
           return (
             <Pressable
               key={verse.id}
@@ -345,44 +357,113 @@ export default function PoemPlayerScreen() {
               }
               onLongPress={() => startEditVerse(verse)}
               style={[
-                styles.verseRow,
+                styles.verseCard,
+                {
+                  backgroundColor: colors.card,
+                  borderColor: isActive ? colors.primary : colors.border,
+                },
                 isActive && { backgroundColor: colors.accent },
               ]}
             >
-              <Text
-                style={[
-                  styles.verseText,
-                  {
-                    fontSize,
-                    color: isActive ? colors.accentForeground : colors.foreground,
-                    lineHeight: fontSize * 1.7,
-                  },
-                ]}
-              >
-                {verse.text}
-              </Text>
-              <View style={styles.verseActionsRow}>
-                <Pressable
-                  onPress={() => startEditVerse(verse)}
-                  hitSlop={10}
-                  testID={`verse-edit-button-${verse.id}`}
+              <View style={styles.verseMetaRow}>
+                <View style={styles.verseMetaBadges}>
+                  <View
+                    style={[
+                      styles.verseNumberBadge,
+                      {
+                        backgroundColor: isActive ? colors.primary : colors.secondary,
+                        borderColor: isActive ? colors.primary : colors.border,
+                      },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.verseNumberText,
+                        { color: isActive ? colors.primaryForeground : colors.mutedForeground },
+                      ]}
+                    >
+                      {verse.orderIndex + 1}
+                    </Text>
+                  </View>
+                  {verse.alignment ? (
+                    <View style={[styles.verseTimeBadge, { borderColor: colors.border }]}>
+                      <Feather name="volume-2" size={11} color={colors.mutedForeground} />
+                      <Text style={[styles.verseTimeText, { color: colors.mutedForeground }]}>
+                        {formatDuration(verse.alignment.startMs)}
+                      </Text>
+                    </View>
+                  ) : null}
+                  {confidence !== undefined ? (
+                    <View
+                      style={[
+                        styles.verseTimeBadge,
+                        { borderColor: confidenceColor + '40' },
+                      ]}
+                    >
+                      <Feather name="check-circle" size={11} color={confidenceColor} />
+                      <Text style={[styles.verseTimeText, { color: confidenceColor }]}>
+                        {Math.round(confidence * 100)}%
+                      </Text>
+                    </View>
+                  ) : null}
+                </View>
+                <View style={styles.verseActionsRow}>
+                  <Pressable
+                    onPress={() => startEditVerse(verse)}
+                    hitSlop={10}
+                    testID={`verse-edit-button-${verse.id}`}
+                  >
+                    <Feather name="edit-2" size={14} color={colors.mutedForeground} />
+                  </Pressable>
+                  <Pressable
+                    onPress={() => setShareVerseIndex(poem.verses.findIndex((v) => v.id === verse.id))}
+                    hitSlop={10}
+                    testID={`verse-share-button-${verse.id}`}
+                  >
+                    <Feather name="share-2" size={14} color={colors.mutedForeground} />
+                  </Pressable>
+                  <Pressable
+                    onPress={() => handleDeleteVerse(verse)}
+                    hitSlop={10}
+                    testID={`verse-delete-button-${verse.id}`}
+                  >
+                    <Feather name="trash-2" size={14} color={colors.mutedForeground} />
+                  </Pressable>
+                </View>
+              </View>
+
+              <View style={styles.verseHemistichBlock}>
+                <Text
+                  style={[
+                    styles.verseText,
+                    {
+                      fontSize,
+                      color: isActive ? colors.accentForeground : colors.foreground,
+                      lineHeight: fontSize * 1.7,
+                    },
+                  ]}
                 >
-                  <Feather name="edit-2" size={14} color={colors.mutedForeground} />
-                </Pressable>
-                <Pressable
-                  onPress={() => setShareVerseIndex(poem.verses.findIndex((v) => v.id === verse.id))}
-                  hitSlop={10}
-                  testID={`verse-share-button-${verse.id}`}
-                >
-                  <Feather name="share-2" size={14} color={colors.mutedForeground} />
-                </Pressable>
-                <Pressable
-                  onPress={() => handleDeleteVerse(verse)}
-                  hitSlop={10}
-                  testID={`verse-delete-button-${verse.id}`}
-                >
-                  <Feather name="trash-2" size={14} color={colors.mutedForeground} />
-                </Pressable>
+                  {first}
+                </Text>
+                {second ? (
+                  <>
+                    <View style={styles.verseDivider}>
+                      <Feather name="star" size={10} color={colors.primary} />
+                    </View>
+                    <Text
+                      style={[
+                        styles.verseText,
+                        {
+                          fontSize,
+                          color: isActive ? colors.accentForeground : colors.foreground,
+                          lineHeight: fontSize * 1.7,
+                        },
+                      ]}
+                    >
+                      {second}
+                    </Text>
+                  </>
+                ) : null}
               </View>
             </Pressable>
           );
@@ -489,6 +570,7 @@ export default function PoemPlayerScreen() {
             </Text>
             {poem.verses.map((verse) => {
               const isActive = verse.id === activeVerseId;
+              const { first, second } = splitHemistichs(verse.text);
               return (
                 <Pressable
                   key={verse.id}
@@ -510,8 +592,32 @@ export default function PoemPlayerScreen() {
                       },
                     ]}
                   >
-                    {verse.text}
+                    {first}
                   </Text>
+                  {second ? (
+                    <>
+                      <View style={styles.focusVerseDivider}>
+                        <Feather
+                          name="star"
+                          size={12}
+                          color={isActive ? colors.primary : colors.mutedForeground}
+                        />
+                      </View>
+                      <Text
+                        style={[
+                          styles.focusVerseText,
+                          {
+                            fontSize: fontSize + 6,
+                            lineHeight: (fontSize + 6) * 1.8,
+                            color: isActive ? colors.foreground : colors.mutedForeground,
+                            fontFamily: isActive ? 'Amiri_700Bold' : 'Amiri_400Regular',
+                          },
+                        ]}
+                      >
+                        {second}
+                      </Text>
+                    </>
+                  ) : null}
                 </Pressable>
               );
             })}
@@ -738,9 +844,13 @@ const styles = StyleSheet.create({
   focusVerseRow: {
     paddingVertical: 14,
     width: '100%',
+    alignItems: 'center',
   },
   focusVerseText: {
     textAlign: 'center',
+  },
+  focusVerseDivider: {
+    paddingVertical: 4,
   },
   focusPlayButton: {
     position: 'absolute',
@@ -771,21 +881,64 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: 20,
   },
-  verseRow: {
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    borderRadius: 10,
-    marginBottom: 4,
+  verseCard: {
+    paddingVertical: 14,
+    paddingHorizontal: 14,
+    borderRadius: 16,
+    borderWidth: StyleSheet.hairlineWidth,
+    marginBottom: 10,
+  },
+  verseMetaRow: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  verseMetaBadges: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    gap: 6,
+  },
+  verseNumberBadge: {
+    width: 24,
+    height: 24,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: StyleSheet.hairlineWidth,
+  },
+  verseNumberText: {
+    fontSize: 11,
+    fontFamily: 'Cairo_700Bold',
+  },
+  verseTimeBadge: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    gap: 4,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 8,
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+  },
+  verseTimeText: {
+    fontSize: 10,
+    fontFamily: 'Cairo_400Regular',
+  },
+  verseHemistichBlock: {
+    alignItems: 'center',
+    marginTop: 12,
+    gap: 2,
+  },
+  verseDivider: {
+    paddingVertical: 6,
   },
   verseText: {
     fontFamily: 'Amiri_400Regular',
-    textAlign: 'right',
+    textAlign: 'center',
   },
   verseActionsRow: {
-    flexDirection: 'row',
+    flexDirection: 'row-reverse',
     justifyContent: 'flex-start',
     gap: 16,
-    marginTop: 6,
   },
   verseEditRow: {
     paddingVertical: 10,
