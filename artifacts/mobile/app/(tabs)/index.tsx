@@ -14,6 +14,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { useColors } from '@/hooks/useColors';
 import { useLibrary } from '@/contexts/LibraryContext';
+import { useGlobalAudioPlayer } from '@/contexts/AudioPlayerContext';
 import { PoemCard } from '@/components/PoemCard';
 import { EmptyState } from '@/components/EmptyState';
 import { AddPoemsToPlaylistModal } from '@/components/AddPoemsToPlaylistModal';
@@ -25,6 +26,7 @@ export default function LibraryScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { poems, isLoading, removePoems } = useLibrary();
+  const { activePoem } = useGlobalAudioPlayer();
   const [query, setQuery] = useState('');
   const [selectMode, setSelectMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -42,6 +44,8 @@ export default function LibraryScreen() {
 
   const topInset = Platform.OS === 'web' ? Math.max(insets.top, 67) : insets.top;
   const tabBarHeight = Platform.OS === 'web' ? 84 : 64 + insets.bottom;
+  const miniPlayerVisible = Boolean(activePoem?.recording);
+  const miniPlayerHeight = miniPlayerVisible ? 60 : 0;
 
   const toggleSelected = (id: string) => {
     setSelectedIds((prev) => {
@@ -192,7 +196,15 @@ export default function LibraryScreen() {
           renderItem={renderItem}
           contentContainerStyle={[
             styles.list,
-            { paddingBottom: (selectMode ? 90 : 24) + tabBarHeight },
+            {
+              paddingBottom:
+                tabBarHeight +
+                (selectMode
+                  ? miniPlayerHeight + 110
+                  : miniPlayerVisible
+                    ? miniPlayerHeight + 20
+                    : 24),
+            },
             filtered.length === 0 && { flex: 1, justifyContent: 'center' }
           ]}
           scrollEnabled={filtered.length > 0}
@@ -213,7 +225,9 @@ export default function LibraryScreen() {
             {
               backgroundColor: colors.card,
               borderColor: colors.border,
-              bottom: tabBarHeight + 20,
+              bottom:
+                tabBarHeight +
+                (miniPlayerVisible ? miniPlayerHeight + 10 : 20),
             },
           ]}
         >
