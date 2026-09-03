@@ -80,32 +80,31 @@ export default function LibraryScreen() {
   const renderItem = ({ item }: { item: Poem }) => {
     const isSelected = selectedIds.has(item.id);
     return (
-      <Pressable
-        onPress={() =>
-          selectMode
-            ? toggleSelected(item.id)
-            : router.push({ pathname: '/poem/[id]', params: { id: item.id } })
-        }
-        onLongPress={() => {
-          if (!selectMode) setSelectMode(true);
-          toggleSelected(item.id);
-        }}
-        testID={`library-item-${item.id}`}
-      >
-        <View style={styles.selectableRow}>
-          {selectMode ? (
-            <Feather
-              name={isSelected ? 'check-square' : 'square'}
-              size={20}
-              color={isSelected ? colors.primary : colors.mutedForeground}
-              style={styles.selectCheckbox}
-            />
-          ) : null}
-          <View style={{ flex: 1 }}>
-            <PoemCard poem={item} onPress={() => toggleSelected(item.id)} />
-          </View>
+      <View style={styles.selectableRow}>
+        {selectMode ? (
+          <Feather
+            name={isSelected ? 'check-square' : 'square'}
+            size={20}
+            color={isSelected ? colors.primary : colors.mutedForeground}
+            style={styles.selectCheckbox}
+          />
+        ) : null}
+        <View style={{ flex: 1 }}>
+          <PoemCard
+            poem={item}
+            testID={`library-item-${item.id}`}
+            onPress={() =>
+              selectMode
+                ? toggleSelected(item.id)
+                : router.push({ pathname: '/poem/[id]', params: { id: item.id } })
+            }
+            onLongPress={() => {
+              if (!selectMode) setSelectMode(true);
+              toggleSelected(item.id);
+            }}
+          />
         </View>
-      </Pressable>
+      </View>
     );
   };
 

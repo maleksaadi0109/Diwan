@@ -7,16 +7,19 @@ import type { Poem } from '@/lib/types';
 interface PoemCardProps {
   poem: Poem;
   onPress: () => void;
+  onLongPress?: () => void;
+  testID?: string;
 }
 
-export function PoemCard({ poem, onPress }: PoemCardProps) {
+export function PoemCard({ poem, onPress, onLongPress, testID }: PoemCardProps) {
   const colors = useColors();
   const preview = poem.verses[0]?.text ?? '';
 
   return (
     <Pressable
       onPress={onPress}
-      testID={`poem-card-${poem.id}`}
+      onLongPress={onLongPress}
+      testID={testID ?? `poem-card-${poem.id}`}
       style={({ pressed }) => [
         styles.card,
         {
