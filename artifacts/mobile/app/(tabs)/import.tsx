@@ -137,7 +137,6 @@ export default function ImportScreen() {
     if (!trimmed) return;
     setMizanError(null);
     setMizanPreview(null);
-    resetMizanAudioState();
     setMizanLoading(true);
     try {
       const poemId = extractMizanPoemId(trimmed);
@@ -618,6 +617,61 @@ export default function ImportScreen() {
             </Pressable>
           </View>
 
+          {mizanUrl.trim() && !mizanPreview ? (
+            <View
+              style={[
+                styles.sourcePromptCard,
+                { backgroundColor: colors.card, borderColor: colors.border },
+              ]}
+            >
+              <Text style={[styles.sourcePromptTitle, { color: colors.foreground }]}>
+                اختر مصدر الصوت
+              </Text>
+              <Text style={[styles.sourcePromptHint, { color: colors.mutedForeground }]}>
+                سيظهر هذا الاختيار مع معاينة القصيدة أيضًا
+              </Text>
+              <View style={styles.audioModeRow}>
+                {AUDIO_MODE_OPTIONS.map((option) => {
+                  const selected = mizanAudioMode === option.key;
+                  return (
+                    <Pressable
+                      key={option.key}
+                      onPress={() => setMizanAudioMode(option.key)}
+                      disabled={mizanLoading || mizanSaving}
+                      testID={`mizan-audio-mode-before-fetch-${option.key}`}
+                      style={({ pressed }) => [
+                        styles.audioModeChip,
+                        {
+                          backgroundColor: selected ? colors.primary : colors.background,
+                          borderColor: selected ? colors.primary : colors.border,
+                          opacity: mizanLoading || mizanSaving ? 0.6 : pressed ? 0.85 : 1,
+                        },
+                      ]}
+                    >
+                      <Feather
+                        name={option.icon}
+                        size={14}
+                        color={selected ? colors.primaryForeground : colors.mutedForeground}
+                      />
+                      <Text
+                        style={[
+                          styles.audioModeChipText,
+                          {
+                            color: selected
+                              ? colors.primaryForeground
+                              : colors.mutedForeground,
+                          },
+                        ]}
+                      >
+                        {option.label}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </View>
+          ) : null}
+
           {mizanError ? (
             <Text style={[styles.errorText, { color: colors.destructive }]}>
               {mizanError}
@@ -1053,6 +1107,22 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   mizanAudioLabel: {
+    fontSize: 11,
+    fontFamily: 'Cairo_400Regular',
+    textAlign: 'right',
+  },
+  sourcePromptCard: {
+    borderRadius: 14,
+    borderWidth: StyleSheet.hairlineWidth,
+    padding: 12,
+    gap: 6,
+  },
+  sourcePromptTitle: {
+    fontSize: 13,
+    fontFamily: 'Cairo_700Bold',
+    textAlign: 'right',
+  },
+  sourcePromptHint: {
     fontSize: 11,
     fontFamily: 'Cairo_400Regular',
     textAlign: 'right',
