@@ -22,6 +22,11 @@ export function PersistentMiniPlayer() {
     pathname === '/playlists' ||
     pathname === '/settings';
   const bottom = isTabScreen ? 72 + insets.bottom : 12 + insets.bottom;
+  const durationMs = activePoem.recording.durationMs || (status.duration ?? 0) * 1000;
+  const progress =
+    durationMs > 0
+      ? Math.min(1, Math.max(0, ((status.currentTime ?? 0) * 1000) / durationMs))
+      : 0;
 
   const togglePlay = () => {
     if (status.playing) player.pause();
@@ -36,6 +41,7 @@ export function PersistentMiniPlayer() {
           bottom,
           backgroundColor: colors.card,
           borderColor: colors.border,
+          borderRightColor: colors.primary,
           shadowColor: colors.background,
         },
       ]}
@@ -83,6 +89,14 @@ export function PersistentMiniPlayer() {
           color={colors.primaryForeground}
         />
       </Pressable>
+      <View style={[styles.progressTrack, { backgroundColor: colors.border }]}>
+        <View
+          style={[
+            styles.progressFill,
+            { width: `${progress * 100}%`, backgroundColor: colors.primary },
+          ]}
+        />
+      </View>
     </View>
   );
 }
@@ -92,17 +106,19 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 12,
     right: 12,
-    minHeight: 60,
+    minHeight: 64,
     borderWidth: 1,
-    borderRadius: 8,
-    padding: 8,
+    borderRightWidth: 3,
+    borderRadius: 14,
+    padding: 7,
     flexDirection: 'row-reverse',
     alignItems: 'center',
-    gap: 10,
-    shadowOffset: { width: 0, height: 5 },
-    shadowOpacity: 0.35,
-    shadowRadius: 12,
+    gap: 12,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.28,
+    shadowRadius: 10,
     elevation: 10,
+    overflow: 'hidden',
     zIndex: 100,
   },
   poemLink: {
@@ -112,14 +128,14 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   cover: {
-    width: 42,
-    height: 42,
-    borderRadius: 5,
+    width: 48,
+    height: 48,
+    borderRadius: 8,
   },
   coverFallback: {
-    width: 42,
-    height: 42,
-    borderRadius: 5,
+    width: 48,
+    height: 48,
+    borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -128,7 +144,7 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
   },
   title: {
-    fontSize: 16,
+    fontSize: 17,
     fontFamily: 'Amiri_700Bold',
     textAlign: 'right',
   },
@@ -138,10 +154,22 @@ const styles = StyleSheet.create({
     textAlign: 'right',
   },
   playButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 42,
+    height: 42,
+    borderRadius: 21,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  progressTrack: {
+    position: 'absolute',
+    left: 12,
+    right: 12,
+    bottom: 0,
+    height: 2,
+    overflow: 'hidden',
+  },
+  progressFill: {
+    height: '100%',
+    alignSelf: 'flex-end',
   },
 });
