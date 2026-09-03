@@ -23,13 +23,11 @@ export function AddPoemsToPlaylistModal({
   onClose,
 }: AddPoemsToPlaylistModalProps) {
   const colors = useColors();
-  const { playlists, createPlaylist, addPoemToPlaylist } = usePlaylists();
+  const { playlists, createPlaylist, addPoemsToPlaylist } = usePlaylists();
   const [newName, setNewName] = useState('');
 
   const addAllTo = async (playlistId: string) => {
-    for (const poemId of poemIds) {
-      await addPoemToPlaylist(playlistId, poemId);
-    }
+    await addPoemsToPlaylist(playlistId, poemIds);
     onClose();
   };
 
@@ -96,8 +94,8 @@ export function AddPoemsToPlaylistModal({
               onPress={async () => {
                 const trimmed = newName.trim();
                 if (!trimmed) return;
-                const playlist = await createPlaylist(trimmed);
-                await addAllTo(playlist.id);
+                await createPlaylist(trimmed, poemIds);
+                onClose();
               }}
               hitSlop={10}
               testID="bulk-new-playlist-confirm"

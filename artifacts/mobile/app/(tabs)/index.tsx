@@ -41,7 +41,7 @@ export default function LibraryScreen() {
   }, [poems, query]);
 
   const topInset = Platform.OS === 'web' ? Math.max(insets.top, 67) : insets.top;
-  const bottomInset = Platform.OS === 'web' ? 34 : 0;
+  const tabBarHeight = Platform.OS === 'web' ? 84 : 64 + insets.bottom;
 
   const toggleSelected = (id: string) => {
     setSelectedIds((prev) => {
@@ -112,14 +112,31 @@ export default function LibraryScreen() {
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <View style={[styles.header, { paddingTop: topInset + 12 }]}>
         <View style={styles.headerTopRow}>
-          {poems.length > 0 ? (
+          {poems.length > 0 && selectMode ? (
+            <View style={styles.selectionHeaderActions}>
+              <Pressable
+                onPress={() => setSelectedIds(new Set(filtered.map((poem) => poem.id)))}
+                hitSlop={10}
+                testID="library-select-all"
+              >
+                <Text style={[styles.selectToggleText, { color: colors.primary }]}>
+                  تحديد الكل
+                </Text>
+              </Pressable>
+              <Pressable onPress={exitSelectMode} hitSlop={10} testID="library-cancel-selection">
+                <Text style={[styles.selectToggleText, { color: colors.mutedForeground }]}>
+                  إلغاء
+                </Text>
+              </Pressable>
+            </View>
+          ) : poems.length > 0 ? (
             <Pressable
-              onPress={() => (selectMode ? exitSelectMode() : setSelectMode(true))}
+              onPress={() => setSelectMode(true)}
               hitSlop={10}
               testID="library-select-toggle"
             >
               <Text style={[styles.selectToggleText, { color: colors.primary }]}>
-                {selectMode ? 'إلغاء' : 'تحديد'}
+                تحديد
               </Text>
             </Pressable>
           ) : (
@@ -169,7 +186,7 @@ export default function LibraryScreen() {
           renderItem={renderItem}
           contentContainerStyle={[
             styles.list,
-            { paddingBottom: (selectMode ? 90 : 24) + bottomInset },
+            { paddingBottom: (selectMode ? 90 : 24) + tabBarHeight },
           ]}
           scrollEnabled={filtered.length > 0}
           ListEmptyComponent={
@@ -189,7 +206,8 @@ export default function LibraryScreen() {
             {
               backgroundColor: colors.card,
               borderColor: colors.border,
-              paddingBottom: 12 + bottomInset,
+              bottom: tabBarHeight,
+              paddingBottom: 12,
             },
           ]}
         >
@@ -201,8 +219,12 @@ export default function LibraryScreen() {
               onPress={() => setBulkPlaylistModalVisible(true)}
               hitSlop={10}
               testID="library-bulk-add-to-playlist"
+              style={styles.bulkActionButton}
             >
               <Feather name="list" size={20} color={colors.mutedForeground} />
+              <Text style={[styles.bulkActionText, { color: colors.mutedForeground }]}>
+                إضافة إلى قائمة
+              </Text>
             </Pressable>
             <Pressable onPress={handleBulkDelete} hitSlop={10} testID="library-bulk-delete">
               <Feather name="trash-2" size={20} color={colors.mutedForeground} />
@@ -262,6 +284,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
+  selectionHeaderActions: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    gap: 16,
+  },
   selectToggleText: {
     fontSize: 14,
     fontFamily: 'Cairo_600SemiBold',
@@ -297,5 +324,14 @@ const styles = StyleSheet.create({
   bulkActions: {
     flexDirection: 'row-reverse',
     gap: 20,
+  },
+  bulkActionButton: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    gap: 6,
+  },
+  bulkActionText: {
+    fontSize: 11,
+    fontFamily: 'Cairo_600SemiBold',
   },
 });

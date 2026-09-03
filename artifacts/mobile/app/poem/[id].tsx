@@ -13,6 +13,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
+import { Image } from 'expo-image';
 import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
 import { useColors } from '@/hooks/useColors';
 import { useLibrary } from '@/contexts/LibraryContext';
@@ -276,6 +277,14 @@ export default function PoemPlayerScreen() {
       </View>
 
       <View style={styles.headerText}>
+        {poem.coverImageUrl ? (
+          <Image
+            source={poem.coverImageUrl}
+            style={styles.coverImage}
+            contentFit="cover"
+            transition={180}
+          />
+        ) : null}
         <Text style={[styles.title, { color: colors.foreground }]}>
           {poem.title}
         </Text>
@@ -866,6 +875,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingBottom: 12,
     gap: 2,
+  },
+  coverImage: {
+    width: '100%',
+    height: 210,
+    borderRadius: 16,
+    marginBottom: 12,
   },
   title: {
     fontSize: 22,

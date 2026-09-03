@@ -27,6 +27,7 @@ import {
 import { useColors } from '@/hooks/useColors';
 import { useLibrary } from '@/contexts/LibraryContext';
 import {
+  downloadYoutubeCover,
   extractErrorMessage,
   makeLocalId,
   needsCookieUnlock,
@@ -253,6 +254,7 @@ export default function ImportScreen() {
     // exactly like the fixed catalog entries.
     try {
       let job: UploadedAudioJob;
+      let coverImageUrl: string | null = null;
 
       if (mizanAudioMode === 'youtube') {
         const trimmedYoutubeUrl = mizanYoutubeUrl.trim();
@@ -268,6 +270,10 @@ export default function ImportScreen() {
             cookies_content: needsCookies ? cookiesText.trim() : undefined,
           },
         });
+        coverImageUrl = await downloadYoutubeCover(
+          trimmedYoutubeUrl,
+          needsCookies ? cookiesText : undefined,
+        );
       } else if (mizanAudioMode === 'upload') {
         if (!mizanUploadedFile) {
           setMizanError('يرجى اختيار ملف صوتي');
@@ -330,6 +336,7 @@ export default function ImportScreen() {
           audioUrl: toPlayableAudioUrl(job.playback_audio_path),
           durationMs: job.duration_ms ?? mizanRecordedDurationMs ?? 0,
         },
+        coverImageUrl: coverImageUrl ?? undefined,
         createdAt: Date.now(),
         sourceUrl: mizanUrl.trim(),
         externalProvider: 'mizan_al_arab',
@@ -374,6 +381,10 @@ export default function ImportScreen() {
           cookies_content: needsCookies ? cookiesText.trim() : undefined,
         },
       });
+      const coverImageUrl = await downloadYoutubeCover(
+        entry.youtubeUrl,
+        needsCookies ? cookiesText : undefined,
+      );
 
       const verses: Verse[] = parsed.verses.map((v, index) => ({
         id: makeLocalId('verse'),
@@ -417,6 +428,7 @@ export default function ImportScreen() {
           audioUrl: toPlayableAudioUrl(download.playback_audio_path),
           durationMs: download.duration_ms ?? 0,
         },
+        coverImageUrl: coverImageUrl ?? undefined,
         createdAt: Date.now(),
         sourceUrl: entry.mizanUrl,
         externalProvider: 'mizan_al_arab',
@@ -467,7 +479,7 @@ export default function ImportScreen() {
       <ScrollView
         contentContainerStyle={[
           styles.content,
-          { paddingTop: topInset + 12, paddingBottom: bottomInset + 32 },
+          { paddingTop: topInset + 12, paddingBottom: bottomInset + 130 },
         ]}
         keyboardShouldPersistTaps="handled"
       >
