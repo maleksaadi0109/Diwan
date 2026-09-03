@@ -118,6 +118,9 @@ export default function LibraryScreen() {
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <View style={[styles.header, { paddingTop: topInset + 12 }]}>
         <View style={styles.headerTopRow}>
+          <Text style={[styles.headerTitle, { color: colors.foreground }]}>
+            ديوان
+          </Text>
           {poems.length > 0 && selectMode ? (
             <View style={styles.selectionHeaderActions}>
               <Pressable
@@ -148,9 +151,6 @@ export default function LibraryScreen() {
           ) : (
             <View />
           )}
-          <Text style={[styles.headerTitle, { color: colors.foreground }]}>
-            ديوان
-          </Text>
         </View>
         <Text style={[styles.headerSubtitle, { color: colors.mutedForeground }]}>
           مكتبتك من القصائد
@@ -193,6 +193,7 @@ export default function LibraryScreen() {
           contentContainerStyle={[
             styles.list,
             { paddingBottom: (selectMode ? 90 : 24) + tabBarHeight },
+            filtered.length === 0 && { flex: 1, justifyContent: 'center' }
           ]}
           scrollEnabled={filtered.length > 0}
           ListEmptyComponent={
@@ -212,8 +213,7 @@ export default function LibraryScreen() {
             {
               backgroundColor: colors.card,
               borderColor: colors.border,
-              bottom: tabBarHeight,
-              paddingBottom: 12,
+              bottom: tabBarHeight + 20,
             },
           ]}
         >
@@ -257,29 +257,29 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   header: {
-    paddingHorizontal: 20,
-    paddingBottom: 16,
-    gap: 4,
+    paddingHorizontal: 24,
+    paddingBottom: 20,
+    gap: 8,
   },
   headerTitle: {
-    fontSize: 28,
+    fontSize: 34,
     fontFamily: 'Amiri_700Bold',
     textAlign: 'right',
   },
   headerSubtitle: {
-    fontSize: 14,
+    fontSize: 15,
     fontFamily: 'Cairo_400Regular',
     textAlign: 'right',
-    marginBottom: 8,
+    marginBottom: 12,
   },
   searchBar: {
     flexDirection: 'row-reverse',
     alignItems: 'center',
-    gap: 8,
-    borderRadius: 12,
-    borderWidth: StyleSheet.hairlineWidth,
-    paddingHorizontal: 14,
-    height: 44,
+    gap: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+    paddingHorizontal: 16,
+    height: 48,
   },
   searchInput: {
     flex: 1,
@@ -293,51 +293,56 @@ const styles = StyleSheet.create({
   selectionHeaderActions: {
     flexDirection: 'row-reverse',
     alignItems: 'center',
-    gap: 16,
+    gap: 20,
   },
   selectToggleText: {
-    fontSize: 14,
+    fontSize: 15,
     fontFamily: 'Cairo_600SemiBold',
   },
   list: {
     paddingHorizontal: 20,
-    gap: 12,
+    gap: 16,
   },
   selectableRow: {
     flexDirection: 'row-reverse',
     alignItems: 'center',
-    gap: 8,
+    gap: 12,
   },
   selectCheckbox: {
     marginTop: 2,
   },
   bulkBar: {
     position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
+    left: 20,
+    right: 20,
+    borderRadius: 8,
     flexDirection: 'row-reverse',
     alignItems: 'center',
     justifyContent: 'space-between',
-    borderTopWidth: StyleSheet.hairlineWidth,
+    borderWidth: 1,
     paddingHorizontal: 20,
-    paddingTop: 12,
+    paddingVertical: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+    elevation: 5,
   },
   bulkCount: {
-    fontSize: 14,
-    fontFamily: 'Cairo_600SemiBold',
+    fontSize: 15,
+    fontFamily: 'Cairo_700Bold',
   },
   bulkActions: {
     flexDirection: 'row-reverse',
-    gap: 20,
+    gap: 24,
   },
   bulkActionButton: {
     flexDirection: 'row-reverse',
     alignItems: 'center',
-    gap: 6,
+    gap: 8,
   },
   bulkActionText: {
-    fontSize: 11,
-    fontFamily: 'Cairo_600SemiBold',
+    fontSize: 13,
+    fontFamily: 'Cairo_700Bold',
   },
 });
