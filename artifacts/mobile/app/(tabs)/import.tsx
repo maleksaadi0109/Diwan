@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -13,10 +12,15 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { Image } from 'expo-image';
 import { Feather } from '@expo/vector-icons';
+import * as DocumentPicker from 'expo-document-picker';
 import {
-  useGetYoutubeInfo,
+  useAudioRecorder,
+  useAudioRecorderState,
+  RecordingPresets,
+  requestRecordingPermissionsAsync,
+} from 'expo-audio';
+import {
   useDownloadYoutubeAudio,
   useAlignPoemVerses,
 } from '@workspace/api-client-react';
@@ -24,10 +28,11 @@ import { useColors } from '@/hooks/useColors';
 import { useLibrary } from '@/contexts/LibraryContext';
 import {
   extractErrorMessage,
-  formatDuration,
   makeLocalId,
   needsCookieUnlock,
   toPlayableAudioUrl,
+  uploadAudioFile,
+  type UploadedAudioJob,
 } from '@/lib/api';
 import type { Poem, Verse } from '@/lib/types';
 import {
@@ -39,35 +44,46 @@ import {
   type ParsedMizanPoem,
 } from '@/lib/mizan';
 
-type Stage = 'link' | 'details' | 'downloading' | 'aligning';
 type CatalogItemStatus = 'idle' | 'text' | 'downloading' | 'aligning' | 'error';
+type MizanAudioMode = 'none' | 'youtube' | 'upload' | 'record';
+
+interface PickedAudioFile {
+  uri: string;
+  name: string;
+  mimeType: string;
+  sizeLabel?: string;
+}
+
+const AUDIO_MODE_OPTIONS: {
+  key: MizanAudioMode;
+  label: string;
+  icon: keyof typeof Feather.glyphMap;
+}[] = [
+  { key: 'none', label: 'نص فقط', icon: 'file-text' },
+  { key: 'youtube', label: 'رابط يوتيوب', icon: 'youtube' },
+  { key: 'upload', label: 'رفع ملف', icon: 'upload' },
+  { key: 'record', label: 'تسجيل صوتي', icon: 'mic' },
+];
+
+function formatRecordingTime(ms: number): string {
+  const totalSeconds = Math.max(0, Math.floor(ms / 1000));
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+}
 
 export default function ImportScreen() {
   const colors = useColors();
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { addPoem } = useLibrary();
+  const { addPoem, poems } = useLibrary();
 
-  const [stage, setStage] = useState<Stage>('link');
-  const [url, setUrl] = useState('');
   const [error, setError] = useState<string | null>(null);
-
-  const [videoInfo, setVideoInfo] = useState<{
-    title: string;
-    channel: string;
-    durationMs: number;
-    thumbnail?: string;
-  } | null>(null);
-
-  const [title, setTitle] = useState('');
-  const [poetName, setPoetName] = useState('');
-  const [versesText, setVersesText] = useState('');
 
   const [needsCookies, setNeedsCookies] = useState(false);
   const [cookiesText, setCookiesText] = useState('');
   const [showCookieHelp, setShowCookieHelp] = useState(false);
 
-  const { poems } = useLibrary();
   const [activeCatalogId, setActiveCatalogId] = useState<string | null>(null);
   const [catalogStatus, setCatalogStatus] = useState<Record<string, CatalogItemStatus>>({});
 
@@ -79,141 +95,41 @@ export default function ImportScreen() {
     parsed: ParsedMizanPoem;
   } | null>(null);
   const [mizanSaving, setMizanSaving] = useState(false);
-  const [mizanYoutubeUrl, setMizanYoutubeUrl] = useState('');
   const [mizanImportStage, setMizanImportStage] = useState<
     'idle' | 'downloading' | 'aligning'
   >('idle');
+
+  const [mizanAudioMode, setMizanAudioMode] = useState<MizanAudioMode>('none');
+  const [mizanYoutubeUrl, setMizanYoutubeUrl] = useState('');
+  const [mizanUploadedFile, setMizanUploadedFile] = useState<PickedAudioFile | null>(null);
+  const [mizanRecordedUri, setMizanRecordedUri] = useState<string | null>(null);
+  const [mizanRecordedDurationMs, setMizanRecordedDurationMs] = useState(0);
+
+  const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
+  const recorderState = useAudioRecorderState(recorder, 200);
 
   const importedMizanIds = new Set(
     poems.filter((p) => p.externalProvider === 'mizan_al_arab').map((p) => p.externalId),
   );
 
-  const infoMutation = useGetYoutubeInfo();
   const downloadMutation = useDownloadYoutubeAudio();
   const alignMutation = useAlignPoemVerses();
 
   const topInset = Platform.OS === 'web' ? Math.max(insets.top, 67) : insets.top;
   const bottomInset = Platform.OS === 'web' ? 34 : insets.bottom;
 
-  const reset = () => {
-    setStage('link');
-    setUrl('');
-    setError(null);
-    setVideoInfo(null);
-    setTitle('');
-    setPoetName('');
-    setVersesText('');
+  const resetMizanAudioState = () => {
+    setMizanAudioMode('none');
+    setMizanYoutubeUrl('');
+    setMizanUploadedFile(null);
+    setMizanRecordedUri(null);
+    setMizanRecordedDurationMs(0);
   };
 
-  const handleFetchInfo = async () => {
-    const trimmed = url.trim();
-    if (!trimmed) return;
-    setError(null);
-    try {
-      const info = await infoMutation.mutateAsync({
-        data: {
-          url: trimmed,
-          cookies_content: needsCookies ? cookiesText.trim() : undefined,
-        },
-      });
-      setVideoInfo({
-        title: info.title,
-        channel: info.channel ?? '',
-        durationMs: info.duration_ms,
-        thumbnail: info.thumbnail,
-      });
-      setTitle(info.title ?? '');
-      setNeedsCookies(false);
-      setStage('details');
-    } catch (err) {
-      if (needsCookieUnlock(err)) {
-        setNeedsCookies(true);
-      }
-      setError(extractErrorMessage(err, 'تعذر جلب بيانات الفيديو، تحقق من الرابط'));
-    }
-  };
-
-  const handleImport = async () => {
-    const trimmedTitle = title.trim();
-    const trimmedPoet = poetName.trim();
-    const lines = versesText
-      .split('\n')
-      .map((line) => line.trim())
-      .filter(Boolean);
-
-    if (!trimmedTitle || !trimmedPoet || lines.length === 0) {
-      setError('يرجى إدخال عنوان القصيدة واسم الشاعر وأبيات القصيدة');
-      return;
-    }
-
-    setError(null);
-    try {
-      setStage('downloading');
-      const download = await downloadMutation.mutateAsync({
-        data: {
-          url: url.trim(),
-          cookies_content: needsCookies ? cookiesText.trim() : undefined,
-        },
-      });
-
-      const verses: Verse[] = lines.map((text, index) => ({
-        id: makeLocalId('verse'),
-        orderIndex: index,
-        text,
-      }));
-
-      setStage('aligning');
-      const alignment = await alignMutation.mutateAsync({
-        data: {
-          audio_path: download.processing_audio_path,
-          verses: verses.map((v) => ({ id: v.id, text: v.text })),
-          poem_id: makeLocalId('poem'),
-          recording_id: makeLocalId('rec'),
-        },
-      });
-
-      const alignmentByVerseId = new Map(
-        alignment.alignments.map((entry) => [entry.verse_id, entry]),
-      );
-
-      const alignedVerses: Verse[] = verses.map((verse) => {
-        const entry = alignmentByVerseId.get(verse.id);
-        if (!entry) return verse;
-        return {
-          ...verse,
-          alignment: {
-            startMs: entry.start_ms,
-            endMs: entry.end_ms,
-            confidence: entry.confidence,
-          },
-        };
-      });
-
-      const poem: Poem = {
-        id: makeLocalId('poem'),
-        title: trimmedTitle,
-        poetName: trimmedPoet,
-        verses: alignedVerses,
-        recording: {
-          id: makeLocalId('rec'),
-          audioUrl: toPlayableAudioUrl(download.playback_audio_path),
-          durationMs: download.duration_ms ?? videoInfo?.durationMs ?? 0,
-        },
-        createdAt: Date.now(),
-        sourceUrl: url.trim(),
-      };
-
-      await addPoem(poem);
-      const importedId = poem.id;
-      reset();
-      router.push({ pathname: '/poem/[id]', params: { id: importedId } });
-    } catch (err) {
-      setStage('details');
-      if (needsCookieUnlock(err)) {
-        setNeedsCookies(true);
-      }
-      setError(extractErrorMessage(err, 'حدث خطأ أثناء الاستيراد، حاول مرة أخرى'));
-    }
+  const resetMizanForm = () => {
+    setMizanUrl('');
+    setMizanPreview(null);
+    resetMizanAudioState();
   };
 
   const handleMizanFetch = async () => {
@@ -221,6 +137,7 @@ export default function ImportScreen() {
     if (!trimmed) return;
     setMizanError(null);
     setMizanPreview(null);
+    resetMizanAudioState();
     setMizanLoading(true);
     try {
       const poemId = extractMizanPoemId(trimmed);
@@ -241,6 +158,61 @@ export default function ImportScreen() {
     }
   };
 
+  const handlePickAudioFile = async () => {
+    setMizanError(null);
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: 'audio/*',
+        copyToCacheDirectory: true,
+      });
+      if (result.canceled || !result.assets?.[0]) return;
+      const asset = result.assets[0];
+      setMizanUploadedFile({
+        uri: asset.uri,
+        name: asset.name || 'recitation.mp3',
+        mimeType: asset.mimeType || 'audio/mpeg',
+        sizeLabel:
+          typeof asset.size === 'number' ? `${(asset.size / (1024 * 1024)).toFixed(1)} م.ب` : undefined,
+      });
+    } catch {
+      setMizanError('تعذر اختيار الملف الصوتي');
+    }
+  };
+
+  const handleStartRecording = async () => {
+    setMizanError(null);
+    try {
+      const permission = await requestRecordingPermissionsAsync();
+      if (!permission.granted) {
+        setMizanError('يجب السماح باستخدام الميكروفون لتسجيل التلاوة');
+        return;
+      }
+      setMizanRecordedUri(null);
+      await recorder.prepareToRecordAsync();
+      recorder.record();
+    } catch {
+      setMizanError('تعذر بدء التسجيل، حاول مرة أخرى');
+    }
+  };
+
+  const handleStopRecording = async () => {
+    try {
+      const durationMs = recorderState.durationMillis;
+      await recorder.stop();
+      if (recorder.uri) {
+        setMizanRecordedUri(recorder.uri);
+        setMizanRecordedDurationMs(Math.round(durationMs));
+      }
+    } catch {
+      setMizanError('تعذر إيقاف التسجيل');
+    }
+  };
+
+  const handleDiscardRecording = () => {
+    setMizanRecordedUri(null);
+    setMizanRecordedDurationMs(0);
+  };
+
   const handleMizanImport = async () => {
     if (!mizanPreview) return;
     setMizanSaving(true);
@@ -251,10 +223,9 @@ export default function ImportScreen() {
       orderIndex: index,
       text: v.text,
     }));
-    const trimmedYoutubeUrl = mizanYoutubeUrl.trim();
 
-    // Text-only path: no YouTube link supplied, save immediately.
-    if (!trimmedYoutubeUrl) {
+    // Text-only path: no audio source chosen, save immediately.
+    if (mizanAudioMode === 'none') {
       try {
         const poem: Poem = {
           id: makeLocalId('poem'),
@@ -268,9 +239,7 @@ export default function ImportScreen() {
         };
         await addPoem(poem);
         const importedId = poem.id;
-        setMizanUrl('');
-        setMizanYoutubeUrl('');
-        setMizanPreview(null);
+        resetMizanForm();
         router.push({ pathname: '/poem/[id]', params: { id: importedId } });
       } catch (err) {
         setMizanError(extractErrorMessage(err, 'تعذر حفظ القصيدة، حاول مرة أخرى'));
@@ -280,22 +249,56 @@ export default function ImportScreen() {
       return;
     }
 
-    // Combined path: download the YouTube recitation and align it against
-    // the Mizan text, exactly like the fixed catalog entries but with a
-    // user-supplied video instead of a pre-picked one.
+    // Audio path: obtain a processed audio job (from YouTube, an uploaded
+    // file, or a fresh recording), then align it against the Mizan text
+    // exactly like the fixed catalog entries.
     try {
-      setMizanImportStage('downloading');
-      const download = await downloadMutation.mutateAsync({
-        data: {
-          url: trimmedYoutubeUrl,
-          cookies_content: needsCookies ? cookiesText.trim() : undefined,
-        },
-      });
+      let job: UploadedAudioJob;
+
+      if (mizanAudioMode === 'youtube') {
+        const trimmedYoutubeUrl = mizanYoutubeUrl.trim();
+        if (!trimmedYoutubeUrl) {
+          setMizanError('يرجى إدخال رابط يوتيوب');
+          setMizanSaving(false);
+          return;
+        }
+        setMizanImportStage('downloading');
+        job = await downloadMutation.mutateAsync({
+          data: {
+            url: trimmedYoutubeUrl,
+            cookies_content: needsCookies ? cookiesText.trim() : undefined,
+          },
+        });
+      } else if (mizanAudioMode === 'upload') {
+        if (!mizanUploadedFile) {
+          setMizanError('يرجى اختيار ملف صوتي');
+          setMizanSaving(false);
+          return;
+        }
+        setMizanImportStage('downloading');
+        job = await uploadAudioFile({
+          uri: mizanUploadedFile.uri,
+          fileName: mizanUploadedFile.name,
+          mimeType: mizanUploadedFile.mimeType,
+        });
+      } else {
+        if (!mizanRecordedUri) {
+          setMizanError('يرجى تسجيل مقطع صوتي أولاً');
+          setMizanSaving(false);
+          return;
+        }
+        setMizanImportStage('downloading');
+        job = await uploadAudioFile({
+          uri: mizanRecordedUri,
+          fileName: 'recitation.m4a',
+          mimeType: 'audio/m4a',
+        });
+      }
 
       setMizanImportStage('aligning');
       const alignment = await alignMutation.mutateAsync({
         data: {
-          audio_path: download.processing_audio_path,
+          audio_path: job.processing_audio_path,
           verses: verses.map((v) => ({ id: v.id, text: v.text })),
           poem_id: makeLocalId('poem'),
           recording_id: makeLocalId('rec'),
@@ -325,8 +328,8 @@ export default function ImportScreen() {
         verses: alignedVerses,
         recording: {
           id: makeLocalId('rec'),
-          audioUrl: toPlayableAudioUrl(download.playback_audio_path),
-          durationMs: download.duration_ms ?? 0,
+          audioUrl: toPlayableAudioUrl(job.playback_audio_path),
+          durationMs: job.duration_ms ?? mizanRecordedDurationMs ?? 0,
         },
         createdAt: Date.now(),
         sourceUrl: mizanUrl.trim(),
@@ -336,15 +339,13 @@ export default function ImportScreen() {
 
       await addPoem(poem);
       const importedId = poem.id;
-      setMizanUrl('');
-      setMizanYoutubeUrl('');
-      setMizanPreview(null);
+      resetMizanForm();
       router.push({ pathname: '/poem/[id]', params: { id: importedId } });
     } catch (err) {
       if (needsCookieUnlock(err)) {
         setNeedsCookies(true);
       }
-      setMizanError(extractErrorMessage(err, 'تعذر تنزيل الصوت أو مزامنته، حاول مرة أخرى'));
+      setMizanError(extractErrorMessage(err, 'تعذر معالجة الصوت أو مزامنته، حاول مرة أخرى'));
     } finally {
       setMizanImportStage('idle');
       setMizanSaving(false);
@@ -438,9 +439,26 @@ export default function ImportScreen() {
     }
   };
 
-  const isBusy = stage === 'downloading' || stage === 'aligning';
   const isCatalogBusy = activeCatalogId !== null;
-  const anyBusy = isBusy || isCatalogBusy;
+  const anyBusy = isCatalogBusy || mizanSaving;
+
+  const confirmLabel = mizanSaving
+    ? mizanImportStage === 'downloading'
+      ? mizanAudioMode === 'youtube'
+        ? 'جارٍ تنزيل الصوت...'
+        : 'جارٍ معالجة الصوت...'
+      : mizanImportStage === 'aligning'
+        ? 'جارٍ مزامنة الأبيات...'
+        : 'جارٍ الحفظ...'
+    : mizanAudioMode === 'none'
+      ? 'استيراد النص فقط'
+      : 'استيراد مع الصوت';
+
+  const confirmDisabled =
+    mizanSaving ||
+    (mizanAudioMode === 'youtube' && !mizanYoutubeUrl.trim()) ||
+    (mizanAudioMode === 'upload' && !mizanUploadedFile) ||
+    (mizanAudioMode === 'record' && !mizanRecordedUri);
 
   return (
     <KeyboardAvoidingView
@@ -458,177 +476,214 @@ export default function ImportScreen() {
           استيراد قصيدة
         </Text>
 
-        {stage === 'link' ? (
-          <View style={styles.catalogSection}>
-            <Text style={[styles.sectionLabel, { color: colors.mutedForeground }]}>
-              مكتبة جاهزة
-            </Text>
-            <Text style={[styles.sectionHint, { color: colors.mutedForeground }]}>
-              نصوص موثّقة من ميزان العرب مع تلاوات صوتية مطابقة — استيراد بضغطة واحدة
-            </Text>
-            <View style={styles.catalogList}>
-              {POEM_CATALOG.map((entry) => {
-                const imported = importedMizanIds.has(entry.mizanPoemId);
-                const status: CatalogItemStatus | 'imported' = imported
-                  ? 'imported'
-                  : catalogStatus[entry.id] || 'idle';
-                const isThisBusy = activeCatalogId === entry.id;
-                const statusLabel =
-                  status === 'text'
-                    ? 'جلب النص...'
-                    : status === 'downloading'
-                      ? 'تنزيل الصوت...'
-                      : status === 'aligning'
-                        ? 'مزامنة الأبيات...'
-                        : status === 'error'
-                          ? 'إعادة المحاولة'
-                          : status === 'imported'
-                            ? 'مستوردة'
-                            : null;
-                return (
-                  <Pressable
-                    key={entry.id}
-                    onPress={() => handleCatalogImport(entry)}
-                    disabled={anyBusy && !isThisBusy}
-                    testID={`catalog-item-${entry.id}`}
-                    style={({ pressed }) => [
-                      styles.catalogItem,
-                      {
-                        backgroundColor: colors.card,
-                        borderColor: colors.border,
-                        opacity: anyBusy && !isThisBusy ? 0.4 : pressed ? 0.8 : 1,
-                      },
-                    ]}
-                  >
-                    <View style={styles.catalogItemText}>
-                      <Text
-                        style={[styles.catalogItemTitle, { color: colors.foreground }]}
-                        numberOfLines={1}
-                      >
-                        {entry.titleHint}
-                      </Text>
-                      <Text
-                        style={[styles.catalogItemPoet, { color: colors.mutedForeground }]}
-                        numberOfLines={1}
-                      >
-                        {entry.poetHint}
-                      </Text>
-                    </View>
-                    {isThisBusy ? (
-                      <ActivityIndicator size="small" color={colors.primary} />
-                    ) : status === 'imported' ? (
-                      <Feather name="check-circle" size={18} color={colors.primary} />
-                    ) : status === 'error' ? (
-                      <Feather name="refresh-cw" size={18} color={colors.destructive} />
-                    ) : (
-                      <Feather name="download" size={18} color={colors.mutedForeground} />
-                    )}
-                    {statusLabel && !isThisBusy ? (
-                      <Text
-                        style={[
-                          styles.catalogItemStatus,
-                          {
-                            color:
-                              status === 'error'
-                                ? colors.destructive
-                                : status === 'imported'
-                                  ? colors.primary
-                                  : colors.mutedForeground,
-                          },
-                        ]}
-                      >
-                        {statusLabel}
-                      </Text>
-                    ) : null}
-                  </Pressable>
-                );
-              })}
-            </View>
+        <View style={styles.catalogSection}>
+          <Text style={[styles.sectionLabel, { color: colors.mutedForeground }]}>
+            مكتبة جاهزة
+          </Text>
+          <Text style={[styles.sectionHint, { color: colors.mutedForeground }]}>
+            نصوص موثّقة من ميزان العرب مع تلاوات صوتية مطابقة — استيراد بضغطة واحدة
+          </Text>
+          <View style={styles.catalogList}>
+            {POEM_CATALOG.map((entry) => {
+              const imported = importedMizanIds.has(entry.mizanPoemId);
+              const status: CatalogItemStatus | 'imported' = imported
+                ? 'imported'
+                : catalogStatus[entry.id] || 'idle';
+              const isThisBusy = activeCatalogId === entry.id;
+              const statusLabel =
+                status === 'text'
+                  ? 'جلب النص...'
+                  : status === 'downloading'
+                    ? 'تنزيل الصوت...'
+                    : status === 'aligning'
+                      ? 'مزامنة الأبيات...'
+                      : status === 'error'
+                        ? 'إعادة المحاولة'
+                        : status === 'imported'
+                          ? 'مستوردة'
+                          : null;
+              return (
+                <Pressable
+                  key={entry.id}
+                  onPress={() => handleCatalogImport(entry)}
+                  disabled={anyBusy && !isThisBusy}
+                  testID={`catalog-item-${entry.id}`}
+                  style={({ pressed }) => [
+                    styles.catalogItem,
+                    {
+                      backgroundColor: colors.card,
+                      borderColor: colors.border,
+                      opacity: anyBusy && !isThisBusy ? 0.4 : pressed ? 0.8 : 1,
+                    },
+                  ]}
+                >
+                  <View style={styles.catalogItemText}>
+                    <Text
+                      style={[styles.catalogItemTitle, { color: colors.foreground }]}
+                      numberOfLines={1}
+                    >
+                      {entry.titleHint}
+                    </Text>
+                    <Text
+                      style={[styles.catalogItemPoet, { color: colors.mutedForeground }]}
+                      numberOfLines={1}
+                    >
+                      {entry.poetHint}
+                    </Text>
+                  </View>
+                  {isThisBusy ? (
+                    <ActivityIndicator size="small" color={colors.primary} />
+                  ) : status === 'imported' ? (
+                    <Feather name="check-circle" size={18} color={colors.primary} />
+                  ) : status === 'error' ? (
+                    <Feather name="refresh-cw" size={18} color={colors.destructive} />
+                  ) : (
+                    <Feather name="download" size={18} color={colors.mutedForeground} />
+                  )}
+                  {statusLabel && !isThisBusy ? (
+                    <Text
+                      style={[
+                        styles.catalogItemStatus,
+                        {
+                          color:
+                            status === 'error'
+                              ? colors.destructive
+                              : status === 'imported'
+                                ? colors.primary
+                                : colors.mutedForeground,
+                        },
+                      ]}
+                    >
+                      {statusLabel}
+                    </Text>
+                  ) : null}
+                </Pressable>
+              );
+            })}
+          </View>
 
-            <View style={styles.dividerRow}>
-              <View style={[styles.dividerLine, { backgroundColor: colors.border }]} />
-              <Text style={[styles.dividerText, { color: colors.mutedForeground }]}>
-                أو استيراد نص فقط من رابط ميزان العرب
-              </Text>
-              <View style={[styles.dividerLine, { backgroundColor: colors.border }]} />
-            </View>
-
-            <Text style={[styles.pageHint, { color: colors.mutedForeground }]}>
-              الصق رابط أي قصيدة من mizanalarab.com لاستيراد نصها الموثّق (بدون صوت، يمكن
-              إضافته لاحقًا)
+          <View style={styles.dividerRow}>
+            <View style={[styles.dividerLine, { backgroundColor: colors.border }]} />
+            <Text style={[styles.dividerText, { color: colors.mutedForeground }]}>
+              أو استيراد أي قصيدة من ميزان العرب
             </Text>
+            <View style={[styles.dividerLine, { backgroundColor: colors.border }]} />
+          </View>
 
+          <Text style={[styles.pageHint, { color: colors.mutedForeground }]}>
+            الصق رابط أي قصيدة من mizanalarab.com لاستيراد نصها الموثّق، ثم اختر
+            كيف تريد إضافة الصوت
+          </Text>
+
+          <View
+            style={[
+              styles.inputRow,
+              { backgroundColor: colors.card, borderColor: colors.border },
+            ]}
+          >
+            <TextInput
+              value={mizanUrl}
+              onChangeText={(v) => {
+                setMizanUrl(v);
+                setMizanPreview(null);
+                setMizanError(null);
+                resetMizanAudioState();
+              }}
+              placeholder="https://mizanalarab.com/poem/..."
+              placeholderTextColor={colors.mutedForeground}
+              autoCapitalize="none"
+              autoCorrect={false}
+              keyboardType="url"
+              style={[styles.textInput, { color: colors.foreground }]}
+              editable={!mizanLoading && !mizanSaving}
+              testID="mizan-url-input"
+            />
+            <Pressable
+              onPress={handleMizanFetch}
+              disabled={mizanLoading || mizanSaving || !mizanUrl.trim()}
+              testID="mizan-fetch-button"
+              style={({ pressed }) => [
+                styles.iconButton,
+                {
+                  backgroundColor: colors.primary,
+                  opacity: !mizanUrl.trim() || mizanLoading ? 0.4 : pressed ? 0.8 : 1,
+                },
+              ]}
+            >
+              {mizanLoading ? (
+                <ActivityIndicator size="small" color={colors.primaryForeground} />
+              ) : (
+                <Feather name="arrow-left" size={18} color={colors.primaryForeground} />
+              )}
+            </Pressable>
+          </View>
+
+          {mizanError ? (
+            <Text style={[styles.errorText, { color: colors.destructive }]}>
+              {mizanError}
+            </Text>
+          ) : null}
+
+          {mizanPreview ? (
             <View
               style={[
-                styles.inputRow,
+                styles.mizanPreviewCard,
                 { backgroundColor: colors.card, borderColor: colors.border },
               ]}
             >
-              <TextInput
-                value={mizanUrl}
-                onChangeText={(v) => {
-                  setMizanUrl(v);
-                  setMizanPreview(null);
-                  setMizanError(null);
-                  setMizanYoutubeUrl('');
-                }}
-                placeholder="https://mizanalarab.com/poem/..."
-                placeholderTextColor={colors.mutedForeground}
-                autoCapitalize="none"
-                autoCorrect={false}
-                keyboardType="url"
-                style={[styles.textInput, { color: colors.foreground }]}
-                editable={!mizanLoading && !mizanSaving}
-                testID="mizan-url-input"
-              />
-              <Pressable
-                onPress={handleMizanFetch}
-                disabled={mizanLoading || mizanSaving || !mizanUrl.trim()}
-                testID="mizan-fetch-button"
-                style={({ pressed }) => [
-                  styles.iconButton,
-                  {
-                    backgroundColor: colors.primary,
-                    opacity: !mizanUrl.trim() || mizanLoading ? 0.4 : pressed ? 0.8 : 1,
-                  },
-                ]}
-              >
-                {mizanLoading ? (
-                  <ActivityIndicator size="small" color={colors.primaryForeground} />
-                ) : (
-                  <Feather name="arrow-left" size={18} color={colors.primaryForeground} />
-                )}
-              </Pressable>
-            </View>
-
-            {mizanError ? (
-              <Text style={[styles.errorText, { color: colors.destructive }]}>
-                {mizanError}
-              </Text>
-            ) : null}
-
-            {mizanPreview ? (
-              <View
-                style={[
-                  styles.mizanPreviewCard,
-                  { backgroundColor: colors.card, borderColor: colors.border },
-                ]}
-              >
-                <View style={styles.videoInfoText}>
-                  <Text
-                    style={[styles.videoTitle, { color: colors.foreground, fontFamily: 'Amiri_700Bold' }]}
-                    numberOfLines={2}
-                  >
-                    {mizanPreview.parsed.title}
-                  </Text>
-                  <Text style={[styles.videoMeta, { color: colors.mutedForeground }]}>
-                    {mizanPreview.parsed.poetName} · {mizanPreview.parsed.verses.length} بيتًا
-                  </Text>
-                </View>
-
-                <Text style={[styles.mizanAudioLabel, { color: colors.mutedForeground }]}>
-                  الصق رابط تلاوة من يوتيوب لمزامنتها مع النص (اختياري)
+              <View style={styles.videoInfoText}>
+                <Text
+                  style={[styles.videoTitle, { color: colors.foreground, fontFamily: 'Amiri_700Bold' }]}
+                  numberOfLines={2}
+                >
+                  {mizanPreview.parsed.title}
                 </Text>
+                <Text style={[styles.videoMeta, { color: colors.mutedForeground }]}>
+                  {mizanPreview.parsed.poetName} · {mizanPreview.parsed.verses.length} بيتًا
+                </Text>
+              </View>
+
+              <Text style={[styles.mizanAudioLabel, { color: colors.mutedForeground }]}>
+                هل تريد إضافة صوت لمزامنته مع الأبيات؟ (اختياري)
+              </Text>
+
+              <View style={styles.audioModeRow}>
+                {AUDIO_MODE_OPTIONS.map((option) => {
+                  const selected = mizanAudioMode === option.key;
+                  return (
+                    <Pressable
+                      key={option.key}
+                      onPress={() => setMizanAudioMode(option.key)}
+                      disabled={mizanSaving}
+                      testID={`mizan-audio-mode-${option.key}`}
+                      style={({ pressed }) => [
+                        styles.audioModeChip,
+                        {
+                          backgroundColor: selected ? colors.primary : colors.background,
+                          borderColor: selected ? colors.primary : colors.border,
+                          opacity: mizanSaving ? 0.6 : pressed ? 0.85 : 1,
+                        },
+                      ]}
+                    >
+                      <Feather
+                        name={option.icon}
+                        size={14}
+                        color={selected ? colors.primaryForeground : colors.mutedForeground}
+                      />
+                      <Text
+                        style={[
+                          styles.audioModeChipText,
+                          { color: selected ? colors.primaryForeground : colors.mutedForeground },
+                        ]}
+                      >
+                        {option.label}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+
+              {mizanAudioMode === 'youtube' ? (
                 <View
                   style={[
                     styles.inputRow,
@@ -648,298 +703,199 @@ export default function ImportScreen() {
                     testID="mizan-youtube-url-input"
                   />
                 </View>
+              ) : null}
 
-                <Pressable
-                  onPress={handleMizanImport}
-                  disabled={mizanSaving}
-                  testID="mizan-import-confirm-button"
-                  style={({ pressed }) => [
-                    styles.submitButton,
-                    {
-                      backgroundColor: colors.primary,
-                      opacity: mizanSaving ? 0.7 : pressed ? 0.85 : 1,
-                    },
+              {mizanAudioMode === 'upload' ? (
+                <View style={styles.audioSourceBox}>
+                  <Pressable
+                    onPress={handlePickAudioFile}
+                    disabled={mizanSaving}
+                    testID="mizan-upload-pick-button"
+                    style={({ pressed }) => [
+                      styles.audioSourceButton,
+                      {
+                        borderColor: colors.border,
+                        backgroundColor: colors.background,
+                        opacity: mizanSaving ? 0.6 : pressed ? 0.85 : 1,
+                      },
+                    ]}
+                  >
+                    <Feather name="upload" size={16} color={colors.primary} />
+                    <Text style={[styles.audioSourceButtonText, { color: colors.foreground }]}>
+                      {mizanUploadedFile ? 'اختيار ملف آخر' : 'اختيار ملف صوتي'}
+                    </Text>
+                  </Pressable>
+                  {mizanUploadedFile ? (
+                    <View style={styles.audioSourceInfoRow}>
+                      <Feather name="music" size={13} color={colors.mutedForeground} />
+                      <Text
+                        style={[styles.audioSourceInfoText, { color: colors.mutedForeground }]}
+                        numberOfLines={1}
+                      >
+                        {mizanUploadedFile.name}
+                        {mizanUploadedFile.sizeLabel ? ` · ${mizanUploadedFile.sizeLabel}` : ''}
+                      </Text>
+                    </View>
+                  ) : null}
+                </View>
+              ) : null}
+
+              {mizanAudioMode === 'record' ? (
+                <View style={styles.audioSourceBox}>
+                  {!recorderState.isRecording && !mizanRecordedUri ? (
+                    <Pressable
+                      onPress={handleStartRecording}
+                      disabled={mizanSaving}
+                      testID="mizan-record-start-button"
+                      style={({ pressed }) => [
+                        styles.audioSourceButton,
+                        {
+                          borderColor: colors.border,
+                          backgroundColor: colors.background,
+                          opacity: mizanSaving ? 0.6 : pressed ? 0.85 : 1,
+                        },
+                      ]}
+                    >
+                      <Feather name="mic" size={16} color={colors.primary} />
+                      <Text style={[styles.audioSourceButtonText, { color: colors.foreground }]}>
+                        بدء التسجيل
+                      </Text>
+                    </Pressable>
+                  ) : null}
+
+                  {recorderState.isRecording ? (
+                    <Pressable
+                      onPress={handleStopRecording}
+                      testID="mizan-record-stop-button"
+                      style={({ pressed }) => [
+                        styles.audioSourceButton,
+                        {
+                          borderColor: colors.destructive,
+                          backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                          opacity: pressed ? 0.85 : 1,
+                        },
+                      ]}
+                    >
+                      <Feather name="square" size={16} color={colors.destructive} />
+                      <Text style={[styles.audioSourceButtonText, { color: colors.destructive }]}>
+                        إيقاف التسجيل · {formatRecordingTime(recorderState.durationMillis)}
+                      </Text>
+                    </Pressable>
+                  ) : null}
+
+                  {!recorderState.isRecording && mizanRecordedUri ? (
+                    <View style={styles.audioSourceInfoRow}>
+                      <Feather name="check-circle" size={14} color={colors.primary} />
+                      <Text style={[styles.audioSourceInfoText, { color: colors.mutedForeground }]}>
+                        تم تسجيل {formatRecordingTime(mizanRecordedDurationMs)}
+                      </Text>
+                      <Pressable
+                        onPress={handleDiscardRecording}
+                        disabled={mizanSaving}
+                        testID="mizan-record-discard-button"
+                        hitSlop={8}
+                      >
+                        <Feather name="trash-2" size={14} color={colors.destructive} />
+                      </Pressable>
+                    </View>
+                  ) : null}
+                </View>
+              ) : null}
+
+              {needsCookies && mizanAudioMode === 'youtube' ? (
+                <View
+                  style={[
+                    styles.cookieCard,
+                    { backgroundColor: 'rgba(245, 158, 11, 0.1)', borderColor: 'rgba(245, 158, 11, 0.3)' },
                   ]}
                 >
-                  {mizanSaving ? (
-                    <>
-                      <ActivityIndicator size="small" color={colors.primaryForeground} />
-                      <Text style={[styles.submitText, { color: colors.primaryForeground }]}>
-                        {mizanImportStage === 'downloading'
-                          ? 'جارٍ تنزيل الصوت...'
-                          : mizanImportStage === 'aligning'
-                            ? 'جارٍ مزامنة الأبيات...'
-                            : 'جارٍ الحفظ...'}
+                  <View style={styles.cookieHeaderRow}>
+                    <Text style={styles.cookieTitle}>
+                      <Feather name="key" size={13} color="#fcd34d" /> هذا المقطع يتطلب تسجيل الدخول
+                    </Text>
+                    <Pressable onPress={() => setShowCookieHelp((v) => !v)} testID="import-cookie-help-toggle">
+                      <Text style={styles.cookieHelpLink}>كيف أحصل على الكوكيز؟</Text>
+                    </Pressable>
+                  </View>
+
+                  {showCookieHelp ? (
+                    <View style={styles.cookieHelpBox}>
+                      <Text style={styles.cookieHelpText}>
+                        ١. سجّل الدخول إلى حسابك في YouTube داخل متصفحك.{'\n'}
+                        ٢. استخدم إضافة متصفح مثل "Get cookies.txt LOCALLY" لتصدير كوكيز موقع
+                        youtube.com بصيغة Netscape.{'\n'}
+                        ٣. الصق محتوى الملف بالكامل في الحقل أدناه ثم أعد المحاولة.
                       </Text>
-                    </>
-                  ) : (
-                    <>
-                      <Feather name="check" size={16} color={colors.primaryForeground} />
-                      <Text style={[styles.submitText, { color: colors.primaryForeground }]}>
-                        {mizanYoutubeUrl.trim() ? 'استيراد مع الصوت' : 'استيراد النص فقط'}
-                      </Text>
-                    </>
-                  )}
-                </Pressable>
-              </View>
-            ) : null}
+                    </View>
+                  ) : null}
 
-            <View style={styles.dividerRow}>
-              <View style={[styles.dividerLine, { backgroundColor: colors.border }]} />
-              <Text style={[styles.dividerText, { color: colors.mutedForeground }]}>
-                أو استيراد يدوي من رابط يوتيوب
-              </Text>
-              <View style={[styles.dividerLine, { backgroundColor: colors.border }]} />
-            </View>
-          </View>
-        ) : null}
+                  <TextInput
+                    value={cookiesText}
+                    onChangeText={setCookiesText}
+                    placeholder={'# Netscape HTTP Cookie File\n.youtube.com  TRUE  /  TRUE  ...'}
+                    placeholderTextColor="rgba(252, 211, 77, 0.4)"
+                    multiline
+                    textAlignVertical="top"
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    style={styles.cookieInput}
+                    testID="import-cookies-input"
+                  />
+                  <Text style={styles.cookieHint}>
+                    تُستخدم الكوكيز محليًا لهذه العملية فقط ولا يتم تخزينها.
+                  </Text>
+                  <Pressable
+                    onPress={handleMizanImport}
+                    disabled={!cookiesText.trim() || mizanSaving}
+                    testID="import-cookie-retry-button"
+                    style={({ pressed }) => [
+                      styles.cookieRetryButton,
+                      { opacity: !cookiesText.trim() ? 0.4 : pressed ? 0.8 : 1 },
+                    ]}
+                  >
+                    {mizanSaving ? (
+                      <ActivityIndicator size="small" color="#fcd34d" />
+                    ) : (
+                      <Feather name="key" size={14} color="#fcd34d" />
+                    )}
+                    <Text style={styles.cookieRetryText}>إعادة المحاولة بتسجيل الدخول</Text>
+                  </Pressable>
+                </View>
+              ) : null}
 
-        <Text style={[styles.pageHint, { color: colors.mutedForeground }]}>
-          الصق رابط تلاوة من يوتيوب، ثم أضف نص الأبيات لمزامنتها مع الصوت
-        </Text>
-
-        <View
-          style={[
-            styles.inputRow,
-            { backgroundColor: colors.card, borderColor: colors.border },
-          ]}
-        >
-          <TextInput
-            value={url}
-            onChangeText={setUrl}
-            placeholder="https://youtube.com/watch?v=..."
-            placeholderTextColor={colors.mutedForeground}
-            autoCapitalize="none"
-            autoCorrect={false}
-            keyboardType="url"
-            style={[styles.textInput, { color: colors.foreground }]}
-            editable={!anyBusy}
-            testID="import-url-input"
-          />
-          <Pressable
-            onPress={handleFetchInfo}
-            disabled={infoMutation.isPending || !url.trim() || anyBusy}
-            testID="import-fetch-info-button"
-            style={({ pressed }) => [
-              styles.iconButton,
-              {
-                backgroundColor: colors.primary,
-                opacity: !url.trim() || anyBusy ? 0.4 : pressed ? 0.8 : 1,
-              },
-            ]}
-          >
-            {infoMutation.isPending ? (
-              <ActivityIndicator size="small" color={colors.primaryForeground} />
-            ) : (
-              <Feather name="arrow-left" size={18} color={colors.primaryForeground} />
-            )}
-          </Pressable>
-        </View>
-
-        {needsCookies ? (
-          <View
-            style={[
-              styles.cookieCard,
-              { backgroundColor: 'rgba(245, 158, 11, 0.1)', borderColor: 'rgba(245, 158, 11, 0.3)' },
-            ]}
-          >
-            <View style={styles.cookieHeaderRow}>
-              <Text style={styles.cookieTitle}>
-                <Feather name="key" size={13} color="#fcd34d" /> هذا المقطع يتطلب تسجيل الدخول
-              </Text>
-              <Pressable onPress={() => setShowCookieHelp((v) => !v)} testID="import-cookie-help-toggle">
-                <Text style={styles.cookieHelpLink}>كيف أحصل على الكوكيز؟</Text>
+              <Pressable
+                onPress={handleMizanImport}
+                disabled={confirmDisabled}
+                testID="mizan-import-confirm-button"
+                style={({ pressed }) => [
+                  styles.submitButton,
+                  {
+                    backgroundColor: colors.primary,
+                    opacity: confirmDisabled ? 0.5 : pressed ? 0.85 : 1,
+                  },
+                ]}
+              >
+                {mizanSaving ? (
+                  <>
+                    <ActivityIndicator size="small" color={colors.primaryForeground} />
+                    <Text style={[styles.submitText, { color: colors.primaryForeground }]}>
+                      {confirmLabel}
+                    </Text>
+                  </>
+                ) : (
+                  <>
+                    <Feather name="check" size={16} color={colors.primaryForeground} />
+                    <Text style={[styles.submitText, { color: colors.primaryForeground }]}>
+                      {confirmLabel}
+                    </Text>
+                  </>
+                )}
               </Pressable>
             </View>
+          ) : null}
+        </View>
 
-            {showCookieHelp ? (
-              <View style={styles.cookieHelpBox}>
-                <Text style={styles.cookieHelpText}>
-                  ١. سجّل الدخول إلى حسابك في YouTube داخل متصفحك.{'\n'}
-                  ٢. استخدم إضافة متصفح مثل "Get cookies.txt LOCALLY" لتصدير كوكيز موقع
-                  youtube.com بصيغة Netscape.{'\n'}
-                  ٣. الصق محتوى الملف بالكامل في الحقل أدناه ثم أعد المحاولة.
-                </Text>
-              </View>
-            ) : null}
-
-            <TextInput
-              value={cookiesText}
-              onChangeText={setCookiesText}
-              placeholder={'# Netscape HTTP Cookie File\n.youtube.com  TRUE  /  TRUE  ...'}
-              placeholderTextColor="rgba(252, 211, 77, 0.4)"
-              multiline
-              textAlignVertical="top"
-              autoCapitalize="none"
-              autoCorrect={false}
-              style={styles.cookieInput}
-              testID="import-cookies-input"
-            />
-            <Text style={styles.cookieHint}>
-              تُستخدم الكوكيز محليًا لهذه العملية فقط ولا يتم تخزينها.
-            </Text>
-            <Pressable
-              onPress={handleFetchInfo}
-              disabled={!cookiesText.trim() || infoMutation.isPending}
-              testID="import-cookie-retry-button"
-              style={({ pressed }) => [
-                styles.cookieRetryButton,
-                { opacity: !cookiesText.trim() ? 0.4 : pressed ? 0.8 : 1 },
-              ]}
-            >
-              {infoMutation.isPending ? (
-                <ActivityIndicator size="small" color="#fcd34d" />
-              ) : (
-                <Feather name="key" size={14} color="#fcd34d" />
-              )}
-              <Text style={styles.cookieRetryText}>إعادة المحاولة بتسجيل الدخول</Text>
-            </Pressable>
-          </View>
-        ) : null}
-
-        {videoInfo ? (
-          <View
-            style={[
-              styles.videoCard,
-              { backgroundColor: colors.card, borderColor: colors.border },
-            ]}
-          >
-            {videoInfo.thumbnail ? (
-              <Image
-                source={{ uri: videoInfo.thumbnail }}
-                style={styles.thumbnail}
-                contentFit="cover"
-              />
-            ) : null}
-            <View style={styles.videoInfoText}>
-              <Text
-                style={[styles.videoTitle, { color: colors.foreground }]}
-                numberOfLines={2}
-              >
-                {videoInfo.title}
-              </Text>
-              <Text style={[styles.videoMeta, { color: colors.mutedForeground }]}>
-                {videoInfo.channel} · {formatDuration(videoInfo.durationMs)}
-              </Text>
-            </View>
-          </View>
-        ) : null}
-
-        {stage === 'details' || isBusy ? (
-          <View style={styles.form}>
-            <View style={styles.fieldGroup}>
-              <Text style={[styles.fieldLabel, { color: colors.mutedForeground }]}>
-                عنوان القصيدة
-              </Text>
-              <TextInput
-                value={title}
-                onChangeText={setTitle}
-                placeholderTextColor={colors.mutedForeground}
-                editable={!isBusy}
-                style={[
-                  styles.fieldInput,
-                  {
-                    color: colors.foreground,
-                    backgroundColor: colors.card,
-                    borderColor: colors.border,
-                  },
-                ]}
-                textAlign="right"
-                testID="import-title-input"
-              />
-            </View>
-
-            <View style={styles.fieldGroup}>
-              <Text style={[styles.fieldLabel, { color: colors.mutedForeground }]}>
-                اسم الشاعر
-              </Text>
-              <TextInput
-                value={poetName}
-                onChangeText={setPoetName}
-                placeholder="مثال: أحمد شوقي"
-                placeholderTextColor={colors.mutedForeground}
-                editable={!isBusy}
-                style={[
-                  styles.fieldInput,
-                  {
-                    color: colors.foreground,
-                    backgroundColor: colors.card,
-                    borderColor: colors.border,
-                  },
-                ]}
-                textAlign="right"
-                testID="import-poet-input"
-              />
-            </View>
-
-            <View style={styles.fieldGroup}>
-              <Text style={[styles.fieldLabel, { color: colors.mutedForeground }]}>
-                أبيات القصيدة (كل بيت في سطر)
-              </Text>
-              <TextInput
-                value={versesText}
-                onChangeText={setVersesText}
-                placeholder={'قفا نبك من ذكرى حبيب ومنزل\nبسقط اللوى بين الدخول فحومل'}
-                placeholderTextColor={colors.mutedForeground}
-                editable={!isBusy}
-                multiline
-                textAlignVertical="top"
-                style={[
-                  styles.textarea,
-                  {
-                    color: colors.foreground,
-                    backgroundColor: colors.card,
-                    borderColor: colors.border,
-                    fontFamily: 'Amiri_400Regular',
-                  },
-                ]}
-                textAlign="right"
-                testID="import-verses-input"
-              />
-            </View>
-
-            {error ? (
-              <Text style={[styles.errorText, { color: colors.destructive }]}>
-                {error}
-              </Text>
-            ) : null}
-
-            <Pressable
-              onPress={handleImport}
-              disabled={isBusy}
-              testID="import-submit-button"
-              style={({ pressed }) => [
-                styles.submitButton,
-                {
-                  backgroundColor: colors.primary,
-                  opacity: isBusy ? 0.7 : pressed ? 0.85 : 1,
-                },
-              ]}
-            >
-              {isBusy ? (
-                <>
-                  <ActivityIndicator size="small" color={colors.primaryForeground} />
-                  <Text
-                    style={[styles.submitText, { color: colors.primaryForeground }]}
-                  >
-                    {stage === 'downloading'
-                      ? 'جارٍ تنزيل الصوت...'
-                      : 'جارٍ محاذاة الأبيات...'}
-                  </Text>
-                </>
-              ) : (
-                <>
-                  <Feather name="download" size={16} color={colors.primaryForeground} />
-                  <Text
-                    style={[styles.submitText, { color: colors.primaryForeground }]}
-                  >
-                    استيراد القصيدة
-                  </Text>
-                </>
-              )}
-            </Pressable>
-          </View>
-        ) : error ? (
+        {error ? (
           <Text style={[styles.errorText, { color: colors.destructive }]}>
             {error}
           </Text>
@@ -988,19 +944,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  videoCard: {
-    flexDirection: 'row-reverse',
-    borderRadius: 14,
-    borderWidth: StyleSheet.hairlineWidth,
-    overflow: 'hidden',
-  },
-  thumbnail: {
-    width: 100,
-    height: 76,
-  },
   videoInfoText: {
     flex: 1,
-    padding: 12,
     gap: 4,
     justifyContent: 'center',
   },
@@ -1013,34 +958,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontFamily: 'Cairo_400Regular',
     textAlign: 'right',
-  },
-  form: {
-    gap: 16,
-  },
-  fieldGroup: {
-    gap: 6,
-  },
-  fieldLabel: {
-    fontSize: 12,
-    fontFamily: 'Cairo_600SemiBold',
-    textAlign: 'right',
-  },
-  fieldInput: {
-    borderRadius: 10,
-    borderWidth: StyleSheet.hairlineWidth,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 15,
-    fontFamily: 'Cairo_400Regular',
-  },
-  textarea: {
-    borderRadius: 10,
-    borderWidth: StyleSheet.hairlineWidth,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 16,
-    minHeight: 140,
-    lineHeight: 26,
   },
   errorText: {
     fontSize: 13,
@@ -1136,6 +1053,51 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   mizanAudioLabel: {
+    fontSize: 11,
+    fontFamily: 'Cairo_400Regular',
+    textAlign: 'right',
+  },
+  audioModeRow: {
+    flexDirection: 'row-reverse',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  audioModeChip: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    gap: 6,
+    borderRadius: 999,
+    borderWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+  },
+  audioModeChipText: {
+    fontSize: 12,
+    fontFamily: 'Cairo_600SemiBold',
+  },
+  audioSourceBox: {
+    gap: 8,
+  },
+  audioSourceButton: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    borderRadius: 12,
+    borderWidth: StyleSheet.hairlineWidth,
+    paddingVertical: 12,
+  },
+  audioSourceButtonText: {
+    fontSize: 13,
+    fontFamily: 'Cairo_700Bold',
+  },
+  audioSourceInfoRow: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    gap: 6,
+  },
+  audioSourceInfoText: {
+    flex: 1,
     fontSize: 11,
     fontFamily: 'Cairo_400Regular',
     textAlign: 'right',
