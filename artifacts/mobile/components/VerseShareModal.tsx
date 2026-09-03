@@ -86,6 +86,7 @@ export function VerseShareModal({
   const [rangeEnd, setRangeEnd] = useState(initialVerseIndex);
   const [isExporting, setIsExporting] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
+  const [cardSize, setCardSize] = useState({ width: 0, height: 0 });
   const [cardThemeId, setCardThemeId] = useState(CARD_THEMES[0].id);
   const cardTheme =
     CARD_THEMES.find((theme) => theme.id === cardThemeId) ?? CARD_THEMES[0];
@@ -283,6 +284,20 @@ export function VerseShareModal({
                 format: 'png',
                 quality: 1,
                 result: Platform.OS === 'web' ? 'data-uri' : 'tmpfile',
+                ...(Platform.OS === 'web' && cardSize.width > 0 && cardSize.height > 0
+                  ? {
+                      width: Math.round(cardSize.width * 2),
+                      height: Math.round(cardSize.height * 2),
+                    }
+                  : {}),
+              }}
+              onLayout={({ nativeEvent }) => {
+                const { width, height } = nativeEvent.layout;
+                setCardSize((current) =>
+                  current.width === width && current.height === height
+                    ? current
+                    : { width, height },
+                );
               }}
               style={[
                 styles.cardPreview,
