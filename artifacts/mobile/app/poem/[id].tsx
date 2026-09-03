@@ -283,7 +283,7 @@ export default function PoemPlayerScreen() {
       <View style={styles.headerText}>
         {poem.coverImageUrl ? (
           <Image
-            source={poem.coverImageUrl}
+            source={{ uri: poem.coverImageUrl }}
             style={styles.coverImage}
             contentFit="cover"
             transition={180}

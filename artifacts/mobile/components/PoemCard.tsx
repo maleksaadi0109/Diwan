@@ -33,7 +33,7 @@ export function PoemCard({ poem, onPress, onLongPress, testID }: PoemCardProps) 
     >
       {poem.coverImageUrl ? (
         <Image
-          source={poem.coverImageUrl}
+          source={{ uri: poem.coverImageUrl }}
           style={styles.cover}
           contentFit="cover"
           transition={180}
@@ -82,6 +82,7 @@ export function PoemCard({ poem, onPress, onLongPress, testID }: PoemCardProps) 
 
 const styles = StyleSheet.create({
   card: {
+    minHeight: 130,
     borderRadius: 8,
     borderWidth: 1,
     borderRightWidth: 3,
@@ -89,8 +90,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row-reverse',
   },
   cover: {
-    width: 80,
-    height: '100%',
+    width: 96,
+    minHeight: 130,
+    alignSelf: 'stretch',
   },
   content: {
     flex: 1,
