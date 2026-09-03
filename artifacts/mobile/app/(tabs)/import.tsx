@@ -669,6 +669,129 @@ export default function ImportScreen() {
                   );
                 })}
               </View>
+
+              {mizanAudioMode === 'youtube' ? (
+                <View
+                  style={[
+                    styles.inputRow,
+                    { backgroundColor: colors.background, borderColor: colors.border },
+                  ]}
+                >
+                  <TextInput
+                    value={mizanYoutubeUrl}
+                    onChangeText={setMizanYoutubeUrl}
+                    placeholder="https://youtube.com/watch?v=..."
+                    placeholderTextColor={colors.mutedForeground}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    keyboardType="url"
+                    style={[styles.textInput, { color: colors.foreground }]}
+                    editable={!mizanLoading && !mizanSaving}
+                    testID="mizan-youtube-url-input-before-fetch"
+                  />
+                </View>
+              ) : null}
+
+              {mizanAudioMode === 'upload' ? (
+                <View style={styles.audioSourceBox}>
+                  <Pressable
+                    onPress={handlePickAudioFile}
+                    disabled={mizanLoading || mizanSaving}
+                    testID="mizan-upload-pick-button-before-fetch"
+                    style={({ pressed }) => [
+                      styles.audioSourceButton,
+                      {
+                        borderColor: colors.border,
+                        backgroundColor: colors.background,
+                        opacity: mizanLoading || mizanSaving ? 0.6 : pressed ? 0.85 : 1,
+                      },
+                    ]}
+                  >
+                    <Feather name="upload" size={16} color={colors.primary} />
+                    <Text style={[styles.audioSourceButtonText, { color: colors.foreground }]}>
+                      {mizanUploadedFile ? 'اختيار ملف آخر' : 'اختيار ملف صوتي'}
+                    </Text>
+                  </Pressable>
+                  {mizanUploadedFile ? (
+                    <View style={styles.audioSourceInfoRow}>
+                      <Feather name="music" size={13} color={colors.mutedForeground} />
+                      <Text
+                        style={[styles.audioSourceInfoText, { color: colors.mutedForeground }]}
+                        numberOfLines={1}
+                      >
+                        {mizanUploadedFile.name}
+                        {mizanUploadedFile.sizeLabel ? ` · ${mizanUploadedFile.sizeLabel}` : ''}
+                      </Text>
+                    </View>
+                  ) : null}
+                </View>
+              ) : null}
+
+              {mizanAudioMode === 'record' ? (
+                <View style={styles.audioSourceBox}>
+                  {!recorderState.isRecording && !mizanRecordedUri ? (
+                    <Pressable
+                      onPress={handleStartRecording}
+                      disabled={mizanLoading || mizanSaving}
+                      testID="mizan-record-start-button-before-fetch"
+                      style={({ pressed }) => [
+                        styles.audioSourceButton,
+                        {
+                          borderColor: colors.border,
+                          backgroundColor: colors.background,
+                          opacity: mizanLoading || mizanSaving ? 0.6 : pressed ? 0.85 : 1,
+                        },
+                      ]}
+                    >
+                      <Feather name="mic" size={16} color={colors.primary} />
+                      <Text style={[styles.audioSourceButtonText, { color: colors.foreground }]}>
+                        بدء التسجيل
+                      </Text>
+                    </Pressable>
+                  ) : null}
+
+                  {recorderState.isRecording ? (
+                    <Pressable
+                      onPress={handleStopRecording}
+                      testID="mizan-record-stop-button-before-fetch"
+                      style={({ pressed }) => [
+                        styles.audioSourceButton,
+                        {
+                          borderColor: colors.destructive,
+                          backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                          opacity: pressed ? 0.85 : 1,
+                        },
+                      ]}
+                    >
+                      <Feather name="square" size={16} color={colors.destructive} />
+                      <Text style={[styles.audioSourceButtonText, { color: colors.destructive }]}>
+                        إيقاف التسجيل · {formatRecordingTime(recorderState.durationMillis)}
+                      </Text>
+                    </Pressable>
+                  ) : null}
+
+                  {!recorderState.isRecording && mizanRecordedUri ? (
+                    <View style={styles.audioSourceInfoRow}>
+                      <Feather name="check-circle" size={14} color={colors.primary} />
+                      <Text style={[styles.audioSourceInfoText, { color: colors.mutedForeground }]}>
+                        تم تسجيل {formatRecordingTime(mizanRecordedDurationMs)}
+                      </Text>
+                      <Pressable
+                        onPress={handleDiscardRecording}
+                        disabled={mizanLoading || mizanSaving}
+                        testID="mizan-record-discard-button-before-fetch"
+                        hitSlop={8}
+                      >
+                        <Feather name="trash-2" size={14} color={colors.destructive} />
+                      </Pressable>
+                    </View>
+                  ) : null}
+                </View>
+              ) : null}
+
+              <Text style={[styles.sourcePromptHint, { color: colors.mutedForeground }]}>
+                بعد اختيار المصدر اضغط زر السهم لجلب القصيدة والمتابعة
+              </Text>
             </View>
           ) : null}
 
