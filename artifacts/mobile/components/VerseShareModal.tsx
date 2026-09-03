@@ -69,102 +69,6 @@ function defaultCardFontSize(verseCount: number): number {
   return 15;
 }
 
-function escapeXml(value: string): string {
-  return value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&apos;');
-}
-
-function wrapArabicText(value: string, maxCharacters: number): string[] {
-  const words = value.trim().split(/\s+/).filter(Boolean);
-  const lines: string[] = [];
-  let current = '';
-
-  for (const word of words) {
-    const candidate = current ? `${current} ${word}` : word;
-    if (current && candidate.length > maxCharacters) {
-      lines.push(current);
-      current = word;
-    } else {
-      current = candidate;
-    }
-  }
-  if (current) lines.push(current);
-  return lines.length > 0 ? lines : [''];
-}
-
-async function downloadWebVerseCard(
-  poem: Poem,
-  verses: Poem['verses'],
-  fontSize: number,
-  theme: CardTheme,
-) {
-  const browserWindow = globalThis.window;
-  const document = globalThis.document;
-  if (!browserWindow || !document) {
-    throw new Error('Web image export is unavailable');
-  }
-
-  const verseLines = verses.flatMap((verse) => {
-    const { first, second } = splitHemistichs(verse.text);
-    return [
-      ...wrapArabicText(first, 42),
-      ...(second ? wrapArabicText(second, 42) : []),
-    ];
-  });
-  const lineHeight = Math.max(32, fontSize * 1.7);
-  const height = Math.max(520, 250 + verseLines.length * lineHeight);
-  const verseMarkup = verseLines
-    .map(
-      (line, index) =>
-        `<text x="450" y="${225 + index * lineHeight}" text-anchor="middle" direction="rtl">${escapeXml(line)}</text>`,
-    )
-    .join('');
-  const svg = `
-    <svg xmlns="http://www.w3.org/2000/svg" width="900" height="${height}" viewBox="0 0 900 ${height}">
-      <rect width="900" height="${height}" fill="${escapeXml(theme.background)}"/>
-      <rect x="24" y="24" width="852" height="${height - 48}" rx="12" fill="none" stroke="${escapeXml(theme.accent)}" stroke-width="4"/>
-      <circle cx="450" cy="58" r="5" fill="${escapeXml(theme.accent)}"/>
-      <text x="450" y="105" text-anchor="middle" direction="rtl" fill="${escapeXml(theme.foreground)}" font-family="Amiri_700Bold, Amiri, serif" font-size="38" font-weight="700">${escapeXml(poem.title)}</text>
-      <text x="450" y="148" text-anchor="middle" direction="rtl" fill="${escapeXml(theme.accent)}" font-family="Cairo_600SemiBold, Cairo, sans-serif" font-size="20">${escapeXml(poem.poetName)}</text>
-      <line x1="250" y1="178" x2="650" y2="178" stroke="${escapeXml(theme.border)}" stroke-width="2"/>
-      <g fill="${escapeXml(theme.foreground)}" font-family="Amiri_700Bold, Amiri, serif" font-size="${fontSize * 1.7}" font-weight="700">${verseMarkup}</g>
-      <line x1="250" y1="${height - 72}" x2="650" y2="${height - 72}" stroke="${escapeXml(theme.border)}" stroke-width="2"/>
-      <text x="450" y="${height - 38}" text-anchor="middle" fill="${escapeXml(theme.accent)}" font-family="Cairo_600SemiBold, Cairo, sans-serif" font-size="16">ديوان</text>
-    </svg>
-  `.trim();
-
-  const svgUrl = browserWindow.URL.createObjectURL(
-    new browserWindow.Blob([svg], { type: 'image/svg+xml;charset=utf-8' }),
-  );
-
-  try {
-    const image = await new Promise<HTMLImageElement>((resolve, reject) => {
-      const element = new browserWindow.Image();
-      element.onload = () => resolve(element);
-      element.onerror = () => reject(new Error('Unable to render verse card'));
-      element.src = svgUrl;
-    });
-    const canvas = document.createElement('canvas');
-    canvas.width = 1800;
-    canvas.height = Math.round(height * 2);
-    const context = canvas.getContext('2d');
-    if (!context) throw new Error('Canvas is unavailable');
-    context.drawImage(image, 0, 0, canvas.width, canvas.height);
-
-    const pngUrl = canvas.toDataURL('image/png');
-    const link = document.createElement('a');
-    link.href = pngUrl;
-    link.download = `${poem.title || 'ديوان'}-بطاقة.png`;
-    link.click();
-  } finally {
-    browserWindow.URL.revokeObjectURL(svgUrl);
-  }
-}
-
 interface VerseShareModalProps {
   poem: Poem;
   initialVerseIndex: number;
@@ -210,14 +114,17 @@ export function VerseShareModal({
     setIsExporting(true);
     setExportError(null);
     try {
-      if (Platform.OS === 'web') {
-        await downloadWebVerseCard(poem, verses, cardFontSize, cardTheme);
-        return;
-      }
       if (!viewShotRef.current?.capture) {
         throw new Error('Image capture is unavailable');
       }
       const uri = await viewShotRef.current.capture();
+      if (Platform.OS === 'web') {
+        const link = globalThis.document.createElement('a');
+        link.href = uri;
+        link.download = `${poem.title || 'ديوان'}-بطاقة.png`;
+        link.click();
+        return;
+      }
       const available = await Sharing.isAvailableAsync();
       if (available) {
         await Sharing.shareAsync(uri, {
@@ -372,7 +279,11 @@ export function VerseShareModal({
           <ScrollView style={styles.previewScroll}>
             <ViewShot
               ref={viewShotRef}
-              options={{ format: 'png', quality: 1 }}
+              options={{
+                format: 'png',
+                quality: 1,
+                result: Platform.OS === 'web' ? 'data-uri' : 'tmpfile',
+              }}
               style={[
                 styles.cardPreview,
                 {
