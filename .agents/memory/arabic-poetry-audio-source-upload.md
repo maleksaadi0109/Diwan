@@ -1,0 +1,10 @@
+---
+name: Mobile audio-source picker (YouTube/upload/record) for Mizan imports
+description: How the mobile app lets any Mizan Al-Arab import get audio from three sources feeding the same align pipeline, and why uploads/recordings convert via direct ffmpeg instead of the Python worker.
+---
+
+The Mizan Al-Arab import flow on mobile (`artifacts/mobile/app/(tabs)/import.tsx`) offers 4 audio-source modes per imported poem: text-only, YouTube link, uploaded file (`expo-document-picker`), or a fresh mic recording (`expo-audio`'s `useAudioRecorder`). All three audio modes converge on the same shape — `{ job_id, playback_audio_path, processing_audio_path, duration_ms }` — before running the existing `/api/align` step, so the align/save code path only branches on *how* that shape is obtained, not on what happens after.
+
+**Why a new upload endpoint instead of reusing the Python worker:** `artifacts/api-server`'s existing `/youtube/download` pipeline shells out to the Python `diwan_worker` for yt-dlp + ffmpeg. For a file already on disk (upload or recording), that's unnecessary — `POST /api/audio/upload` (in `artifacts/api-server/src/routes/youtube.ts`) instead spawns `ffmpeg`/`ffprobe` directly in Node, producing the identical `final/playback.mp3` (libmp3lame 192k) + `final/processing.wav` (mono/16k/pcm_s16le) pair under the same `downloadRoot/{jobId}/final/` convention (job ids prefixed `up-` instead of `yt-`). This means the existing `/api/align` strict path regex and the existing `/api/youtube/audio/:jobId/:fileName` serving route needed zero changes.
+
+**How to apply:** The endpoint isn't in the OpenAPI spec / generated `@workspace/api-client-react` client — multipart file upload doesn't fit the JSON-typed codegen well. Mobile calls it via plain `fetch` + `FormData` (`artifacts/mobile/lib/api.ts`'s `uploadAudioFile()`), following the same bypass precedent as `lib/mizan.ts`'s direct-fetch proxy call. On web, the picked/recorded `uri` must be turned into a `Blob` via `fetch(uri).then(r => r.blob())` before appending to `FormData`; on native, append `{ uri, name, type }` directly.
