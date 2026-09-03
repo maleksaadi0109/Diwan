@@ -8,6 +8,7 @@ import { setBaseUrl } from '@workspace/api-client-react';
 import { LibraryProvider } from '@/contexts/LibraryContext';
 import { PlaylistsProvider } from '@/contexts/PlaylistsContext';
 import { SettingsProvider } from '@/contexts/SettingsContext';
+import { AudioPlayerProvider } from '@/contexts/AudioPlayerContext';
 import {
   Amiri_400Regular,
   Amiri_700Bold,
@@ -67,9 +68,11 @@ export default function RootLayout() {
             <KeyboardProvider>
               <SettingsProvider>
                 <LibraryProvider>
-                  <PlaylistsProvider>
-                    <RootLayoutNav />
-                  </PlaylistsProvider>
+                  <AudioPlayerProvider>
+                    <PlaylistsProvider>
+                      <RootLayoutNav />
+                    </PlaylistsProvider>
+                  </AudioPlayerProvider>
                 </LibraryProvider>
               </SettingsProvider>
             </KeyboardProvider>
