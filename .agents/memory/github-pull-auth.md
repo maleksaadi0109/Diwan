@@ -38,3 +38,14 @@ HTTPS can't use it directly.
   `git rev-parse HEAD^{tree}` matching the tree passed to `createTree`, and
   leave local `main` where it is; don't waste time chasing exact SHA
   equality between local and remote after a synthesized push.
+
+Connector write bursts can trigger a temporary Replit Cloudflare block even
+while GitHub reads continue to work. The failure is an HTML "Sorry, you have
+been blocked" response from replit.com, not a GitHub authentication error.
+
+**Why:** Repeated blob uploads through both `proxyFetch` and the connector's
+Octokit client hit the same Replit-side transport protection.
+
+**How to apply:** Stop retrying once the Cloudflare page appears; preserve the
+local merge and resume the write later. Reauthorizing GitHub does not fix this
+case because authenticated reads still succeed.
