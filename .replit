@@ -1,4 +1,4 @@
-modules = ["nodejs-24", "python-base-3.13"]
+modules = ["nodejs-24", "python-base-3.13", "rust-stable"]
 
 [deployment]
 router = "application"
@@ -21,3 +21,4 @@ timeoutMs = 20000
 
 [nix]
 channel = "stable-25_05"
+packages = ["pkg-config", "glib", "gtk3", "webkitgtk_4_1", "gdk-pixbuf", "pango", "cairo", "libsoup_3", "zlib"]
