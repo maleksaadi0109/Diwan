@@ -58,6 +58,7 @@
     "@expo-google-fonts/amiri": "^0.4.1",
     "@expo-google-fonts/cairo": "^0.4.2",
     "expo-audio": "~57.0.4",
+    "expo-document-picker": "~57.0.1",
     "expo-sharing": "~57.0.17",
     "react-native-view-shot": "5.1.0"
   }

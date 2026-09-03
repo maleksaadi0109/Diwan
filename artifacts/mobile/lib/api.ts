@@ -4,6 +4,8 @@
  * documented contract.
  */
 
+import { Platform } from 'react-native';
+
 export function apiDomain(): string {
   const domain = process.env.EXPO_PUBLIC_DOMAIN;
   if (!domain) {
@@ -20,6 +22,62 @@ export function apiDomain(): string {
 export function toPlayableAudioUrl(rawPath: string): string {
   const serverPath = rawPath.replace(/^\/api-worker\//, '/api/');
   return `https://${apiDomain()}${serverPath}`;
+}
+
+export interface UploadedAudioJob {
+  job_id: string;
+  playback_audio_path: string;
+  processing_audio_path: string;
+  duration_ms?: number;
+}
+
+/**
+ * Uploads a locally-picked or freshly-recorded audio file to the shared
+ * api-server, which converts it into the same processing/playback pair
+ * produced by the YouTube download pipeline. This lets "upload a file" and
+ * "record yourself" reuse the exact same /align step as YouTube imports.
+ */
+export async function uploadAudioFile(params: {
+  uri: string;
+  fileName: string;
+  mimeType: string;
+}): Promise<UploadedAudioJob> {
+  const endpoint = `https://${apiDomain()}/api/audio/upload`;
+  const formData = new FormData();
+
+  if (Platform.OS === 'web') {
+    const blob = await (await fetch(params.uri)).blob();
+    formData.append('audio', blob, params.fileName);
+  } else {
+    formData.append(
+      'audio',
+      {
+        uri: params.uri,
+        name: params.fileName,
+        type: params.mimeType || 'audio/mpeg',
+      } as unknown as Blob,
+    );
+  }
+
+  let response: Response;
+  try {
+    response = await fetch(endpoint, { method: 'POST', body: formData });
+  } catch {
+    throw new Error('تعذر رفع الملف الصوتي، تحقق من الإنترنت');
+  }
+
+  if (!response.ok) {
+    let message = `فشل رفع الملف الصوتي (HTTP ${response.status})`;
+    try {
+      const errBody = (await response.json()) as { error_message?: string };
+      if (errBody?.error_message) message = errBody.error_message;
+    } catch {
+      // ignore — fall back to the generic message above
+    }
+    throw new Error(message);
+  }
+
+  return (await response.json()) as UploadedAudioJob;
 }
 
 export function makeLocalId(prefix: string): string {
