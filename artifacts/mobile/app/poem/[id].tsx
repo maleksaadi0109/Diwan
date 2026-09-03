@@ -97,6 +97,21 @@ export default function PoemPlayerScreen() {
     return active?.id ?? null;
   }, [poem, currentMs]);
 
+  const timedVerses = useMemo(
+    () => poem?.verses.filter((verse) => verse.alignment) ?? [],
+    [poem],
+  );
+
+  const verseNavigationIndex = useMemo(() => {
+    if (timedVerses.length === 0) return -1;
+    const activeIndex = timedVerses.findIndex((verse) => verse.id === activeVerseId);
+    if (activeIndex >= 0) return activeIndex;
+    const nextIndex = timedVerses.findIndex(
+      (verse) => (verse.alignment?.startMs ?? 0) > currentMs,
+    );
+    return nextIndex < 0 ? timedVerses.length - 1 : Math.max(0, nextIndex - 1);
+  }, [activeVerseId, currentMs, timedVerses]);
+
   React.useEffect(() => {
     if (!focusModeVisible || !activeVerseId) return;
     const offset = focusVerseOffsets.current[activeVerseId];
@@ -146,6 +161,11 @@ export default function PoemPlayerScreen() {
   const seekToVerse = (startMs: number) => {
     player.seekTo(startMs / 1000);
     if (!status.playing) player.play();
+  };
+
+  const seekToAdjacentVerse = (direction: -1 | 1) => {
+    const target = timedVerses[verseNavigationIndex + direction];
+    if (target?.alignment) seekToVerse(target.alignment.startMs);
   };
 
   const handleDelete = () => {
@@ -527,6 +547,52 @@ export default function PoemPlayerScreen() {
               <Feather name="rotate-cw" size={22} color={colors.foreground} />
             </Pressable>
           </View>
+          {timedVerses.length > 0 ? (
+            <View style={styles.verseNavigationRow}>
+              <Pressable
+                onPress={() => seekToAdjacentVerse(-1)}
+                disabled={verseNavigationIndex <= 0}
+                hitSlop={10}
+                style={({ pressed }) => [
+                  styles.verseNavigationButton,
+                  { opacity: verseNavigationIndex <= 0 ? 0.35 : pressed ? 0.65 : 1 },
+                ]}
+                accessibilityLabel="البيت السابق"
+                testID="player-previous-verse"
+              >
+                <Feather name="chevron-right" size={16} color={colors.foreground} />
+                <Text style={[styles.verseNavigationText, { color: colors.foreground }]}>
+                  السابق
+                </Text>
+              </Pressable>
+              <Text style={[styles.verseNavigationHint, { color: colors.mutedForeground }]}>
+                التنقل بين الأبيات
+              </Text>
+              <Pressable
+                onPress={() => seekToAdjacentVerse(1)}
+                disabled={verseNavigationIndex >= timedVerses.length - 1}
+                hitSlop={10}
+                style={({ pressed }) => [
+                  styles.verseNavigationButton,
+                  {
+                    opacity:
+                      verseNavigationIndex >= timedVerses.length - 1
+                        ? 0.35
+                        : pressed
+                          ? 0.65
+                          : 1,
+                  },
+                ]}
+                accessibilityLabel="البيت التالي"
+                testID="player-next-verse"
+              >
+                <Text style={[styles.verseNavigationText, { color: colors.foreground }]}>
+                  التالي
+                </Text>
+                <Feather name="chevron-left" size={16} color={colors.foreground} />
+              </Pressable>
+            </View>
+          ) : null}
           {activeVerseId ? (
             <Pressable
               onPress={markBoundaryHere}
@@ -1089,6 +1155,27 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 40,
+  },
+  verseNavigationRow: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 4,
+  },
+  verseNavigationButton: {
+    minWidth: 74,
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 3,
+  },
+  verseNavigationText: {
+    fontSize: 12,
+    fontFamily: 'Cairo_600SemiBold',
+  },
+  verseNavigationHint: {
+    fontSize: 10,
+    fontFamily: 'Cairo_400Regular',
   },
   playButton: {
     width: 64,
