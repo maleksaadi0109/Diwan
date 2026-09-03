@@ -14,11 +14,11 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
 import { Image } from 'expo-image';
-import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
 import { useColors } from '@/hooks/useColors';
 import { useLibrary } from '@/contexts/LibraryContext';
 import { usePlaylists } from '@/contexts/PlaylistsContext';
 import { useSettings } from '@/contexts/SettingsContext';
+import { useGlobalAudioPlayer } from '@/contexts/AudioPlayerContext';
 import { ProgressBar } from '@/components/ProgressBar';
 import { VerseShareModal } from '@/components/VerseShareModal';
 import { formatDuration } from '@/lib/api';
@@ -75,8 +75,11 @@ export default function PoemPlayerScreen() {
     await updatePoem(poem.id, (p) => ({ ...p, verses: next }));
   };
 
-  const player = useAudioPlayer(poem?.recording?.audioUrl ?? null);
-  const status = useAudioPlayerStatus(player);
+  const { player, status, loadPoem } = useGlobalAudioPlayer();
+
+  React.useEffect(() => {
+    if (poem?.recording) loadPoem(poem);
+  }, [poem, loadPoem]);
 
   const currentMs = (status.currentTime ?? 0) * 1000;
   const durationMs =

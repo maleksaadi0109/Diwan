@@ -22,7 +22,12 @@
     },
     "plugins": [
       "expo-router",
-      "expo-audio",
+      [
+        "expo-audio",
+        {
+          "enableBackgroundPlayback": true
+        }
+      ],
       "expo-sharing"
     ],
     "experiments": {
