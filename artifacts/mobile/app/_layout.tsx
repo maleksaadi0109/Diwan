@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react';
+import { View } from 'react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { KeyboardProvider } from 'react-native-keyboard-controller';
@@ -9,6 +10,7 @@ import { LibraryProvider } from '@/contexts/LibraryContext';
 import { PlaylistsProvider } from '@/contexts/PlaylistsContext';
 import { SettingsProvider } from '@/contexts/SettingsContext';
 import { AudioPlayerProvider } from '@/contexts/AudioPlayerContext';
+import { PersistentMiniPlayer } from '@/components/PersistentMiniPlayer';
 import {
   Amiri_400Regular,
   Amiri_700Bold,
@@ -70,7 +72,10 @@ export default function RootLayout() {
                 <LibraryProvider>
                   <AudioPlayerProvider>
                     <PlaylistsProvider>
-                      <RootLayoutNav />
+                      <View style={{ flex: 1 }}>
+                        <RootLayoutNav />
+                        <PersistentMiniPlayer />
+                      </View>
                     </PlaylistsProvider>
                   </AudioPlayerProvider>
                 </LibraryProvider>
