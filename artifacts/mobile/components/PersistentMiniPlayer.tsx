@@ -1,5 +1,5 @@
 import React from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { usePathname, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -21,7 +21,11 @@ export function PersistentMiniPlayer() {
     pathname === '/import' ||
     pathname === '/playlists' ||
     pathname === '/settings';
-  const bottom = isTabScreen ? 72 + insets.bottom : 12 + insets.bottom;
+  const bottom = isTabScreen
+    ? Platform.OS === 'web'
+      ? 84
+      : 64 + insets.bottom
+    : insets.bottom;
   const durationMs = activePoem.recording.durationMs || (status.duration ?? 0) * 1000;
   const progress =
     durationMs > 0
@@ -37,12 +41,12 @@ export function PersistentMiniPlayer() {
     <View
       style={[
         styles.container,
+        isTabScreen ? styles.tabContainer : styles.detailContainer,
         {
           bottom,
           backgroundColor: colors.card,
-          borderColor: colors.border,
+          borderTopColor: colors.border,
           borderRightColor: colors.primary,
-          shadowColor: colors.background,
         },
       ]}
       testID="persistent-mini-player"
@@ -104,22 +108,27 @@ export function PersistentMiniPlayer() {
 const styles = StyleSheet.create({
   container: {
     position: 'absolute',
-    left: 12,
-    right: 12,
-    minHeight: 64,
-    borderWidth: 1,
-    borderRightWidth: 3,
-    borderRadius: 14,
-    padding: 7,
+    minHeight: 60,
+    borderTopWidth: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
     flexDirection: 'row-reverse',
     alignItems: 'center',
     gap: 12,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.28,
-    shadowRadius: 10,
-    elevation: 10,
     overflow: 'hidden',
     zIndex: 100,
+  },
+  tabContainer: {
+    left: 0,
+    right: 0,
+    borderRadius: 0,
+  },
+  detailContainer: {
+    left: 12,
+    right: 12,
+    borderWidth: 1,
+    borderRightWidth: 3,
+    borderRadius: 12,
   },
   poemLink: {
     flex: 1,
@@ -162,14 +171,17 @@ const styles = StyleSheet.create({
   },
   progressTrack: {
     position: 'absolute',
-    left: 12,
-    right: 12,
+    left: 0,
+    right: 0,
     bottom: 0,
     height: 2,
     overflow: 'hidden',
   },
   progressFill: {
+    position: 'absolute',
+    right: 0,
+    top: 0,
+    bottom: 0,
     height: '100%',
-    alignSelf: 'flex-end',
   },
 });
