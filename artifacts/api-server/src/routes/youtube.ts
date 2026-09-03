@@ -1,7 +1,8 @@
 import { Router, type IRouter } from "express";
+import multer from "multer";
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import { createReadStream, existsSync } from "node:fs";
-import { mkdir } from "node:fs/promises";
+import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { logger } from "../lib/logger";
@@ -212,6 +213,110 @@ router.post("/youtube/thumbnail", async (req, res): Promise<void> => {
     res.status(502).json({
       error_code: "THUMBNAIL_DOWNLOAD_FAILED",
       error_message: "تعذر تحميل صورة الغلاف",
+    });
+  }
+});
+
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 100 * 1024 * 1024 },
+});
+
+function runFfmpeg(args: string[]): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const proc = spawn("ffmpeg", args, { stdio: ["ignore", "ignore", "pipe"] });
+    let stderr = "";
+    proc.stderr.on("data", (chunk: Buffer) => {
+      stderr += chunk.toString("utf8");
+    });
+    proc.on("error", (error) => reject(new Error(`FFMPEG_NOT_FOUND: ${error.message}`)));
+    proc.on("close", (code) => {
+      if (code === 0) resolve();
+      else reject(new Error(`CONVERSION_FAILED: فشل تحويل الملف الصوتي (${stderr.trim().slice(-300)})`));
+    });
+  });
+}
+
+function probeDurationMs(filePath: string): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const proc = spawn("ffprobe", [
+      "-v",
+      "error",
+      "-show_entries",
+      "format=duration",
+      "-of",
+      "default=noprint_wrappers=1:nokey=1",
+      filePath,
+    ]);
+    let stdout = "";
+    proc.on("error", (error) => reject(new Error(`FFMPEG_NOT_FOUND: ${error.message}`)));
+    proc.stdout.on("data", (chunk: Buffer) => {
+      stdout += chunk.toString("utf8");
+    });
+    proc.on("close", (code) => {
+      if (code !== 0) {
+        reject(new Error("PROBE_FAILED: تعذر فحص مدة الملف الصوتي"));
+        return;
+      }
+      const seconds = parseFloat(stdout.trim());
+      resolve(Number.isFinite(seconds) ? Math.round(seconds * 1000) : 0);
+    });
+  });
+}
+
+router.post("/audio/upload", upload.single("audio"), async (req, res): Promise<void> => {
+  const file = req.file;
+  if (!file || !file.buffer || file.buffer.length === 0) {
+    res.status(400).json({ error_code: "INVALID_FILE", error_message: "ملف صوتي مطلوب" });
+    return;
+  }
+
+  const jobId = `up-${randomUUID().replace(/-/g, "").slice(0, 16)}`;
+  const jobDir = path.join(downloadRoot, jobId);
+  const rawDir = path.join(jobDir, "raw");
+  const finalDir = path.join(jobDir, "final");
+
+  try {
+    await mkdir(rawDir, { recursive: true });
+    await mkdir(finalDir, { recursive: true });
+
+    const rawExt = path.extname(file.originalname || "").slice(0, 10) || ".bin";
+    const rawPath = path.join(rawDir, `upload${rawExt}`);
+    await writeFile(rawPath, file.buffer);
+
+    const playbackPath = path.join(finalDir, "playback.mp3");
+    const processingPath = path.join(finalDir, "processing.wav");
+
+    await runFfmpeg(["-y", "-i", rawPath, "-vn", "-acodec", "libmp3lame", "-b:a", "192k", playbackPath]);
+    await runFfmpeg([
+      "-y",
+      "-i",
+      rawPath,
+      "-vn",
+      "-ac",
+      "1",
+      "-ar",
+      "16000",
+      "-c:a",
+      "pcm_s16le",
+      processingPath,
+    ]);
+
+    const durationMs = await probeDurationMs(playbackPath);
+
+    res.json({
+      job_id: jobId,
+      playback_audio_path: `/api-worker/youtube/audio/${jobId}/playback.mp3`,
+      processing_audio_path: `/api-worker/youtube/audio/${jobId}/processing.wav`,
+      duration_ms: durationMs,
+    });
+  } catch (error) {
+    req.log.warn({ err: error, jobId }, "Audio upload processing failed");
+    const message = error instanceof Error ? error.message : "فشل معالجة الملف الصوتي";
+    const [errorCode, ...rest] = message.split(":");
+    res.status(502).json({
+      error_code: errorCode || "CONVERSION_FAILED",
+      error_message: rest.join(":").trim() || message,
     });
   }
 });
