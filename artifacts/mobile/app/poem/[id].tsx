@@ -44,6 +44,7 @@ export default function PoemPlayerScreen() {
   const [playlistModalVisible, setPlaylistModalVisible] = useState(false);
   const [newPlaylistName, setNewPlaylistName] = useState('');
   const [shareVerseIndex, setShareVerseIndex] = useState<number | null>(null);
+  const [playerExpanded, setPlayerExpanded] = useState(true);
 
   const poem = getPoem(id);
 
@@ -479,13 +480,22 @@ export default function PoemPlayerScreen() {
         })}
       </ScrollView>
 
-      {poem.recording ? (
+      {poem.recording && playerExpanded ? (
         <View
           style={[
             styles.playerBar,
             { paddingBottom: bottomInset + 16, borderTopColor: colors.border },
           ]}
         >
+          <Pressable
+            onPress={() => setPlayerExpanded(false)}
+            hitSlop={12}
+            style={styles.playerCollapseButton}
+            accessibilityLabel="إخفاء المشغل"
+            testID="player-collapse-button"
+          >
+            <Feather name="chevron-down" size={22} color={colors.mutedForeground} />
+          </Pressable>
           <ProgressBar progress={progress} onSeek={seekToRatio} />
           <View style={styles.timeRow}>
             <Text style={[styles.timeText, { color: colors.mutedForeground }]}>
@@ -527,6 +537,45 @@ export default function PoemPlayerScreen() {
               </Text>
             </Pressable>
           ) : null}
+        </View>
+      ) : poem.recording ? (
+        <View
+          style={[
+            styles.compactPlayer,
+            {
+              paddingBottom: bottomInset + 8,
+              backgroundColor: colors.card,
+              borderTopColor: colors.border,
+            },
+          ]}
+        >
+          <Pressable
+            onPress={() => setPlayerExpanded(true)}
+            hitSlop={10}
+            style={styles.compactPlayerExpand}
+            accessibilityLabel="إظهار المشغل"
+            testID="player-expand-button"
+          >
+            <Feather name="chevron-up" size={22} color={colors.primary} />
+            <Text style={[styles.compactPlayerText, { color: colors.mutedForeground }]}>
+              إظهار المشغّل
+            </Text>
+          </Pressable>
+          <Text style={[styles.compactPlayerTime, { color: colors.mutedForeground }]}>
+            {formatDuration(currentMs)}
+          </Text>
+          <Pressable
+            onPress={togglePlay}
+            hitSlop={10}
+            accessibilityLabel={status.playing ? 'إيقاف مؤقت' : 'تشغيل'}
+            testID="compact-player-play-pause"
+          >
+            <Feather
+              name={status.playing ? 'pause-circle' : 'play-circle'}
+              size={30}
+              color={colors.primary}
+            />
+          </Pressable>
         </View>
       ) : null}
 
@@ -988,9 +1037,41 @@ const styles = StyleSheet.create({
   },
   playerBar: {
     paddingHorizontal: 24,
-    paddingTop: 16,
+    paddingTop: 8,
     borderTopWidth: 1,
     gap: 12,
+  },
+  playerCollapseButton: {
+    alignSelf: 'center',
+    paddingHorizontal: 24,
+    minHeight: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  compactPlayer: {
+    minHeight: 56,
+    paddingTop: 8,
+    paddingHorizontal: 20,
+    borderTopWidth: 1,
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  compactPlayerExpand: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    gap: 6,
+  },
+  compactPlayerText: {
+    fontSize: 12,
+    fontFamily: 'Cairo_600SemiBold',
+  },
+  compactPlayerTime: {
+    flex: 1,
+    textAlign: 'center',
+    fontSize: 12,
+    fontFamily: 'Cairo_600SemiBold',
   },
   timeRow: {
     flexDirection: 'row-reverse',
