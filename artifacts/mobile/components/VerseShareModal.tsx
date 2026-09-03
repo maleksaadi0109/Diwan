@@ -179,12 +179,12 @@ export function VerseShareModal({
             <ViewShot
               ref={viewShotRef}
               options={{ format: 'png', quality: 1 }}
-              style={styles.cardPreview}
+              style={[styles.cardPreview, { backgroundColor: colors.background, borderColor: colors.primary }]}
             >
-              <Text style={[styles.cardTitle, { color: colors.primary }]}>
+              <Text style={[styles.cardTitle, { color: colors.foreground }]}>
                 {poem.title}
               </Text>
-              <Text style={[styles.cardPoet, { color: colors.mutedForeground }]}>
+              <Text style={[styles.cardPoet, { color: colors.primary }]}>
                 {poem.poetName}
               </Text>
               <View style={styles.cardVerses}>
@@ -239,18 +239,18 @@ const styles = StyleSheet.create({
   overlay: {
     flex: 1,
     justifyContent: 'flex-end',
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: 'rgba(0,0,0,0.6)',
   },
   card: {
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    borderWidth: StyleSheet.hairlineWidth,
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    borderWidth: 1,
     borderBottomWidth: 0,
-    paddingHorizontal: 20,
-    paddingTop: 16,
+    paddingHorizontal: 24,
+    paddingTop: 20,
     paddingBottom: Platform.OS === 'web' ? 34 : 24,
     maxHeight: '90%',
-    gap: 14,
+    gap: 16,
   },
   header: {
     flexDirection: 'row-reverse',
@@ -258,71 +258,69 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   headerTitle: {
-    fontSize: 17,
+    fontSize: 18,
     fontFamily: 'Cairo_700Bold',
   },
   rangeRow: {
     flexDirection: 'row-reverse',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
+    gap: 12,
   },
   rangeButton: {
     flexDirection: 'row-reverse',
     alignItems: 'center',
-    gap: 4,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: 10,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+    gap: 6,
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
   },
   rangeButtonText: {
-    fontSize: 12,
+    fontSize: 13,
     fontFamily: 'Cairo_600SemiBold',
   },
   rangeLabel: {
-    fontSize: 12,
+    fontSize: 13,
     fontFamily: 'Cairo_600SemiBold',
   },
   fontRow: {
     flexDirection: 'row-reverse',
     alignItems: 'center',
-    gap: 14,
+    gap: 16,
   },
   fontLabel: {
-    fontSize: 12,
-    fontFamily: 'Cairo_400Regular',
+    fontSize: 13,
+    fontFamily: 'Cairo_600SemiBold',
   },
   resetText: {
     marginRight: 'auto',
-    fontSize: 12,
+    fontSize: 13,
     fontFamily: 'Cairo_600SemiBold',
   },
   previewScroll: {
     maxHeight: 400,
   },
   cardPreview: {
-    borderRadius: 20,
+    borderRadius: 8,
     borderWidth: 1,
-    borderColor: 'rgba(212,175,110,0.3)',
-    backgroundColor: '#14100c',
     paddingHorizontal: 24,
     paddingVertical: 32,
     alignItems: 'center',
   },
   cardTitle: {
-    fontSize: 20,
+    fontSize: 22,
     fontFamily: 'Amiri_700Bold',
     textAlign: 'center',
   },
   cardPoet: {
-    fontSize: 11,
+    fontSize: 13,
     fontFamily: 'Cairo_600SemiBold',
-    marginTop: 4,
+    marginTop: 6,
     marginBottom: 24,
   },
   cardVerses: {
-    gap: 14,
+    gap: 16,
     width: '100%',
   },
   cardVerseText: {
@@ -333,20 +331,22 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    marginTop: 28,
+    marginTop: 32,
   },
   cardFooterLine: {
     width: 24,
-    height: StyleSheet.hairlineWidth,
+    height: 1,
+    backgroundColor: '#3A332E',
   },
   cardFooterLabel: {
     fontSize: 10,
     fontFamily: 'Cairo_600SemiBold',
     letterSpacing: 2,
+    color: '#A3968A',
   },
   errorText: {
-    fontSize: 12,
-    fontFamily: 'Cairo_400Regular',
+    fontSize: 13,
+    fontFamily: 'Cairo_600SemiBold',
     textAlign: 'center',
   },
   shareButton: {
@@ -354,11 +354,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    borderRadius: 14,
-    height: 48,
+    borderRadius: 8,
+    height: 52,
   },
   shareButtonText: {
-    fontSize: 15,
+    fontSize: 16,
     fontFamily: 'Cairo_700Bold',
   },
 });

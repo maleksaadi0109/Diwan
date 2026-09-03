@@ -1,57 +1,54 @@
 /**
  * Semantic design tokens for the mobile app.
  *
- * Mirrors the dark "illuminated manuscript" palette of the sibling
- * artifacts/arabic-poetry desktop app (artifacts/arabic-poetry/src/styles/globals.css):
- * deep charcoal surfaces, warm parchment text, and a gold accent.
- * The app is intentionally dark-only (light === dark) so it always
- * matches the desktop app regardless of the device's system theme.
+ * Mirrors a dark "illuminated manuscript" palette with warm parchment text,
+ * deep rich sepia/charcoal surfaces, and antique gold accents.
  */
 
 const dark = {
   // Legacy aliases (kept for backward compatibility)
-  text: '#fdfbf7',
-  tint: '#d4af37',
+  text: '#EBE3D5',
+  tint: '#C79A5E',
 
   // Core surfaces
-  background: '#0a0b0e',
-  foreground: '#fdfbf7',
+  background: '#1A1614',
+  foreground: '#EBE3D5',
 
   // Cards / elevated surfaces
-  card: '#14171d',
-  cardForeground: '#fdfbf7',
+  card: '#241F1C',
+  cardForeground: '#EBE3D5',
 
-  // Primary action color (buttons, links, active states) — illumination gold
-  primary: '#d4af37',
-  primaryForeground: '#14171d',
+  // Primary action color (buttons, links, active states) — antique gold
+  primary: '#C79A5E',
+  primaryForeground: '#1A1614',
 
   // Secondary / less-emphasis interactive surfaces
-  secondary: '#181b23',
-  secondaryForeground: '#eee4d0',
+  secondary: '#2F2926',
+  secondaryForeground: '#EBE3D5',
 
   // Muted / subdued elements (dividers, timestamps, placeholders)
-  muted: '#181b23',
-  mutedForeground: '#a0aab7',
+  muted: '#342D29',
+  mutedForeground: '#A3968A',
 
   // Accent highlights (badges, selected items, focus rings)
-  accent: '#20242e',
-  accentForeground: '#f5d77f',
+  accent: '#2F2926',
+  accentForeground: '#C79A5E',
 
   // Destructive actions (delete, error states)
-  destructive: '#e63946',
-  destructiveForeground: '#fdfbf7',
+  destructive: '#C54E4E',
+  destructiveForeground: '#EBE3D5',
 
   // Borders and input outlines
-  border: '#20242e',
-  input: '#242834',
+  border: '#3A332E',
+  input: '#2F2926',
 };
 
 const colors = {
   light: dark,
   dark,
 
-  // Border radius (in px), matches the desktop app's card/button rounding.
-  radius: 14,
+  // Border radius (in px) — elegant gentle rounding
+  radius: 8,
 };
 
 export default colors;

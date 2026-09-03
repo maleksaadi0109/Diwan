@@ -14,9 +14,12 @@ export function EmptyState({ icon, title, subtitle }: EmptyStateProps) {
   return (
     <View style={styles.container}>
       <View
-        style={[styles.iconWrap, { backgroundColor: colors.secondary }]}
+        style={[
+          styles.iconWrap,
+          { backgroundColor: colors.background, borderColor: colors.border },
+        ]}
       >
-        <Feather name={icon} size={28} color={colors.mutedForeground} />
+        <Feather name={icon} size={28} color={colors.primary} />
       </View>
       <Text style={[styles.title, { color: colors.foreground }]}>
         {title}
@@ -34,25 +37,27 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 40,
-    gap: 12,
+    gap: 16,
   },
   iconWrap: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
+    width: 72,
+    height: 72,
+    borderRadius: 36,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 4,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderStyle: 'dashed',
   },
   title: {
-    fontSize: 17,
-    fontFamily: 'Cairo_700Bold',
+    fontSize: 20,
+    fontFamily: 'Amiri_700Bold',
     textAlign: 'center',
   },
   subtitle: {
     fontSize: 14,
     fontFamily: 'Cairo_400Regular',
     textAlign: 'center',
-    lineHeight: 20,
+    lineHeight: 22,
   },
 });

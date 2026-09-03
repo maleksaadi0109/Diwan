@@ -117,7 +117,7 @@ export default function ImportScreen() {
   const alignMutation = useAlignPoemVerses();
 
   const topInset = Platform.OS === 'web' ? Math.max(insets.top, 67) : insets.top;
-  const bottomInset = Platform.OS === 'web' ? 34 : insets.bottom;
+  const tabBarHeight = Platform.OS === 'web' ? 84 : 64 + insets.bottom;
 
   const resetMizanAudioState = () => {
     setMizanAudioMode('none');
@@ -479,7 +479,7 @@ export default function ImportScreen() {
       <ScrollView
         contentContainerStyle={[
           styles.content,
-          { paddingTop: topInset + 12, paddingBottom: bottomInset + 130 },
+          { paddingTop: topInset + 20, paddingBottom: tabBarHeight + 60 },
         ]}
         keyboardShouldPersistTaps="handled"
       >
@@ -488,7 +488,7 @@ export default function ImportScreen() {
         </Text>
 
         <View style={styles.catalogSection}>
-          <Text style={[styles.sectionLabel, { color: colors.mutedForeground }]}>
+          <Text style={[styles.sectionLabel, { color: colors.foreground }]}>
             مكتبة جاهزة
           </Text>
           <Text style={[styles.sectionHint, { color: colors.mutedForeground }]}>
@@ -536,7 +536,7 @@ export default function ImportScreen() {
                       {entry.titleHint}
                     </Text>
                     <Text
-                      style={[styles.catalogItemPoet, { color: colors.mutedForeground }]}
+                      style={[styles.catalogItemPoet, { color: colors.primary }]}
                       numberOfLines={1}
                     >
                       {entry.poetHint}
@@ -770,29 +770,31 @@ export default function ImportScreen() {
                         styles.audioSourceButton,
                         {
                           borderColor: colors.destructive,
-                          backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                          backgroundColor: 'rgba(226, 54, 54, 0.1)',
                           opacity: pressed ? 0.85 : 1,
                         },
                       ]}
                     >
                       <Feather name="square" size={16} color={colors.destructive} />
                       <Text style={[styles.audioSourceButtonText, { color: colors.destructive }]}>
-                        إيقاف التسجيل · {formatRecordingTime(recorderState.durationMillis)}
+                        إيقاف التسجيل ({formatRecordingTime(recorderState.durationMillis)})
                       </Text>
                     </Pressable>
                   ) : null}
 
-                  {!recorderState.isRecording && mizanRecordedUri ? (
+                  {mizanRecordedUri && !recorderState.isRecording ? (
                     <View style={styles.audioSourceInfoRow}>
-                      <Feather name="check-circle" size={14} color={colors.primary} />
-                      <Text style={[styles.audioSourceInfoText, { color: colors.mutedForeground }]}>
+                      <Feather name="mic" size={13} color={colors.mutedForeground} />
+                      <Text
+                        style={[styles.audioSourceInfoText, { color: colors.mutedForeground }]}
+                      >
                         تم تسجيل {formatRecordingTime(mizanRecordedDurationMs)}
                       </Text>
                       <Pressable
                         onPress={handleDiscardRecording}
+                        hitSlop={8}
                         disabled={mizanLoading || mizanSaving}
                         testID="mizan-record-discard-button-before-fetch"
-                        hitSlop={8}
                       >
                         <Feather name="trash-2" size={14} color={colors.destructive} />
                       </Pressable>
@@ -800,17 +802,54 @@ export default function ImportScreen() {
                   ) : null}
                 </View>
               ) : null}
-
-              <Text style={[styles.sourcePromptHint, { color: colors.mutedForeground }]}>
-                بعد اختيار المصدر اضغط زر السهم لجلب القصيدة والمتابعة
-              </Text>
             </View>
           ) : null}
 
           {mizanError ? (
-            <Text style={[styles.errorText, { color: colors.destructive }]}>
-              {mizanError}
-            </Text>
+            <View style={styles.errorBox}>
+              <Feather name="alert-circle" size={16} color={colors.destructive} />
+              <Text style={[styles.errorText, { color: colors.destructive }]}>
+                {mizanError}
+              </Text>
+            </View>
+          ) : null}
+
+          {needsCookies ? (
+            <View style={styles.cookieHelpBox}>
+              <View style={styles.cookieHeaderRow}>
+                <Text style={styles.cookieTitle}>يرجى إدخال ملفات تعريف الارتباط (Cookies)</Text>
+              </View>
+              <Text style={styles.cookieHelpText}>
+                قام يوتيوب بحظر الطلب مؤقتًا. للوصول، يرجى استخراج ملفات تعريف
+                الارتباط من متصفحك (بصيغة Netscape) ولصقها هنا.
+              </Text>
+              <TextInput
+                value={cookiesText}
+                onChangeText={setCookiesText}
+                placeholder="# Netscape HTTP Cookie File..."
+                placeholderTextColor="rgba(253, 251, 247, 0.3)"
+                multiline
+                style={styles.cookieTextInput}
+                autoCapitalize="none"
+                autoCorrect={false}
+                testID="cookie-input"
+              />
+              <Pressable
+                onPress={() => {
+                  setNeedsCookies(false);
+                  if (mizanPreview) handleMizanImport();
+                  else if (activeCatalogId) {
+                    const entry = POEM_CATALOG.find((c) => c.id === activeCatalogId);
+                    if (entry) handleCatalogImport(entry);
+                  }
+                }}
+                style={styles.cookieRetryButton}
+                testID="cookie-retry-button"
+              >
+                <Feather name="refresh-cw" size={14} color="#fcd34d" />
+                <Text style={styles.cookieRetryText}>إعادة المحاولة</Text>
+              </Pressable>
+            </View>
           ) : null}
 
           {mizanPreview ? (
@@ -820,22 +859,16 @@ export default function ImportScreen() {
                 { backgroundColor: colors.card, borderColor: colors.border },
               ]}
             >
-              <View style={styles.videoInfoText}>
-                <Text
-                  style={[styles.videoTitle, { color: colors.foreground, fontFamily: 'Amiri_700Bold' }]}
-                  numberOfLines={2}
-                >
-                  {mizanPreview.parsed.title}
-                </Text>
-                <Text style={[styles.videoMeta, { color: colors.mutedForeground }]}>
-                  {mizanPreview.parsed.poetName} · {mizanPreview.parsed.verses.length} بيتًا
-                </Text>
-              </View>
-
-              <Text style={[styles.mizanAudioLabel, { color: colors.mutedForeground }]}>
-                هل تريد إضافة صوت لمزامنته مع الأبيات؟ (اختياري)
+              <Text style={[styles.catalogItemTitle, { color: colors.foreground }]}>
+                {mizanPreview.parsed.title}
+              </Text>
+              <Text style={[styles.catalogItemPoet, { color: colors.primary }]}>
+                {mizanPreview.parsed.poetName}
               </Text>
 
+              <Text style={[styles.mizanAudioLabel, { color: colors.mutedForeground, marginTop: 8 }]}>
+                مصدر الصوت:
+              </Text>
               <View style={styles.audioModeRow}>
                 {AUDIO_MODE_OPTIONS.map((option) => {
                   const selected = mizanAudioMode === option.key;
@@ -843,14 +876,14 @@ export default function ImportScreen() {
                     <Pressable
                       key={option.key}
                       onPress={() => setMizanAudioMode(option.key)}
-                      disabled={mizanSaving}
-                      testID={`mizan-audio-mode-${option.key}`}
+                      disabled={mizanLoading || mizanSaving}
+                      testID={`mizan-audio-mode-after-fetch-${option.key}`}
                       style={({ pressed }) => [
                         styles.audioModeChip,
                         {
                           backgroundColor: selected ? colors.primary : colors.background,
                           borderColor: selected ? colors.primary : colors.border,
-                          opacity: mizanSaving ? 0.6 : pressed ? 0.85 : 1,
+                          opacity: mizanLoading || mizanSaving ? 0.6 : pressed ? 0.85 : 1,
                         },
                       ]}
                     >
@@ -862,7 +895,11 @@ export default function ImportScreen() {
                       <Text
                         style={[
                           styles.audioModeChipText,
-                          { color: selected ? colors.primaryForeground : colors.mutedForeground },
+                          {
+                            color: selected
+                              ? colors.primaryForeground
+                              : colors.mutedForeground,
+                          },
                         ]}
                       >
                         {option.label}
@@ -888,8 +925,8 @@ export default function ImportScreen() {
                     autoCorrect={false}
                     keyboardType="url"
                     style={[styles.textInput, { color: colors.foreground }]}
-                    editable={!mizanSaving}
-                    testID="mizan-youtube-url-input"
+                    editable={!mizanLoading && !mizanSaving}
+                    testID="mizan-youtube-url-input-after-fetch"
                   />
                 </View>
               ) : null}
@@ -898,14 +935,14 @@ export default function ImportScreen() {
                 <View style={styles.audioSourceBox}>
                   <Pressable
                     onPress={handlePickAudioFile}
-                    disabled={mizanSaving}
-                    testID="mizan-upload-pick-button"
+                    disabled={mizanLoading || mizanSaving}
+                    testID="mizan-upload-pick-button-after-fetch"
                     style={({ pressed }) => [
                       styles.audioSourceButton,
                       {
                         borderColor: colors.border,
                         backgroundColor: colors.background,
-                        opacity: mizanSaving ? 0.6 : pressed ? 0.85 : 1,
+                        opacity: mizanLoading || mizanSaving ? 0.6 : pressed ? 0.85 : 1,
                       },
                     ]}
                   >
@@ -934,14 +971,14 @@ export default function ImportScreen() {
                   {!recorderState.isRecording && !mizanRecordedUri ? (
                     <Pressable
                       onPress={handleStartRecording}
-                      disabled={mizanSaving}
-                      testID="mizan-record-start-button"
+                      disabled={mizanLoading || mizanSaving}
+                      testID="mizan-record-start-button-after-fetch"
                       style={({ pressed }) => [
                         styles.audioSourceButton,
                         {
                           borderColor: colors.border,
                           backgroundColor: colors.background,
-                          opacity: mizanSaving ? 0.6 : pressed ? 0.85 : 1,
+                          opacity: mizanLoading || mizanSaving ? 0.6 : pressed ? 0.85 : 1,
                         },
                       ]}
                     >
@@ -955,100 +992,41 @@ export default function ImportScreen() {
                   {recorderState.isRecording ? (
                     <Pressable
                       onPress={handleStopRecording}
-                      testID="mizan-record-stop-button"
+                      testID="mizan-record-stop-button-after-fetch"
                       style={({ pressed }) => [
                         styles.audioSourceButton,
                         {
                           borderColor: colors.destructive,
-                          backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                          backgroundColor: 'rgba(226, 54, 54, 0.1)',
                           opacity: pressed ? 0.85 : 1,
                         },
                       ]}
                     >
                       <Feather name="square" size={16} color={colors.destructive} />
                       <Text style={[styles.audioSourceButtonText, { color: colors.destructive }]}>
-                        إيقاف التسجيل · {formatRecordingTime(recorderState.durationMillis)}
+                        إيقاف التسجيل ({formatRecordingTime(recorderState.durationMillis)})
                       </Text>
                     </Pressable>
                   ) : null}
 
-                  {!recorderState.isRecording && mizanRecordedUri ? (
+                  {mizanRecordedUri && !recorderState.isRecording ? (
                     <View style={styles.audioSourceInfoRow}>
-                      <Feather name="check-circle" size={14} color={colors.primary} />
-                      <Text style={[styles.audioSourceInfoText, { color: colors.mutedForeground }]}>
+                      <Feather name="mic" size={13} color={colors.mutedForeground} />
+                      <Text
+                        style={[styles.audioSourceInfoText, { color: colors.mutedForeground }]}
+                      >
                         تم تسجيل {formatRecordingTime(mizanRecordedDurationMs)}
                       </Text>
                       <Pressable
                         onPress={handleDiscardRecording}
-                        disabled={mizanSaving}
-                        testID="mizan-record-discard-button"
                         hitSlop={8}
+                        disabled={mizanLoading || mizanSaving}
+                        testID="mizan-record-discard-button-after-fetch"
                       >
                         <Feather name="trash-2" size={14} color={colors.destructive} />
                       </Pressable>
                     </View>
                   ) : null}
-                </View>
-              ) : null}
-
-              {needsCookies && mizanAudioMode === 'youtube' ? (
-                <View
-                  style={[
-                    styles.cookieCard,
-                    { backgroundColor: 'rgba(245, 158, 11, 0.1)', borderColor: 'rgba(245, 158, 11, 0.3)' },
-                  ]}
-                >
-                  <View style={styles.cookieHeaderRow}>
-                    <Text style={styles.cookieTitle}>
-                      <Feather name="key" size={13} color="#fcd34d" /> هذا المقطع يتطلب تسجيل الدخول
-                    </Text>
-                    <Pressable onPress={() => setShowCookieHelp((v) => !v)} testID="import-cookie-help-toggle">
-                      <Text style={styles.cookieHelpLink}>كيف أحصل على الكوكيز؟</Text>
-                    </Pressable>
-                  </View>
-
-                  {showCookieHelp ? (
-                    <View style={styles.cookieHelpBox}>
-                      <Text style={styles.cookieHelpText}>
-                        ١. سجّل الدخول إلى حسابك في YouTube داخل متصفحك.{'\n'}
-                        ٢. استخدم إضافة متصفح مثل "Get cookies.txt LOCALLY" لتصدير كوكيز موقع
-                        youtube.com بصيغة Netscape.{'\n'}
-                        ٣. الصق محتوى الملف بالكامل في الحقل أدناه ثم أعد المحاولة.
-                      </Text>
-                    </View>
-                  ) : null}
-
-                  <TextInput
-                    value={cookiesText}
-                    onChangeText={setCookiesText}
-                    placeholder={'# Netscape HTTP Cookie File\n.youtube.com  TRUE  /  TRUE  ...'}
-                    placeholderTextColor="rgba(252, 211, 77, 0.4)"
-                    multiline
-                    textAlignVertical="top"
-                    autoCapitalize="none"
-                    autoCorrect={false}
-                    style={styles.cookieInput}
-                    testID="import-cookies-input"
-                  />
-                  <Text style={styles.cookieHint}>
-                    تُستخدم الكوكيز محليًا لهذه العملية فقط ولا يتم تخزينها.
-                  </Text>
-                  <Pressable
-                    onPress={handleMizanImport}
-                    disabled={!cookiesText.trim() || mizanSaving}
-                    testID="import-cookie-retry-button"
-                    style={({ pressed }) => [
-                      styles.cookieRetryButton,
-                      { opacity: !cookiesText.trim() ? 0.4 : pressed ? 0.8 : 1 },
-                    ]}
-                  >
-                    {mizanSaving ? (
-                      <ActivityIndicator size="small" color="#fcd34d" />
-                    ) : (
-                      <Feather name="key" size={14} color="#fcd34d" />
-                    )}
-                    <Text style={styles.cookieRetryText}>إعادة المحاولة بتسجيل الدخول</Text>
-                  </Pressable>
                 </View>
               ) : null}
 
@@ -1060,35 +1038,22 @@ export default function ImportScreen() {
                   styles.submitButton,
                   {
                     backgroundColor: colors.primary,
-                    opacity: confirmDisabled ? 0.5 : pressed ? 0.85 : 1,
+                    opacity: confirmDisabled ? 0.4 : pressed ? 0.85 : 1,
                   },
                 ]}
               >
                 {mizanSaving ? (
-                  <>
-                    <ActivityIndicator size="small" color={colors.primaryForeground} />
-                    <Text style={[styles.submitText, { color: colors.primaryForeground }]}>
-                      {confirmLabel}
-                    </Text>
-                  </>
+                  <ActivityIndicator size="small" color={colors.primaryForeground} />
                 ) : (
-                  <>
-                    <Feather name="check" size={16} color={colors.primaryForeground} />
-                    <Text style={[styles.submitText, { color: colors.primaryForeground }]}>
-                      {confirmLabel}
-                    </Text>
-                  </>
+                  <Feather name="check" size={18} color={colors.primaryForeground} />
                 )}
+                <Text style={[styles.submitButtonText, { color: colors.primaryForeground }]}>
+                  {confirmLabel}
+                </Text>
               </Pressable>
             </View>
           ) : null}
         </View>
-
-        {error ? (
-          <Text style={[styles.errorText, { color: colors.destructive }]}>
-            {error}
-          </Text>
-        ) : null}
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -1096,80 +1061,69 @@ export default function ImportScreen() {
 
 const styles = StyleSheet.create({
   content: {
-    paddingHorizontal: 20,
+    paddingHorizontal: 24,
     gap: 16,
   },
   pageTitle: {
-    fontSize: 24,
+    fontSize: 34,
     fontFamily: 'Amiri_700Bold',
     textAlign: 'right',
   },
   pageHint: {
-    fontSize: 13,
+    fontSize: 14,
     fontFamily: 'Cairo_400Regular',
     textAlign: 'right',
-    marginTop: -8,
-    lineHeight: 19,
+    lineHeight: 22,
   },
   inputRow: {
     flexDirection: 'row-reverse',
     alignItems: 'center',
     gap: 8,
-    borderRadius: 12,
-    borderWidth: StyleSheet.hairlineWidth,
-    paddingHorizontal: 6,
-    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    height: 52,
   },
   textInput: {
     flex: 1,
-    fontSize: 14,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
+    fontSize: 15,
+    fontFamily: 'Cairo_400Regular',
   },
   iconButton: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+    width: 36,
+    height: 36,
+    borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  videoInfoText: {
-    flex: 1,
-    gap: 4,
-    justifyContent: 'center',
-  },
-  videoTitle: {
-    fontSize: 14,
-    fontFamily: 'Cairo_700Bold',
-    textAlign: 'right',
-  },
-  videoMeta: {
-    fontSize: 12,
-    fontFamily: 'Cairo_400Regular',
-    textAlign: 'right',
-  },
-  errorText: {
-    fontSize: 13,
-    fontFamily: 'Cairo_400Regular',
-    textAlign: 'right',
   },
   submitButton: {
     flexDirection: 'row-reverse',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    borderRadius: 12,
-    paddingVertical: 14,
+    borderRadius: 8,
+    paddingVertical: 16,
+    marginTop: 12,
   },
-  submitText: {
-    fontSize: 15,
+  submitButtonText: {
+    fontSize: 16,
     fontFamily: 'Cairo_700Bold',
   },
-  cookieCard: {
-    borderRadius: 14,
-    borderWidth: StyleSheet.hairlineWidth,
-    padding: 14,
-    gap: 10,
+  errorBox: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    gap: 8,
+    padding: 12,
+    borderRadius: 8,
+    backgroundColor: 'rgba(197,78,78,0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(197,78,78,0.3)',
+  },
+  errorText: {
+    flex: 1,
+    fontSize: 13,
+    fontFamily: 'Cairo_600SemiBold',
+    textAlign: 'right',
   },
   cookieHeaderRow: {
     flexDirection: 'row-reverse',
@@ -1177,88 +1131,79 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: 8,
   },
+  cookieHelpBox: {
+    padding: 12,
+    borderRadius: 8,
+    backgroundColor: 'rgba(212,175,55,0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(212,175,55,0.3)',
+    gap: 12,
+  },
   cookieTitle: {
-    fontSize: 12,
+    fontSize: 14,
     fontFamily: 'Cairo_700Bold',
     color: '#fcd34d',
     textAlign: 'right',
   },
-  cookieHelpLink: {
-    fontSize: 11,
-    fontFamily: 'Cairo_400Regular',
-    color: 'rgba(252, 211, 77, 0.8)',
-    textDecorationLine: 'underline',
-  },
-  cookieHelpBox: {
-    backgroundColor: 'rgba(10, 11, 14, 0.5)',
-    borderRadius: 10,
-    padding: 10,
-  },
   cookieHelpText: {
-    fontSize: 11,
+    fontSize: 13,
     fontFamily: 'Cairo_400Regular',
-    color: '#a0aab7',
+    color: 'rgba(235, 227, 213, 0.8)',
     textAlign: 'right',
     lineHeight: 18,
   },
-  cookieInput: {
-    backgroundColor: 'rgba(10, 11, 14, 0.6)',
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(255,255,255,0.1)',
-    borderRadius: 10,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    fontSize: 11,
-    color: '#fdfbf7',
-    minHeight: 90,
+  cookieTextInput: {
+    height: 80,
+    borderRadius: 8,
+    padding: 10,
+    fontSize: 12,
     fontFamily: Platform.select({ ios: 'Courier', android: 'monospace', default: 'monospace' }),
-  },
-  cookieHint: {
-    fontSize: 10,
-    fontFamily: 'Cairo_400Regular',
+    backgroundColor: 'rgba(0,0,0,0.2)',
+    borderWidth: 1,
+    borderColor: 'rgba(212,175,55,0.2)',
     color: 'rgba(160, 170, 183, 0.8)',
-    textAlign: 'right',
+    textAlign: 'left',
   },
   cookieRetryButton: {
     flexDirection: 'row-reverse',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    borderRadius: 10,
-    paddingVertical: 10,
+    borderRadius: 8,
+    paddingVertical: 12,
     backgroundColor: 'rgba(245, 158, 11, 0.2)',
-    borderWidth: StyleSheet.hairlineWidth,
+    borderWidth: 1,
     borderColor: 'rgba(245, 158, 11, 0.4)',
   },
   cookieRetryText: {
-    fontSize: 12,
+    fontSize: 14,
     fontFamily: 'Cairo_700Bold',
     color: '#fcd34d',
   },
   mizanPreviewCard: {
-    borderRadius: 14,
-    borderWidth: StyleSheet.hairlineWidth,
-    padding: 12,
-    gap: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+    padding: 16,
+    gap: 12,
   },
   mizanAudioLabel: {
-    fontSize: 11,
-    fontFamily: 'Cairo_400Regular',
+    fontSize: 13,
+    fontFamily: 'Cairo_600SemiBold',
     textAlign: 'right',
   },
   sourcePromptCard: {
-    borderRadius: 14,
-    borderWidth: StyleSheet.hairlineWidth,
-    padding: 12,
-    gap: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    padding: 16,
+    gap: 10,
   },
   sourcePromptTitle: {
-    fontSize: 13,
+    fontSize: 15,
     fontFamily: 'Cairo_700Bold',
     textAlign: 'right',
   },
   sourcePromptHint: {
-    fontSize: 11,
+    fontSize: 13,
     fontFamily: 'Cairo_400Regular',
     textAlign: 'right',
   },
@@ -1271,29 +1216,29 @@ const styles = StyleSheet.create({
     flexDirection: 'row-reverse',
     alignItems: 'center',
     gap: 6,
-    borderRadius: 999,
-    borderWidth: StyleSheet.hairlineWidth,
-    paddingHorizontal: 12,
-    paddingVertical: 7,
+    borderRadius: 8,
+    borderWidth: 1,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
   },
   audioModeChipText: {
-    fontSize: 12,
+    fontSize: 13,
     fontFamily: 'Cairo_600SemiBold',
   },
   audioSourceBox: {
-    gap: 8,
+    gap: 12,
   },
   audioSourceButton: {
     flexDirection: 'row-reverse',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    borderRadius: 12,
-    borderWidth: StyleSheet.hairlineWidth,
-    paddingVertical: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    paddingVertical: 14,
   },
   audioSourceButtonText: {
-    fontSize: 13,
+    fontSize: 14,
     fontFamily: 'Cairo_700Bold',
   },
   audioSourceInfoRow: {
@@ -1303,66 +1248,66 @@ const styles = StyleSheet.create({
   },
   audioSourceInfoText: {
     flex: 1,
-    fontSize: 11,
+    fontSize: 13,
     fontFamily: 'Cairo_400Regular',
     textAlign: 'right',
   },
   catalogSection: {
-    gap: 8,
+    gap: 12,
   },
   sectionLabel: {
-    fontSize: 13,
+    fontSize: 18,
     fontFamily: 'Cairo_700Bold',
     textAlign: 'right',
   },
   sectionHint: {
-    fontSize: 11,
+    fontSize: 14,
     fontFamily: 'Cairo_400Regular',
     textAlign: 'right',
-    lineHeight: 16,
+    lineHeight: 20,
   },
   catalogList: {
-    gap: 8,
+    gap: 10,
   },
   catalogItem: {
     flexDirection: 'row-reverse',
     alignItems: 'center',
-    gap: 10,
-    borderRadius: 12,
-    borderWidth: StyleSheet.hairlineWidth,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    gap: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
   },
   catalogItemText: {
     flex: 1,
-    gap: 2,
+    gap: 4,
   },
   catalogItemTitle: {
-    fontSize: 13,
+    fontSize: 15,
     fontFamily: 'Amiri_700Bold',
     textAlign: 'right',
   },
   catalogItemPoet: {
-    fontSize: 11,
+    fontSize: 13,
     fontFamily: 'Cairo_400Regular',
     textAlign: 'right',
   },
   catalogItemStatus: {
-    fontSize: 10,
-    fontFamily: 'Cairo_400Regular',
+    fontSize: 11,
+    fontFamily: 'Cairo_600SemiBold',
   },
   dividerRow: {
     flexDirection: 'row-reverse',
     alignItems: 'center',
-    gap: 10,
-    marginTop: 4,
+    gap: 12,
+    marginTop: 8,
   },
   dividerLine: {
     flex: 1,
-    height: StyleSheet.hairlineWidth,
+    height: 1,
   },
   dividerText: {
-    fontSize: 11,
-    fontFamily: 'Cairo_400Regular',
+    fontSize: 13,
+    fontFamily: 'Cairo_600SemiBold',
   },
 });

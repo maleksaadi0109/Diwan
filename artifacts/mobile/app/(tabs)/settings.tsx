@@ -24,7 +24,7 @@ export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
   const { fontSize, setFontSize } = useSettings();
   const topInset = Platform.OS === 'web' ? Math.max(insets.top, 67) : insets.top;
-  const bottomInset = Platform.OS === 'web' ? 34 : insets.bottom;
+  const tabBarHeight = Platform.OS === 'web' ? 84 : 64 + insets.bottom;
 
   const adjust = (delta: number) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
@@ -36,7 +36,7 @@ export default function SettingsScreen() {
       style={{ backgroundColor: colors.background }}
       contentContainerStyle={[
         styles.content,
-        { paddingTop: topInset + 12, paddingBottom: bottomInset + 24 },
+        { paddingTop: topInset + 20, paddingBottom: tabBarHeight + 24 },
       ]}
     >
       <Text style={[styles.pageTitle, { color: colors.foreground }]}>
@@ -115,48 +115,55 @@ export default function SettingsScreen() {
 
 const styles = StyleSheet.create({
   content: {
-    paddingHorizontal: 20,
+    paddingHorizontal: 24,
     gap: 16,
   },
   pageTitle: {
-    fontSize: 24,
+    fontSize: 34,
     fontFamily: 'Amiri_700Bold',
     textAlign: 'right',
-    marginBottom: 4,
+    marginBottom: 8,
   },
   card: {
-    borderRadius: 16,
-    borderWidth: StyleSheet.hairlineWidth,
-    padding: 16,
-    gap: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    padding: 20,
+    gap: 8,
   },
   cardLabel: {
-    fontSize: 16,
+    fontSize: 17,
     fontFamily: 'Cairo_700Bold',
     textAlign: 'right',
   },
   cardHint: {
-    fontSize: 13,
+    fontSize: 14,
     fontFamily: 'Cairo_400Regular',
     textAlign: 'right',
-    lineHeight: 19,
+    lineHeight: 22,
   },
   fontRow: {
     flexDirection: 'row-reverse',
     alignItems: 'center',
-    gap: 12,
-    marginTop: 8,
+    gap: 16,
+    marginTop: 12,
   },
   stepButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 44,
+    height: 44,
+    borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(235, 227, 213, 0.1)',
   },
   fontPreviewWrap: {
     flex: 1,
     alignItems: 'center',
+    backgroundColor: 'rgba(26, 22, 20, 0.5)',
+    paddingVertical: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(235, 227, 213, 0.1)',
   },
   fontPreview: {
     fontFamily: 'Amiri_700Bold',
@@ -164,6 +171,6 @@ const styles = StyleSheet.create({
   aboutRow: {
     flexDirection: 'row-reverse',
     alignItems: 'center',
-    gap: 8,
+    gap: 10,
   },
 });

@@ -185,12 +185,13 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 28,
-    fontWeight: '700',
+    fontFamily: 'Amiri_700Bold',
     textAlign: 'center',
     lineHeight: 40,
   },
   message: {
     fontSize: 16,
+    fontFamily: 'Cairo_400Regular',
     textAlign: 'center',
     lineHeight: 24,
   },
@@ -220,13 +221,13 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   buttonText: {
-    fontWeight: '600',
+    fontFamily: 'Cairo_700Bold',
     textAlign: 'center',
     fontSize: 16,
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
     justifyContent: 'flex-end',
   },
   modalContainer: {
@@ -236,7 +237,7 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 16,
   },
   modalHeader: {
-    flexDirection: 'row',
+    flexDirection: 'row-reverse',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 16,
@@ -246,7 +247,7 @@ const styles = StyleSheet.create({
   },
   modalTitle: {
     fontSize: 20,
-    fontWeight: '600',
+    fontFamily: 'Cairo_700Bold',
   },
   closeButton: {
     width: 44,
@@ -268,6 +269,7 @@ const styles = StyleSheet.create({
   },
   errorText: {
     fontSize: 12,
+    fontFamily: 'Cairo_400Regular',
     lineHeight: 18,
     width: '100%',
   },
