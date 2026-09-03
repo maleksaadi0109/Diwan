@@ -2,9 +2,9 @@
 
 <img src="artifacts/arabic-poetry/src-tauri/icons/icon.png" alt="Diwan logo" width="132" />
 
-# دِيـــوَان | Diwan
+# Diwan | دِيـــوَان
 
-### الشعر العربي بصوتٍ متزامن
+### Arabic Poetry in Synchronized Voice
 
 **An offline-first desktop and mobile experience for Arabic poetry, synchronized recitation, and intelligent verse alignment.**
 
@@ -19,57 +19,62 @@
 
 ---
 
-## عن ديوان | About
+## About Diwan
 
-**ديوان** منصة للشعر العربي تجمع القراءة والاستماع في تجربة واحدة. يربط التطبيق التسجيل الصوتي بأبيات القصيدة، ويُبرز البيت الجاري إلقاؤه لحظةً بلحظة، مع أدوات للاستيراد والتنظيم والمراجعة والمشاركة.
+**Diwan** is a desktop and mobile platform that brings Arabic poetry, spoken recitation, and intelligent audio alignment together in one experience. It imports poems and recordings, transcribes Arabic speech, aligns timestamps with individual verses, and highlights each verse as it is recited.
 
-**Diwan** connects Arabic poetry with spoken recitation. It imports poems and recordings, transcribes Arabic speech, aligns timestamps with individual verses, and presents everything through an interactive synchronized player.
+## Highlights
 
-## أبرز المزايا | Highlights
+- Synchronized audio playback with active-verse highlighting.
+- Poem import from Mizan Al-Arab or manual text entry.
+- Audio import from YouTube or local files.
+- Arabic speech transcription powered by Faster Whisper.
+- Intelligent matching between spoken words and written verses.
+- A local poetry library with persistent playlists.
+- Verse sharing as styled images with multiple backgrounds.
+- Export to LRC, SRT, JSON, and individual verse audio clips.
+- A native Tauri and Rust desktop application with local SQLite storage.
+- A companion mobile application built with Expo.
 
-- مشغّل صوتي متزامن مع الأبيات.
-- استيراد القصائد من ميزان العرب أو الإدخال اليدوي.
-- تنزيل التسجيلات الصوتية من YouTube أو اختيار ملف محلي.
-- تفريغ الكلام العربي باستخدام Faster Whisper.
-- محاذاة الكلمات المنطوقة مع أبيات القصيدة.
-- مكتبة محلية وقوائم تشغيل.
-- مشاركة الأبيات كصور بخلفيات متعددة.
-- تصدير LRC وSRT وJSON ومقاطع صوتية.
-- تطبيق مكتبي يعمل عبر Tauri وRust مع قاعدة SQLite محلية.
-- تطبيق محمول مصاحب مبني باستخدام Expo.
-
-## البنية المعمارية | Architecture
+## Architecture
 
 ```mermaid
 flowchart LR
-    U["المستخدم<br/>User"] --> UI["React + TypeScript<br/>واجهة ديوان"]
-    UI -->|Tauri IPC| R["Rust + Tauri<br/>Desktop host"]
-    R --> DB[("SQLite<br/>Local data")]
+    U["User"] --> UI["React + TypeScript<br/>Diwan interface"]
+    UI -->|Tauri IPC| R["Rust + Tauri<br/>Native desktop host"]
+    R --> DB[("SQLite<br/>Local storage")]
     R -->|NDJSON| PY["Python Worker"]
-    PY --> FF["FFmpeg / FFprobe"]
-    PY --> ASR["Faster Whisper + VAD"]
+    PY --> FF["FFmpeg / FFprobe<br/>Audio processing"]
+    PY --> ASR["Faster Whisper + VAD<br/>Speech recognition"]
     ASR --> ALIGN["Arabic verse alignment"]
     ALIGN --> UI
 ```
 
-## التقنيات | Technology
+## Technology
 
-| التقنية | الاستخدام |
+| Technology | Purpose |
 |---|---|
-| React + TypeScript | واجهة المستخدم ومنطق التطبيق |
-| Tailwind CSS + Vite | التصميم والتطوير وبناء الواجهة |
-| Tauri + Rust | تطبيق سطح المكتب والتكامل مع نظام التشغيل |
-| SQLite | حفظ القصائد والتسجيلات والمحاذاة محليًا |
-| Python | معالجة الصوت والتعرف على الكلام |
-| yt-dlp | تنزيل صوت YouTube |
-| FFmpeg | تحويل وفحص التسجيلات |
-| Faster Whisper | تفريغ الكلام العربي مع التوقيت |
-| Expo | تطبيق الهاتف |
-| Vitest + Pytest | الاختبارات |
+| React + TypeScript | User interface and application logic |
+| Tailwind CSS + Vite | Styling, development, and frontend builds |
+| Tauri + Rust | Native desktop application and operating-system integration |
+| SQLite | Local storage for poems, recordings, and alignments |
+| Python | Audio processing, transcription, and alignment |
+| yt-dlp | YouTube audio retrieval |
+| FFmpeg | Audio conversion and inspection |
+| Faster Whisper | Timestamped Arabic speech transcription |
+| Expo | Companion mobile application |
+| Vitest + Pytest | Frontend and Python testing |
 
-## البدء السريع | Quick start
+## Quick Start
 
-> يحتاج المشروع إلى Node.js 20+ وpnpm وRust وPython 3.10+ وFFmpeg وتبعيات Tauri الخاصة بنظام التشغيل.
+### Requirements
+
+- Node.js 20 or newer
+- pnpm
+- Rust and Cargo
+- Python 3.10 or newer
+- FFmpeg and FFprobe
+- The Tauri system dependencies for your operating system
 
 ```bash
 git clone https://github.com/maleksaadi0109/arabic-poetry-desktop.git
@@ -85,20 +90,30 @@ pip install -e artifacts/arabic-poetry/worker
 pnpm --filter @workspace/arabic-poetry run tauri:dev
 ```
 
-## التوثيق الكامل | Full documentation
+> Run these commands from the repository root. This monorepo uses pnpm's `catalog:` feature, so `npm install` is not supported.
 
-توجد تعليمات التثبيت على Ubuntu وArch Linux، والاختبارات، وبناء حزم الإنتاج، وشرح الخصوصية داخل:
+## Full Documentation
 
-**[اقرأ توثيق تطبيق ديوان الكامل →](artifacts/arabic-poetry/README.md)**
+The complete guide includes:
 
-كما يتوفر دليل بناء Windows المستقل هنا:
+- Ubuntu, Debian, and Arch Linux setup
+- Development and production commands
+- Frontend and Python tests
+- Desktop packaging
+- Architecture details
+- Keyboard shortcuts
+- YouTube cookie and privacy notes
 
-**[Windows packaging guide →](artifacts/arabic-poetry/WINDOWS_PACKAGING.md)**
+**[Read the complete Diwan documentation →](artifacts/arabic-poetry/README.md)**
+
+For a self-contained Windows package:
+
+**[Read the Windows packaging guide →](artifacts/arabic-poetry/WINDOWS_PACKAGING.md)**
 
 ---
 
 <div align="center">
 
-**دِيـــوَان — حيث يلتقي الشعر العربي بالصوت والتقنية**
+**Diwan — where Arabic poetry meets voice and technology**
 
 </div>
