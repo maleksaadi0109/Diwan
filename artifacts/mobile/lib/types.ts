@@ -23,6 +23,7 @@ export interface Poem {
   poetName: string;
   verses: Verse[];
   recording?: Recording;
+  coverImageUrl?: string;
   createdAt: number;
   sourceUrl?: string;
   /** Set when imported from a curated provider (e.g. "mizan_al_arab") so a
