@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { usePathname, useRouter } from 'expo-router';
@@ -13,8 +13,19 @@ export function PersistentMiniPlayer() {
   const pathname = usePathname();
   const insets = useSafeAreaInsets();
   const { activePoem, player, status } = useGlobalAudioPlayer();
+  const [dismissedPoemId, setDismissedPoemId] = useState<string | null>(null);
 
-  if (!activePoem?.recording || pathname.startsWith('/poem/')) return null;
+  useEffect(() => {
+    if (activePoem?.id !== dismissedPoemId) setDismissedPoemId(null);
+  }, [activePoem?.id, dismissedPoemId]);
+
+  if (
+    !activePoem?.recording ||
+    pathname.startsWith('/poem/') ||
+    dismissedPoemId === activePoem.id
+  ) {
+    return null;
+  }
 
   const isTabScreen =
     pathname === '/' ||
@@ -93,6 +104,15 @@ export function PersistentMiniPlayer() {
           color={colors.primaryForeground}
         />
       </Pressable>
+      <Pressable
+        onPress={() => setDismissedPoemId(activePoem.id)}
+        hitSlop={10}
+        style={styles.dismissButton}
+        accessibilityLabel="إخفاء شريط التشغيل"
+        testID="persistent-mini-player-dismiss"
+      >
+        <Feather name="x" size={18} color={colors.mutedForeground} />
+      </Pressable>
       <View style={[styles.progressTrack, { backgroundColor: colors.border }]}>
         <View
           style={[
@@ -166,6 +186,12 @@ const styles = StyleSheet.create({
     width: 42,
     height: 42,
     borderRadius: 21,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  dismissButton: {
+    width: 28,
+    height: 42,
     alignItems: 'center',
     justifyContent: 'center',
   },
