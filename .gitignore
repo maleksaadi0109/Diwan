@@ -72,3 +72,7 @@ __pycache__/
 .pytest_cache/
 .data/
 
+# Mobile project (separate repository)
+artifacts/mobile/
+mobile/
+
