@@ -1,6 +1,7 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
+import { Image } from 'expo-image';
 import { useColors } from '@/hooks/useColors';
 import type { Poem } from '@/lib/types';
 
@@ -29,6 +30,14 @@ export function PoemCard({ poem, onPress, onLongPress, testID }: PoemCardProps) 
         },
       ]}
     >
+      {poem.coverImageUrl ? (
+        <Image
+          source={poem.coverImageUrl}
+          style={styles.cover}
+          contentFit="cover"
+          transition={180}
+        />
+      ) : null}
       <View style={styles.header}>
         <View style={[styles.badge, { backgroundColor: colors.accent }]}>
           <Feather name="feather" size={14} color={colors.accentForeground} />
@@ -69,6 +78,12 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     padding: 16,
     gap: 10,
+    overflow: 'hidden',
+  },
+  cover: {
+    width: '100%',
+    height: 150,
+    borderRadius: 11,
   },
   header: {
     flexDirection: 'row-reverse',

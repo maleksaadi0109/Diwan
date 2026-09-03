@@ -31,6 +31,41 @@ export interface UploadedAudioJob {
   duration_ms?: number;
 }
 
+export async function downloadYoutubeCover(
+  youtubeUrl: string,
+  cookiesContent?: string,
+): Promise<string | null> {
+  try {
+    const infoResponse = await fetch(`https://${apiDomain()}/api/youtube/info`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        url: youtubeUrl,
+        cookies_content: cookiesContent?.trim() || undefined,
+      }),
+    });
+    const info = (await infoResponse.json().catch(() => ({}))) as { thumbnail?: string };
+    if (!infoResponse.ok || !info.thumbnail) return null;
+
+    const thumbnailResponse = await fetch(
+      `https://${apiDomain()}/api/youtube/thumbnail`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: info.thumbnail }),
+      },
+    );
+    const thumbnail = (await thumbnailResponse.json().catch(() => ({}))) as {
+      data_url?: string;
+    };
+    return thumbnailResponse.ok && thumbnail.data_url
+      ? thumbnail.data_url
+      : info.thumbnail;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Uploads a locally-picked or freshly-recorded audio file to the shared
  * api-server, which converts it into the same processing/playback pair
