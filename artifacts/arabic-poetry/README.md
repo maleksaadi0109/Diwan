@@ -1,129 +1,331 @@
-# دِيـــوَان — Diwan
-### Arabic Poetry & Synchronized Audio Alignment Desktop Platform
-**منصة ديوان للشعر العربي، الاستماع التفاعلي، والمحاذاة الصوتية الدقيقة**
+<div align="center">
+
+<img src="src-tauri/icons/icon.png" alt="Diwan logo" width="132" />
+
+# دِيـــوَان | Diwan
+
+### الشعر العربي بصوتٍ متزامن
+
+**An offline-first desktop experience for Arabic poetry, synchronized recitation, and intelligent verse alignment.**
+
+[![Tauri](https://img.shields.io/badge/Tauri-2-24C8DB?logo=tauri&logoColor=white)](https://tauri.app/)
+[![React](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=111827)](https://react.dev/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![Rust](https://img.shields.io/badge/Rust-Native-000000?logo=rust&logoColor=white)](https://www.rust-lang.org/)
+[![Python](https://img.shields.io/badge/Python-3.10+-3776AB?logo=python&logoColor=white)](https://www.python.org/)
+[![SQLite](https://img.shields.io/badge/SQLite-Local-003B57?logo=sqlite&logoColor=white)](https://www.sqlite.org/)
+
+</div>
 
 ---
 
-## 🌟 نظرة عامة (Overview)
+## عن المشروع | About
 
-**ديوان (Diwan)** هو تطبيق مكتبي عالي الأداء مبني باستخدام **Tauri 2** و**React 18** و**TypeScript** و**Python**، مصمم خصيصاً للشعر العربي وخصائصه البلاغية والعروضية والصوتية.
+**ديوان** تطبيق مكتبي يقدّم الشعر العربي كتجربة قراءة واستماع متكاملة. يربط التسجيل الصوتي بأبيات القصيدة، ويُبرز البيت الجاري إلقاؤه لحظةً بلحظة، مع أدوات للاستيراد والتنظيم والمراجعة والمشاركة.
 
-يعمل التطبيق **محلياً بنسبة 100% (Offline-First)** دون الحاجة إلى خوادم سحابية، مما يضمن الخصوصية الكاملة والأداء الفائق.
+**Diwan** is a privacy-focused desktop application that connects Arabic poetry with spoken recitation. It imports poems and recordings, transcribes Arabic speech, aligns timestamps with individual verses, and provides an interactive synchronized player.
 
----
-
-## ✨ الميزات الرئيسية (Key Features)
-
-1. **المشغّل الصوتي المتزامن (Synchronized Verse Player)**:
-   - متابعة وتظليل البيت النشط أثناء الاستماع بدقة الميلي ثانية (`start_ms`, `end_ms`).
-   - التمرير التلقائي السلس مع احترام التمرير اليدوي للمستخدم.
-   - النقر على أي بيت للانتقال الفوري إلى موقعه الصوتي.
-   - اختصارات لوحة المفاتيح (`Space`, `Arrows`, `J/K/L`).
-
-2. **معالج الصوتيات والذكاء الاصطناعي (Python ASR & Audio Worker)**:
-   - تحويل الصوتيات إلى WAV 16kHz mono باستخدام FFmpeg.
-   - كشف النشاط الصوتي (Voice Activity Detection - VAD).
-   - التفريغ الصوتي باللغة العربية مع طوابع زمنية على مستوى الكلمة (Faster-Whisper).
-
-3. **المحاذاة القسرية والتطبيع اللغوي (Forced Alignment & Normalization)**:
-   - إزالة وتوحيد الحركات، التنوين، الشدة، الهمزات، والتاء المربوطة.
-   - مطابقة النص الصوتي المفرّغ مع أبيات الشعر المكتوبة وحساب درجات الثقة.
-
-4. **محرر تدقيق الحدود الزمنية (Boundary Review Editor)**:
-   - واجهة مخصصة لعرض المخطط الصوتي وتعديل بدايات ونهايات الأبيات يدوياً.
-   - أزرار دوزنة دقيقة (`+50ms`, `-50ms`, `+200ms`, `-200ms`).
-   - استماع تكراري لحدود البيت (Loop Audition).
-   - تبديل حالة التدقيق (`آلي` ← `مدقق` ← `يدوي`).
-
-5. **المعجم اللغوي وتحليل بحور الشعر (Dictionary & Arud Analysis)**:
-   - النقر على أي كلمة في القصيدة لعرض معناها وجذرها اللغوي من لسان العرب والمعاجم التراثية.
-   - كشف البحر الشعري وتفصيل التفاعيل (الطويل، البسيط، الكامل، الوافر، إلخ).
-   - استخراج حرف الرويّ والقافية.
-
-6. **التصدير والتقطيع الصوتي (Audio Segmentation & Synchronized Lyrics)**:
-   - تقطيع التسجيل الصوتي إلى مقاطع صوتية مستقلة لكل بيت (`verse_001.wav`, `verse_002.wav`).
-   - تصدير كلمات متزامنة بصيغة **LRC**.
-   - تصدير ترجمات وتسميات بصيغة **SRT**.
-   - تصدير حزمة ديوان الشاملة بصيغة **JSON**.
+> يعمل التطبيق محليًا قدر الإمكان: القصائد والتسجيلات وقوائم التشغيل ونتائج المحاذاة محفوظة على جهاز المستخدم.
 
 ---
 
-## 🏛 البنية المعمارية (Architecture)
+## أبرز المزايا | Highlights
+
+- **مشغّل متزامن للأبيات** — تظليل البيت النشط، انتقال بالنقر، تمرير تلقائي، واختصارات لوحة مفاتيح.
+- **استيراد مرن** — كتابة يدوية، روابط ميزان العرب، تسجيلات YouTube، وملفات صوت محلية.
+- **تفريغ عربي ذكي** — تحويل الإلقاء إلى نص مؤقت زمنيًا باستخدام Faster Whisper.
+- **محاذاة النص بالصوت** — ربط كلمات التسجيل بأبيات القصيدة مع درجات ثقة.
+- **مراجعة الحدود الزمنية** — تعديل بداية ونهاية كل بيت والاستماع المتكرر للحدود.
+- **مكتبة وقوائم تشغيل** — تنظيم القصائد والتسجيلات في تجربة محلية مستمرة.
+- **مشاركة الأبيات كصور** — تصدير البيت بخلفيات حبر وورق وليل وزيتون.
+- **أدوات لغوية وعروضية** — معلومات القافية والرويّ وبحور الشعر والشروح.
+- **تصدير متعدد** — ملفات LRC وSRT وJSON ومقاطع صوتية مستقلة للأبيات.
+- **تجربة مكتبية أصلية** — نوافذ ملفات محلية، قاعدة SQLite، أيقونة نظام، وحزم تثبيت.
+
+---
+
+## كيف يعمل؟ | How it works
 
 ```mermaid
-graph TD
-    UI["Frontend (React 18 + Tailwind CSS + Lucide Icons)"] -->|Tauri 2 IPC| Core["Tauri 2 Rust Backend"]
-    Core -->|SQL Plugin| DB[("SQLite Database (diwan.db)")]
-    Core -->|Dialog / FS Plugins| LocalFS["Local App Data Recordings"]
-    Core -->|Subprocess NDJSON| Worker["Python 3.14 Audio & ASR Worker"]
-    Worker -->|FFmpeg / FFprobe| AudioEngine["Audio Pipeline (16kHz PCM)"]
-    Worker -->|Faster-Whisper / VAD| ASREngine["Speech Transcription & Alignment"]
+flowchart LR
+    U["المستخدم<br/>User"] --> UI["React + TypeScript<br/>واجهة ديوان"]
+    UI -->|Tauri IPC| R["Rust + Tauri<br/>التطبيق المكتبي"]
+    R --> DB[("SQLite<br/>بيانات محلية")]
+    R --> FS["Local Files<br/>التسجيلات والصور"]
+    R -->|NDJSON| PY["Python Worker<br/>معالجة الصوت"]
+    PY --> FF["FFmpeg / FFprobe<br/>تحويل وفحص"]
+    PY --> ASR["Faster Whisper + VAD<br/>تفريغ وكشف الكلام"]
+    ASR --> ALIGN["Arabic Alignment<br/>محاذاة الأبيات"]
+    ALIGN --> UI
+```
+
+### رحلة استيراد قصيدة مسموعة
+
+1. يجلب التطبيق نص القصيدة أو يستقبله من المستخدم.
+2. يحمّل التسجيل من YouTube أو يقرأ ملفًا محليًا.
+3. يحوّل FFmpeg الصوت إلى صيغة مناسبة للتحليل.
+4. يفرّغ Faster Whisper الكلام العربي مع طوابع زمنية.
+5. تطبّع خوارزمية المحاذاة النص العربي وتطابقه مع الأبيات.
+6. تحفظ النتائج في SQLite ويستخدمها المشغّل لتظليل البيت الحالي.
+
+---
+
+## التقنيات المستخدمة | Tech stack
+
+| التقنية | دورها في ديوان |
+|---|---|
+| **React 18** | بناء الشاشات والمشغّل وتجربة المستخدم |
+| **TypeScript** | نماذج بيانات آمنة وتقليل أخطاء الواجهة |
+| **Tailwind CSS** | نظام التصميم والتنسيق المتجاوب |
+| **Vite** | خادم التطوير وبناء واجهة الإنتاج |
+| **Tauri 2** | تحويل الواجهة إلى تطبيق مكتبي متعدد المنصات |
+| **Rust** | التكامل مع النظام، أوامر Tauri، وإدارة معالج Python |
+| **SQLite** | تخزين القصائد والأبيات والتسجيلات والمحاذاة محليًا |
+| **Python** | معالجة الصوت والتعرف على الكلام والمحاذاة |
+| **yt-dlp** | جلب معلومات YouTube وتنزيل المسار الصوتي |
+| **FFmpeg / FFprobe** | تحويل التسجيلات وفحص خصائصها |
+| **Faster Whisper** | تفريغ الإلقاء العربي مع التوقيت |
+| **Vitest / Pytest** | اختبارات الواجهة ومعالج الصوت |
+| **pnpm** | إدارة حزم الـ monorepo |
+
+---
+
+## بنية المشروع | Project structure
+
+```text
+arabic-poetry-desktop/
+├── artifacts/
+│   └── arabic-poetry/
+│       ├── src/                 # React + TypeScript frontend
+│       │   ├── components/      # Shared UI components
+│       │   ├── contexts/        # Audio, settings, queue, and undo state
+│       │   ├── features/        # Library, player, import, catalog, playlists
+│       │   └── lib/             # Database, audio, providers, export, diagnostics
+│       ├── src-tauri/           # Rust desktop host and Tauri configuration
+│       ├── worker/              # Python audio, YouTube, ASR, and alignment worker
+│       ├── public/              # Static assets and diagnostic recordings
+│       └── scripts/             # Verification and packaging helpers
+├── scripts/                     # Workspace and Windows packaging scripts
+├── package.json                 # Workspace commands
+├── pnpm-workspace.yaml          # Workspace packages and shared catalog
+└── pnpm-lock.yaml               # Reproducible JavaScript dependencies
 ```
 
 ---
 
-## 🚀 التثبيت والتشغيل (Getting Started)
+## البدء السريع | Getting started
 
-### المتطلبات الأساسية (Prerequisites)
-- **Node.js**: v18+ (موصى به v20 أو v24)
-- **Rust & Cargo**: 1.75+
-- **Python**: 3.10+ مع تثبيت `ffmpeg` و `ffprobe`
-- **حزم النظام (Linux)**: `webkit2gtk-4.1`, `libsoup`, `openssl`
+### المتطلبات
 
-> ⚠️ **مهم**: هذا المشروع جزء من monorepo يستخدم **pnpm** (وليس npm) لإدارة الحزم، ويعتمد على ميزة الـ`catalog:` في pnpm لتوحيد إصدارات الحزم المشتركة. استخدام `npm install` لن يعمل بشكل صحيح — سيفشل في حل الإصدارات المكتوبة كـ`catalog:` مما يكسر التطبيق بالكامل (تشغيل الصوت، والواجهة، وكل شيء). ثبّت pnpm أولاً إذا لم يكن مثبتاً: `npm install -g pnpm` أو `corepack enable`.
+- **Node.js 20+**
+- **pnpm** عبر Corepack
+- **Rust + Cargo 1.75+**
+- **Python 3.10+**
+- **FFmpeg + FFprobe**
+- مكتبات Tauri الخاصة بنظام التشغيل
 
-### 1. تثبيت الاعتماديات
+> [!IMPORTANT]
+> هذا المشروع يستخدم `pnpm` وميزة `catalog:` داخل monorepo. لا تستخدم `npm install` داخل مجلد التطبيق.
+
+### 1. استنساخ المستودع
+
 ```bash
-# من جذر المستودع (monorepo root) — ليس من داخل artifacts/arabic-poetry
-pnpm install
-
-# تثبيت حزم معالج بايثون
-pip install -e worker/
+git clone https://github.com/maleksaadi0109/arabic-poetry-desktop.git
+cd arabic-poetry-desktop
 ```
 
-### 2. التشغيل في وضع التطوير
-```bash
-# تشغيل خادم الواجهة والمحرر (من جذر المستودع)
-pnpm --filter @workspace/arabic-poetry run dev
+### 2. تثبيت حزم JavaScript
 
-# أو تشغيل التطبيق المكتبي بالكامل عبر Tauri
+```bash
+corepack enable
+pnpm install
+```
+
+### 3. إعداد معالج Python
+
+#### Linux / macOS
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
+pip install -e artifacts/arabic-poetry/worker
+```
+
+#### Windows PowerShell
+
+```powershell
+py -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip
+pip install -e artifacts/arabic-poetry/worker
+```
+
+---
+
+## متطلبات Linux
+
+### Ubuntu / Debian
+
+```bash
+sudo apt update
+sudo apt install -y \
+  build-essential curl wget file ffmpeg python3 python3-venv \
+  libwebkit2gtk-4.1-dev libssl-dev libayatana-appindicator3-dev \
+  librsvg2-dev libxdo-dev libasound2-dev
+```
+
+### Arch Linux
+
+```bash
+sudo pacman -S --needed \
+  base-devel curl wget file ffmpeg python nodejs pnpm rust \
+  webkit2gtk-4.1 openssl libappindicator-gtk3 librsvg xdotool alsa-lib
+```
+
+راجع أيضًا متطلبات Tauri الرسمية إذا كانت توزيعتك تستخدم أسماء حزم مختلفة.
+
+---
+
+## التشغيل | Development
+
+نفّذ الأوامر التالية من **جذر المستودع**.
+
+### تطبيق سطح المكتب الكامل
+
+```bash
 pnpm --filter @workspace/arabic-poetry run tauri:dev
 ```
 
-### 3. تشغيل الاختبارات
+### واجهة الويب فقط
+
 ```bash
-# اختبارات معالج بايثون
-PYTHONPATH=worker python3 -m pytest worker/tests/
-
-# اختبارات واجهة المستخدم والمكونات
-pnpm --filter @workspace/arabic-poetry run test
-
-# فحص المعايير البرمجية (فحص الأنواع TypeScript)
-pnpm --filter @workspace/arabic-poetry run typecheck
-
-# اختبار التحقق الشامل (E2E Pipeline)
-python3 scripts/e2e_verify.py
+pnpm --filter @workspace/arabic-poetry run dev
 ```
 
-### 4. بناء حزمة الإنتاج (Production Packaging)
+> نسخة المتصفح مفيدة لتطوير الواجهة، لكن SQLite الأصلي وتشغيل Python وبعض وظائف الملفات تحتاج تطبيق Tauri.
+
+---
+
+## الاختبارات | Quality checks
+
+### TypeScript
+
+```bash
+pnpm --filter @workspace/arabic-poetry run typecheck
+```
+
+### اختبارات React
+
+```bash
+pnpm --filter @workspace/arabic-poetry run test
+```
+
+### اختبارات Python
+
+```bash
+PYTHONPATH=artifacts/arabic-poetry/worker \
+  python3 -m pytest artifacts/arabic-poetry/worker/tests
+```
+
+### بناء واجهة الإنتاج
+
 ```bash
 pnpm --filter @workspace/arabic-poetry run build
-pnpm --filter @workspace/arabic-poetry run tauri build
 ```
 
 ---
 
-## ⌨️ اختصارات لوحة المفاتيح (Keyboard Shortcuts)
+## بناء تطبيق سطح المكتب | Production build
 
-| المفتاح | الوظيفة |
-| :--- | :--- |
-| **مسافة (Space) / K** | تشغيل / إيقاف مؤقت للصوت |
-| **السهم الأيمن (→)** | الانتقال للبيت السابق (RTL) |
-| **السهم الأيسر (←)** | الانتقال للبيت التالي (RTL) |
-| **J** | ترجيع 5 ثوانٍ للخلف |
-| **L** | تقديم 5 ثوانٍ للأمام |
+```bash
+pnpm --filter @workspace/arabic-poetry run tauri:build
+```
+
+توجد الملفات الناتجة عادةً في:
+
+```text
+artifacts/arabic-poetry/src-tauri/target/release/bundle/
+```
+
+يمكن أن تتضمن حزم Linux من نوع `.deb` أو `.rpm` أو `.AppImage` وفق النظام والأدوات المتوفرة.
+
+### Windows
+
+اقرأ دليل الحزمة المستقلة:
+
+```text
+artifacts/arabic-poetry/WINDOWS_PACKAGING.md
+```
+
+ثم استخدم:
+
+```bash
+pnpm --filter @workspace/arabic-poetry run tauri:build:windows
+```
+
+> يجب إنشاء حزمة Windows على جهاز Windows أو بيئة بناء Windows مناسبة.
 
 ---
 
-## 📄 الترخيص (License)
-مشروع مفتوح المصدر ومطور وفق أعلى معايير الجودة للثقافة والشعر العربي.
+## اختصارات المشغّل | Player shortcuts
+
+| المفتاح | الوظيفة |
+|---|---|
+| `Space` أو `K` | تشغيل أو إيقاف مؤقت |
+| `→` | البيت السابق في اتجاه القراءة العربي |
+| `←` | البيت التالي |
+| `J` | الرجوع 5 ثوانٍ |
+| `L` | التقدم 5 ثوانٍ |
+
+---
+
+## الخصوصية والتنزيل من YouTube
+
+- تُحفظ بيانات ديوان الأساسية محليًا في SQLite.
+- لا يقرأ التطبيق Cookies المتصفح تلقائيًا.
+- يمكن للمستخدم لصق Cookies بصيغة Netscape عند طلب YouTube تسجيل الدخول.
+- Cookies بيانات حساسة؛ لا ترفعها إلى GitHub ولا تشاركها مع أي شخص.
+- استخدم تنزيل المحتوى الذي تملك حق الوصول إليه واحترم شروط المنصة وحقوق النشر.
+
+---
+
+## الحالة والمنصات | Platform notes
+
+| المنصة | الحالة |
+|---|---|
+| Windows | مدعوم مع مسار حزمة مستقلة موثق |
+| Linux | مدعوم؛ يحتاج Python وFFmpeg وتبعيات Tauri المحلية |
+| macOS | بنية Tauri قابلة للدعم، وتحتاج بناءً واختبارًا على macOS |
+| Web preview | لتطوير الواجهة؛ بعض الوظائف الأصلية تكون محاكية |
+
+---
+
+## المساهمة | Contributing
+
+المساهمات مرحب بها:
+
+1. أنشئ فرعًا جديدًا.
+2. نفّذ التغيير مع اختبار مناسب.
+3. شغّل فحص TypeScript والاختبارات.
+4. افتح Pull Request يشرح المشكلة والحل.
+
+```bash
+git checkout -b feature/my-improvement
+pnpm --filter @workspace/arabic-poetry run typecheck
+pnpm --filter @workspace/arabic-poetry run test
+```
+
+---
+
+## الترخيص | License
+
+لم يُضف ملف ترخيص مستقل إلى المستودع بعد. جميع الحقوق محفوظة لصاحب المشروع ما لم يُنشر ترخيص يوضح خلاف ذلك.
+
+---
+
+<div align="center">
+
+**دِيـــوَان — حيث يلتقي الشعر العربي بالصوت والتقنية**
+
+</div>
