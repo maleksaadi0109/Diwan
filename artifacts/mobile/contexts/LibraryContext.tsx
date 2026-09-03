@@ -4,6 +4,7 @@ import React, {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -16,6 +17,7 @@ interface LibraryContextValue {
   isLoading: boolean;
   addPoem: (poem: Poem) => Promise<void>;
   removePoem: (id: string) => Promise<void>;
+  removePoems: (ids: string[]) => Promise<void>;
   getPoem: (id: string) => Poem | undefined;
   updatePoem: (id: string, updater: (poem: Poem) => Poem) => Promise<void>;
 }
@@ -26,6 +28,7 @@ const LibraryContext = createContext<LibraryContextValue | undefined>(
 
 export function LibraryProvider({ children }: { children: React.ReactNode }) {
   const [poems, setPoems] = useState<Poem[]>([]);
+  const poemsRef = useRef<Poem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -36,6 +39,7 @@ export function LibraryProvider({ children }: { children: React.ReactNode }) {
         if (raw) {
           try {
             const parsed = JSON.parse(raw) as Poem[];
+            poemsRef.current = parsed;
             setPoems(parsed);
           } catch {
             setPoems([]);
@@ -51,22 +55,39 @@ export function LibraryProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const persist = useCallback(async (next: Poem[]) => {
+    poemsRef.current = next;
     setPoems(next);
     await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(next));
   }, []);
 
+  const updatePoems = useCallback(
+    async (updater: (current: Poem[]) => Poem[]) => {
+      const next = updater(poemsRef.current);
+      await persist(next);
+    },
+    [persist],
+  );
+
   const addPoem = useCallback(
     async (poem: Poem) => {
-      await persist([poem, ...poems]);
+      await updatePoems((current) => [poem, ...current]);
     },
-    [poems, persist],
+    [updatePoems],
   );
 
   const removePoem = useCallback(
     async (id: string) => {
-      await persist(poems.filter((p) => p.id !== id));
+      await updatePoems((current) => current.filter((p) => p.id !== id));
     },
-    [poems, persist],
+    [updatePoems],
+  );
+
+  const removePoems = useCallback(
+    async (ids: string[]) => {
+      const idsToRemove = new Set(ids);
+      await updatePoems((current) => current.filter((p) => !idsToRemove.has(p.id)));
+    },
+    [updatePoems],
   );
 
   const getPoem = useCallback(
@@ -76,17 +97,16 @@ export function LibraryProvider({ children }: { children: React.ReactNode }) {
 
   const updatePoem = useCallback(
     async (id: string, updater: (poem: Poem) => Poem) => {
-      const current = poems.find((p) => p.id === id);
-      if (!current) return;
-      const next = updater(current);
-      await persist(poems.map((p) => (p.id === id ? next : p)));
+      await updatePoems((current) =>
+        current.map((poem) => (poem.id === id ? updater(poem) : poem)),
+      );
     },
-    [poems, persist],
+    [updatePoems],
   );
 
   const value = useMemo(
-    () => ({ poems, isLoading, addPoem, removePoem, getPoem, updatePoem }),
-    [poems, isLoading, addPoem, removePoem, getPoem, updatePoem],
+    () => ({ poems, isLoading, addPoem, removePoem, removePoems, getPoem, updatePoem }),
+    [poems, isLoading, addPoem, removePoem, removePoems, getPoem, updatePoem],
   );
 
   return (

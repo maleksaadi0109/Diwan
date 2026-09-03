@@ -24,7 +24,7 @@ export default function LibraryScreen() {
   const colors = useColors();
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { poems, isLoading, removePoem } = useLibrary();
+  const { poems, isLoading, removePoems } = useLibrary();
   const [query, setQuery] = useState('');
   const [selectMode, setSelectMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -58,20 +58,26 @@ export default function LibraryScreen() {
   };
 
   const handleBulkDelete = () => {
+    const selected = Array.from(selectedIds);
+    const deleteSelected = async () => {
+      await removePoems(selected);
+      exitSelectMode();
+    };
+    if (Platform.OS === 'web') {
+      if (window.confirm(`هل تريد حذف ${selected.length} قصيدة من مكتبتك؟`)) {
+        void deleteSelected();
+      }
+      return;
+    }
     Alert.alert(
       'حذف القصائد',
-      `هل تريد حذف ${selectedIds.size} قصيدة من مكتبتك؟`,
+      `هل تريد حذف ${selected.length} قصيدة من مكتبتك؟`,
       [
         { text: 'إلغاء', style: 'cancel' },
         {
           text: 'حذف',
           style: 'destructive',
-          onPress: async () => {
-            for (const id of selectedIds) {
-              await removePoem(id);
-            }
-            exitSelectMode();
-          },
+          onPress: deleteSelected,
         },
       ],
     );
