@@ -79,6 +79,10 @@ export default function ImportScreen() {
     parsed: ParsedMizanPoem;
   } | null>(null);
   const [mizanSaving, setMizanSaving] = useState(false);
+  const [mizanYoutubeUrl, setMizanYoutubeUrl] = useState('');
+  const [mizanImportStage, setMizanImportStage] = useState<
+    'idle' | 'downloading' | 'aligning'
+  >('idle');
 
   const importedMizanIds = new Set(
     poems.filter((p) => p.externalProvider === 'mizan_al_arab').map((p) => p.externalId),
@@ -241,31 +245,108 @@ export default function ImportScreen() {
     if (!mizanPreview) return;
     setMizanSaving(true);
     setMizanError(null);
+    const { poemId, parsed } = mizanPreview;
+    const verses: Verse[] = parsed.verses.map((v, index) => ({
+      id: makeLocalId('verse'),
+      orderIndex: index,
+      text: v.text,
+    }));
+    const trimmedYoutubeUrl = mizanYoutubeUrl.trim();
+
+    // Text-only path: no YouTube link supplied, save immediately.
+    if (!trimmedYoutubeUrl) {
+      try {
+        const poem: Poem = {
+          id: makeLocalId('poem'),
+          title: parsed.title,
+          poetName: parsed.poetName,
+          verses,
+          createdAt: Date.now(),
+          sourceUrl: mizanUrl.trim(),
+          externalProvider: 'mizan_al_arab',
+          externalId: poemId,
+        };
+        await addPoem(poem);
+        const importedId = poem.id;
+        setMizanUrl('');
+        setMizanYoutubeUrl('');
+        setMizanPreview(null);
+        router.push({ pathname: '/poem/[id]', params: { id: importedId } });
+      } catch (err) {
+        setMizanError(extractErrorMessage(err, 'تعذر حفظ القصيدة، حاول مرة أخرى'));
+      } finally {
+        setMizanSaving(false);
+      }
+      return;
+    }
+
+    // Combined path: download the YouTube recitation and align it against
+    // the Mizan text, exactly like the fixed catalog entries but with a
+    // user-supplied video instead of a pre-picked one.
     try {
-      const { poemId, parsed } = mizanPreview;
-      const verses: Verse[] = parsed.verses.map((v, index) => ({
-        id: makeLocalId('verse'),
-        orderIndex: index,
-        text: v.text,
-      }));
+      setMizanImportStage('downloading');
+      const download = await downloadMutation.mutateAsync({
+        data: {
+          url: trimmedYoutubeUrl,
+          cookies_content: needsCookies ? cookiesText.trim() : undefined,
+        },
+      });
+
+      setMizanImportStage('aligning');
+      const alignment = await alignMutation.mutateAsync({
+        data: {
+          audio_path: download.processing_audio_path,
+          verses: verses.map((v) => ({ id: v.id, text: v.text })),
+          poem_id: makeLocalId('poem'),
+          recording_id: makeLocalId('rec'),
+        },
+      });
+
+      const alignmentByVerseId = new Map(
+        alignment.alignments.map((entry) => [entry.verse_id, entry]),
+      );
+      const alignedVerses: Verse[] = verses.map((verse) => {
+        const entry = alignmentByVerseId.get(verse.id);
+        if (!entry) return verse;
+        return {
+          ...verse,
+          alignment: {
+            startMs: entry.start_ms,
+            endMs: entry.end_ms,
+            confidence: entry.confidence,
+          },
+        };
+      });
+
       const poem: Poem = {
         id: makeLocalId('poem'),
         title: parsed.title,
         poetName: parsed.poetName,
-        verses,
+        verses: alignedVerses,
+        recording: {
+          id: makeLocalId('rec'),
+          audioUrl: toPlayableAudioUrl(download.playback_audio_path),
+          durationMs: download.duration_ms ?? 0,
+        },
         createdAt: Date.now(),
         sourceUrl: mizanUrl.trim(),
         externalProvider: 'mizan_al_arab',
         externalId: poemId,
       };
+
       await addPoem(poem);
       const importedId = poem.id;
       setMizanUrl('');
+      setMizanYoutubeUrl('');
       setMizanPreview(null);
       router.push({ pathname: '/poem/[id]', params: { id: importedId } });
     } catch (err) {
-      setMizanError(extractErrorMessage(err, 'تعذر حفظ القصيدة، حاول مرة أخرى'));
+      if (needsCookieUnlock(err)) {
+        setNeedsCookies(true);
+      }
+      setMizanError(extractErrorMessage(err, 'تعذر تنزيل الصوت أو مزامنته، حاول مرة أخرى'));
     } finally {
+      setMizanImportStage('idle');
       setMizanSaving(false);
     }
   };
@@ -489,6 +570,7 @@ export default function ImportScreen() {
                   setMizanUrl(v);
                   setMizanPreview(null);
                   setMizanError(null);
+                  setMizanYoutubeUrl('');
                 }}
                 placeholder="https://mizanalarab.com/poem/..."
                 placeholderTextColor={colors.mutedForeground}
@@ -528,8 +610,8 @@ export default function ImportScreen() {
             {mizanPreview ? (
               <View
                 style={[
-                  styles.videoCard,
-                  { backgroundColor: colors.card, borderColor: colors.border, padding: 12 },
+                  styles.mizanPreviewCard,
+                  { backgroundColor: colors.card, borderColor: colors.border },
                 ]}
               >
                 <View style={styles.videoInfoText}>
@@ -543,22 +625,60 @@ export default function ImportScreen() {
                     {mizanPreview.parsed.poetName} · {mizanPreview.parsed.verses.length} بيتًا
                   </Text>
                 </View>
+
+                <Text style={[styles.mizanAudioLabel, { color: colors.mutedForeground }]}>
+                  الصق رابط تلاوة من يوتيوب لمزامنتها مع النص (اختياري)
+                </Text>
+                <View
+                  style={[
+                    styles.inputRow,
+                    { backgroundColor: colors.background, borderColor: colors.border },
+                  ]}
+                >
+                  <TextInput
+                    value={mizanYoutubeUrl}
+                    onChangeText={setMizanYoutubeUrl}
+                    placeholder="https://youtube.com/watch?v=..."
+                    placeholderTextColor={colors.mutedForeground}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    keyboardType="url"
+                    style={[styles.textInput, { color: colors.foreground }]}
+                    editable={!mizanSaving}
+                    testID="mizan-youtube-url-input"
+                  />
+                </View>
+
                 <Pressable
                   onPress={handleMizanImport}
                   disabled={mizanSaving}
                   testID="mizan-import-confirm-button"
                   style={({ pressed }) => [
-                    styles.iconButton,
+                    styles.submitButton,
                     {
                       backgroundColor: colors.primary,
-                      opacity: mizanSaving ? 0.6 : pressed ? 0.8 : 1,
+                      opacity: mizanSaving ? 0.7 : pressed ? 0.85 : 1,
                     },
                   ]}
                 >
                   {mizanSaving ? (
-                    <ActivityIndicator size="small" color={colors.primaryForeground} />
+                    <>
+                      <ActivityIndicator size="small" color={colors.primaryForeground} />
+                      <Text style={[styles.submitText, { color: colors.primaryForeground }]}>
+                        {mizanImportStage === 'downloading'
+                          ? 'جارٍ تنزيل الصوت...'
+                          : mizanImportStage === 'aligning'
+                            ? 'جارٍ مزامنة الأبيات...'
+                            : 'جارٍ الحفظ...'}
+                      </Text>
+                    </>
                   ) : (
-                    <Feather name="check" size={18} color={colors.primaryForeground} />
+                    <>
+                      <Feather name="check" size={16} color={colors.primaryForeground} />
+                      <Text style={[styles.submitText, { color: colors.primaryForeground }]}>
+                        {mizanYoutubeUrl.trim() ? 'استيراد مع الصوت' : 'استيراد النص فقط'}
+                      </Text>
+                    </>
                   )}
                 </Pressable>
               </View>
@@ -1008,6 +1128,17 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontFamily: 'Cairo_700Bold',
     color: '#fcd34d',
+  },
+  mizanPreviewCard: {
+    borderRadius: 14,
+    borderWidth: StyleSheet.hairlineWidth,
+    padding: 12,
+    gap: 10,
+  },
+  mizanAudioLabel: {
+    fontSize: 11,
+    fontFamily: 'Cairo_400Regular',
+    textAlign: 'right',
   },
   catalogSection: {
     gap: 8,
