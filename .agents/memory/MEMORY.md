@@ -17,3 +17,4 @@
 - [Expo web preview testing domain](expo-web-testing-domain.md) — point browser testers at `*.expo.<region>.replit.dev`, not the shared `/mobile/` proxy path, or they hit a blank page or the wrong artifact.
 - [Mizan Al-Arab API access](arabic-poetry-catalog-import.md) — mizanalarab.com's API returns 200 with no User-Agent required, but has no CORS allow-origin header so browser fetch fails (native mobile fetch is unaffected).
 - [Mobile/desktop parity scope](arabic-poetry-mobile-parity-scope.md) — what was ported to mobile vs. deliberately skipped (verse explanations, import queue) and why.
+- [Mobile audio-source picker (upload/record)](arabic-poetry-audio-source-upload.md) — YouTube/upload/record all converge on one align pipeline; uploads convert via direct Node ffmpeg, not the Python worker.
