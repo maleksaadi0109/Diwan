@@ -6,7 +6,7 @@
 
 ### Arabic Poetry in Synchronized Voice
 
-**An offline-first desktop and mobile experience for Arabic poetry, synchronized recitation, and intelligent verse alignment.**
+**An offline-first desktop  experience for Arabic poetry, synchronized recitation, and intelligent verse alignment.**
 
 [![Tauri](https://img.shields.io/badge/Tauri-2-24C8DB?logo=tauri&logoColor=white)](https://tauri.app/)
 [![React](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=111827)](https://react.dev/)
