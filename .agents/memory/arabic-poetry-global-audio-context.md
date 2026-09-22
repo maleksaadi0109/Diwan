@@ -8,3 +8,9 @@ Audio playback (the `AudioController` instance, its `AudioPlayerState`, and the 
 **Why:** Before this, every `usePoemPlayback` call created its own `AudioController` + `<audio>` element scoped to that component instance (player view, editor view). Playback died the instant the owning view unmounted (e.g. navigating from the player back to the library), which made a persistent "now playing" mini-player impossible — there was no stable owner of playback state to read from elsewhere in the tree.
 
 **How to apply:** Any new view that needs to read or control playback (mini-player, now-playing indicators, global keyboard shortcuts, etc.) should consume `useAudioPlayerContext()` directly, or go through `usePoemPlayback`. Don't reintroduce a component-local `AudioController` — it will fork playback state and break the mini-player/continuity guarantee. If a new poem is opened while another is still loaded, `loadPoem` intentionally swaps the shared controller to the new poem (stops the old one) — this is deliberate, matching typical single-track music-player UX.
+
+When the user explicitly opens a different poem, do not immediately overwrite the displayed poem from the still-current audio track. Treat the user selection as pending until `AudioPlayerContext` commits that poem; otherwise the displayed poem and current track can restore each other in a React update loop.
+
+**Why:** Blindly mirroring `currentPoem` into the player view caused a first-poem/second-poem oscillation and `Maximum update depth exceeded` when switching tracks.
+
+**How to apply:** Queue-driven next/previous navigation may sync the displayed poem from `currentPoem`, but an explicit card/library selection must take priority during the load transition.
