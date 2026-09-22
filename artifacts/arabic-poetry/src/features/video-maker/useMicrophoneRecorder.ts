@@ -16,6 +16,7 @@ const MAX_CAPTURE_FLOAT_BYTES = 48 * 1024 * 1024;
 export function useMicrophoneRecorder({ onComplete }: UseMicrophoneRecorderOptions) {
   const [isRecording, setIsRecording] = useState(false);
   const [elapsedMs, setElapsedMs] = useState(0);
+  const [voicedDurationMs, setVoicedDurationMs] = useState(0);
   const [recordingError, setRecordingError] = useState<string | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -24,6 +25,7 @@ export function useMicrophoneRecorder({ onComplete }: UseMicrophoneRecorderOptio
   const silentGainRef = useRef<GainNode | null>(null);
   const chunksRef = useRef<Float32Array[]>([]);
   const sampleCountRef = useRef(0);
+  const voicedSampleCountRef = useRef(0);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const startedAtRef = useRef(0);
   const mountedRef = useRef(true);
@@ -60,6 +62,7 @@ export function useMicrophoneRecorder({ onComplete }: UseMicrophoneRecorderOptio
     const sampleCount = sampleCountRef.current;
     chunksRef.current = [];
     sampleCountRef.current = 0;
+    voicedSampleCountRef.current = 0;
     releaseResources();
 
     if (mountedRef.current) setIsRecording(false);
@@ -120,6 +123,7 @@ export function useMicrophoneRecorder({ onComplete }: UseMicrophoneRecorderOptio
 
       chunksRef.current = [];
       sampleCountRef.current = 0;
+      voicedSampleCountRef.current = 0;
       processor.onaudioprocess = (event) => {
         if (!recordingRef.current) return;
         const samples = new Float32Array(event.inputBuffer.getChannelData(0));
@@ -132,6 +136,10 @@ export function useMicrophoneRecorder({ onComplete }: UseMicrophoneRecorderOptio
         }
         chunksRef.current.push(samples);
         sampleCountRef.current += samples.length;
+        let energy = 0;
+        for (const sample of samples) energy += sample * sample;
+        const rms = Math.sqrt(energy / samples.length);
+        if (rms > 0.012) voicedSampleCountRef.current += samples.length;
       };
       source.connect(processor);
       processor.connect(silentGain);
@@ -143,12 +151,16 @@ export function useMicrophoneRecorder({ onComplete }: UseMicrophoneRecorderOptio
       recordingRef.current = true;
       startedAtRef.current = performance.now();
       setElapsedMs(0);
+      setVoicedDurationMs(0);
       setIsRecording(true);
 
       intervalRef.current = setInterval(() => {
         if (!mountedRef.current) return;
         const elapsed = performance.now() - startedAtRef.current;
         setElapsedMs(elapsed);
+        setVoicedDurationMs(
+          (voicedSampleCountRef.current / audioContext.sampleRate) * 1000
+        );
         if (elapsed >= MAX_RECORDING_MS) finishRecording(true);
       }, 200);
     } catch (error) {
@@ -177,6 +189,7 @@ export function useMicrophoneRecorder({ onComplete }: UseMicrophoneRecorderOptio
   return {
     isRecording,
     elapsedMs,
+    voicedDurationMs,
     recordingError,
     startRecording,
     stopRecording,

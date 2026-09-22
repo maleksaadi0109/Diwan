@@ -5,6 +5,7 @@ import { generateTimeline } from "./timelineUtils";
 import { VideoPreview } from "./VideoPreview";
 import { useVideoExport } from "./useVideoExport";
 import { useMicrophoneRecorder } from "./useMicrophoneRecorder";
+import { useLiveRecitationGuide } from "./useLiveRecitationGuide";
 import { Film, Image as ImageIcon, Download, X, AlertCircle, CheckCircle2, Upload, Mic, Square } from "lucide-react";
 import { DiwanRepository } from "@/lib/db/repository";
 import { pickAudioFile, resolveAudioSrcAsync } from "@/lib/audio/fileManager";
@@ -204,10 +205,15 @@ export const VideoMakerView: React.FC<VideoMakerViewProps> = ({
   const {
     isRecording,
     elapsedMs: recordingElapsedMs,
+    voicedDurationMs,
     recordingError,
     startRecording,
     stopRecording,
   } = useMicrophoneRecorder({ onComplete: selectCapturedVoice });
+  const {
+    highlightedWordCount,
+    guideMode,
+  } = useLiveRecitationGuide(selectedPoem, isRecording, voicedDurationMs);
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -596,6 +602,9 @@ export const VideoMakerView: React.FC<VideoMakerViewProps> = ({
         exportTimeMsRef={exportTimeMsRef}
         isExporting={isExporting}
         exportProgress={progress}
+        isVoiceRecording={isRecording}
+        recitationWordCount={highlightedWordCount}
+        recitationGuideMode={guideMode}
       />
     </div>
   );
