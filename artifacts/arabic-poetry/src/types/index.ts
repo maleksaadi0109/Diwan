@@ -224,4 +224,4 @@ export interface Playlist {
 
 export type RepeatMode = 'off' | 'one' | 'all';
 
-export type ActiveTab = 'library' | 'player' | 'import' | 'settings' | 'playlists' | 'catalog' | 'map';
+export type ActiveTab = 'library' | 'player' | 'import' | 'settings' | 'playlists' | 'catalog' | 'map' | 'studio';

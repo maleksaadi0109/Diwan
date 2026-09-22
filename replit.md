@@ -21,3 +21,7 @@ This repository requires pnpm because the workspace uses the `catalog:` dependen
 The Replit preview runs the React/Vite interface. Native capabilities provided by Tauri, Rust, local SQLite, the filesystem, FFmpeg, and the Python transcription worker require the desktop runtime and are not available in the browser-only preview.
 
 For full desktop development, follow `artifacts/arabic-poetry/README.md`.
+
+## Product scope
+
+User-requested features target the desktop app in `artifacts/arabic-poetry` only. Do not port them to or modify `artifacts/mobile` unless the user explicitly asks for mobile work.

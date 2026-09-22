@@ -25,6 +25,7 @@ import { ShortcutsReferenceModal } from "./components/ShortcutsReferenceModal";
 import { markVerseBoundary } from "./lib/verseBoundary";
 import { shouldSyncDisplayedPoem } from "./lib/playerSync";
 import { TARANEEM_POEMS, TARANEEM_POETS, TARANEEM_PLAYLIST } from "./data/taraneemData";
+import { WritingStudioView } from "./features/writing-studio/WritingStudioView";
 
 export function App() {
   return (
@@ -862,6 +863,10 @@ function AppShell() {
 
               {activeTab === "map" && (
                 <PoetryMapView poems={poems} onOpenPoem={handleOpenPoem} />
+              )}
+
+              {activeTab === "studio" && (
+                <WritingStudioView />
               )}
 
               {activeTab === "catalog" && <CatalogView poems={poems} />}
