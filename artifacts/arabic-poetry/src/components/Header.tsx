@@ -39,6 +39,8 @@ export const Header: React.FC<HeaderProps> = ({
         return "استيراد قصيدة وتسجيل";
       case "catalog":
         return "مكتبة جاهزة";
+      case "map":
+        return "خريطة الشعر العربي";
       case "playlists":
         return "قوائم التشغيل";
       case "settings":

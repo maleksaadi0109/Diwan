@@ -209,4 +209,4 @@ export interface Playlist {
 
 export type RepeatMode = 'off' | 'one' | 'all';
 
-export type ActiveTab = 'library' | 'player' | 'import' | 'settings' | 'playlists' | 'catalog';
+export type ActiveTab = 'library' | 'player' | 'import' | 'settings' | 'playlists' | 'catalog' | 'map';
