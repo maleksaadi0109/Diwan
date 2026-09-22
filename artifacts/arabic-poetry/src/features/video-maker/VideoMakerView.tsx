@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { Poem } from "@/types";
+import { Poem, Recording } from "@/types";
 import { VideoState, AspectRatio, BackgroundType } from "./types";
 import { generateTimeline } from "./timelineUtils";
 import { VideoPreview } from "./VideoPreview";
 import { useVideoExport } from "./useVideoExport";
-import { Film, Image as ImageIcon, Download, X, AlertCircle, CheckCircle2 } from "lucide-react";
+import { Film, Image as ImageIcon, Download, X, AlertCircle, CheckCircle2, Upload } from "lucide-react";
 import { DiwanRepository } from "@/lib/db/repository";
+import { pickAudioFile, resolveAudioSrcAsync } from "@/lib/audio/fileManager";
 
 interface VideoMakerViewProps {
   poems: Poem[];
@@ -24,9 +25,14 @@ export const VideoMakerView: React.FC<VideoMakerViewProps> = ({ poems, repositor
   );
   
   const [selectedRecordingId, setSelectedRecordingId] = useState<string>("");
+  const [customRecording, setCustomRecording] = useState<Recording | null>(null);
+  const [audioPickError, setAudioPickError] = useState<string | null>(null);
   const selectedRecording = useMemo(
-    () => usableRecordings.find((recording) => recording.id === selectedRecordingId) || null,
-    [usableRecordings, selectedRecordingId]
+    () =>
+      customRecording?.id === selectedRecordingId
+        ? customRecording
+        : usableRecordings.find((recording) => recording.id === selectedRecordingId) || null,
+    [customRecording, usableRecordings, selectedRecordingId]
   );
 
   useEffect(() => {
@@ -47,6 +53,24 @@ export const VideoMakerView: React.FC<VideoMakerViewProps> = ({ poems, repositor
       setSelectedRecordingId(defaultRec?.id || "");
     }
   }, [selectedPoem, usableRecordings]);
+
+  useEffect(() => {
+    setCustomRecording((current) => {
+      if (current?.audioPath.startsWith("blob:")) {
+        URL.revokeObjectURL(current.audioPath);
+      }
+      return null;
+    });
+    setAudioPickError(null);
+  }, [selectedPoemId]);
+
+  useEffect(() => {
+    return () => {
+      if (customRecording?.audioPath.startsWith("blob:")) {
+        URL.revokeObjectURL(customRecording.audioPath);
+      }
+    };
+  }, [customRecording]);
 
   const [aspectRatio, setAspectRatio] = useState<AspectRatio>("16:9");
   const [backgroundType, setBackgroundType] = useState<BackgroundType>("gradient");
@@ -158,6 +182,36 @@ export const VideoMakerView: React.FC<VideoMakerViewProps> = ({ poems, repositor
     };
   };
 
+  const handlePickAudio = async () => {
+    setAudioPickError(null);
+    const picked = await pickAudioFile();
+    if (!picked || !selectedPoem) return;
+
+    if (picked.size && picked.size > 250 * 1024 * 1024) {
+      if (picked.path.startsWith("blob:")) URL.revokeObjectURL(picked.path);
+      setAudioPickError("حجم الملف الصوتي يجب ألا يتجاوز 250 ميجابايت.");
+      return;
+    }
+
+    try {
+      const durationMs = await readAudioDuration(picked.path);
+      const recording: Recording = {
+        id: `video-local-${Date.now()}`,
+        poemId: selectedPoem.id,
+        title: picked.name,
+        reciter: "ملف صوتي محلي",
+        audioPath: picked.path,
+        durationMs,
+        createdAt: new Date().toISOString(),
+      };
+      setCustomRecording(recording);
+      setSelectedRecordingId(recording.id);
+    } catch {
+      if (picked.path.startsWith("blob:")) URL.revokeObjectURL(picked.path);
+      setAudioPickError("تعذر قراءة الملف الصوتي. اختر MP3 أو WAV أو M4A أو OGG صالحاً.");
+    }
+  };
+
   const handleExport = async () => {
     if (!selectedRecording) return;
     const canvas = document.querySelector<HTMLCanvasElement>('[data-testid="video-preview-canvas"]');
@@ -229,6 +283,11 @@ export const VideoMakerView: React.FC<VideoMakerViewProps> = ({ poems, repositor
                   disabled={isExporting}
                 >
                   {usableRecordings.length === 0 && <option value="">لا توجد تسجيلات صالحة</option>}
+                  {customRecording && (
+                    <option value={customRecording.id}>
+                      {customRecording.title} (ملف مختار)
+                    </option>
+                  )}
                   {usableRecordings.map(r => {
                     const hasAlign = selectedPoem.verses.every(v => v.alignment?.recordingId === r.id);
                     return (
@@ -238,6 +297,21 @@ export const VideoMakerView: React.FC<VideoMakerViewProps> = ({ poems, repositor
                     );
                   })}
                 </select>
+                <button
+                  type="button"
+                  onClick={handlePickAudio}
+                  disabled={isExporting}
+                  data-testid="button-pick-video-audio"
+                  className="mt-3 w-full rounded-xl border border-dashed border-accent-700/40 bg-accent-700/5 px-3 py-2.5 text-sm font-ui text-accent-500 hover:bg-accent-700/10 disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  <Upload className="w-4 h-4" />
+                  اختيار ملف صوتي من الجهاز
+                </button>
+                {audioPickError && (
+                  <p className="mt-2 text-[11px] text-crimson-500" role="alert">
+                    {audioPickError}
+                  </p>
+                )}
                 {selectedRecording && (
                   <p
                     className="mt-2 text-[11px] text-ink-500"
@@ -417,3 +491,31 @@ export const VideoMakerView: React.FC<VideoMakerViewProps> = ({ poems, repositor
     </div>
   );
 };
+
+async function readAudioDuration(audioPath: string): Promise<number> {
+  const playableSource = await resolveAudioSrcAsync(audioPath);
+  return new Promise((resolve, reject) => {
+    const audio = new Audio(playableSource);
+    const timeout = window.setTimeout(() => {
+      audio.src = "";
+      reject(new Error("audio-timeout"));
+    }, 15_000);
+
+    audio.preload = "metadata";
+    audio.onloadedmetadata = () => {
+      window.clearTimeout(timeout);
+      const durationMs = Math.round(audio.duration * 1000);
+      audio.src = "";
+      if (!Number.isFinite(durationMs) || durationMs <= 0) {
+        reject(new Error("invalid-duration"));
+        return;
+      }
+      resolve(durationMs);
+    };
+    audio.onerror = () => {
+      window.clearTimeout(timeout);
+      audio.src = "";
+      reject(new Error("audio-load-failed"));
+    };
+  });
+}
