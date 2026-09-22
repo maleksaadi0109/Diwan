@@ -17,6 +17,28 @@ const mockPoems: Poem[] = [
     tags: []
   },
   {
+    id: "poem-3",
+    title: "قصيدة جديدة",
+    poet: {
+      id: "new-poet",
+      name: "شاعر جديد",
+      era: "معاصر",
+      country: "العراق",
+      city: "البصرة",
+      latitude: 30.5,
+      longitude: 47.8,
+      regionId: "iraq",
+      school: "الشعر الحر"
+    },
+    era: "معاصر",
+    bahr: "تفعيلة / حر",
+    rhyme: "غير محدد",
+    versesCount: 0,
+    verses: [],
+    recordings: [],
+    tags: []
+  },
+  {
     id: "poem-2",
     title: "نونية ابن زيدون",
     poet: { id: "p2", name: "ابن زيدون", era: "أندلسي" },
@@ -74,6 +96,15 @@ describe("PoetryMapView", () => {
     expect(poemBtn).toBeInTheDocument();
     
     fireEvent.click(poemBtn);
-    expect(handleOpenPoem).toHaveBeenCalledWith(mockPoems[1]);
+    expect(handleOpenPoem).toHaveBeenCalledWith(mockPoems.find((poem) => poem.id === "poem-2"));
+  });
+
+  it("shows a newly imported poet from the poet's saved geography", () => {
+    render(<PoetryMapView poems={mockPoems} onOpenPoem={vi.fn()} />);
+    fireEvent.click(screen.getByTestId("map-node-iraq"));
+
+    expect(screen.getByText("شاعر جديد")).toBeInTheDocument();
+    expect(screen.getByText("البصرة، العراق")).toBeInTheDocument();
+    expect(screen.getByText("قصيدة جديدة")).toBeInTheDocument();
   });
 });

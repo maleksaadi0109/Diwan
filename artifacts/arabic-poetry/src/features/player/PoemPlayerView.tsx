@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { Poem, Verse, VerseExplanationItem, VerseSegmentationSuggestion, WordDefinition } from "@/types";
+import { Poem, Poet, Verse, VerseExplanationItem, VerseSegmentationSuggestion, WordDefinition } from "@/types";
 import { VerseExplanationStatus, VerseItem } from "./VerseItem";
 import { AudioControlsBar } from "./AudioControlsBar";
 import { PoemMetadataDrawer } from "./PoemMetadataDrawer";
@@ -20,6 +20,7 @@ interface PoemPlayerViewProps {
   poem: Poem;
   onSaveExplanations?: (verseId: string, items: VerseExplanationItem[]) => Promise<void>;
   onChangeCoverImage?: (coverImageUrl: string | null) => Promise<void> | void;
+  onUpdatePoet?: (poet: Poet) => Promise<void> | void;
   onDeleteVerse?: (verseId: string) => Promise<void> | void;
   onEditVerse?: (verseId: string, firstHemistich: string, secondHemistich: string) => Promise<void> | void;
   onImportExplanations?: (blocks: ParsedExplanationBlock[]) => Promise<void> | void;
@@ -45,6 +46,7 @@ export const PoemPlayerView: React.FC<PoemPlayerViewProps> = ({
   poem,
   onSaveExplanations,
   onChangeCoverImage,
+  onUpdatePoet,
   onDeleteVerse,
   onEditVerse,
   onImportExplanations,
@@ -433,6 +435,7 @@ export const PoemPlayerView: React.FC<PoemPlayerViewProps> = ({
           isOpen={showMetadata}
           onToggle={() => setShowMetadata(!showMetadata)}
           onChangeCoverImage={onChangeCoverImage}
+          onUpdatePoet={onUpdatePoet}
         />
       </div>
 

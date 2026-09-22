@@ -1,6 +1,6 @@
-import { Era } from "../types";
+import { Era, PoetryRegionId } from "../types";
 
-export type RegionId = 'andalusia' | 'maghreb' | 'egypt' | 'levant' | 'hijaz' | 'najd' | 'iraq' | 'yemen';
+export type RegionId = PoetryRegionId;
 
 export interface MapRegion {
   id: RegionId;
@@ -17,6 +17,10 @@ export interface MapPoet {
   era: Era;
   school?: string;
   bio: string;
+  country?: string;
+  city?: string;
+  latitude?: number;
+  longitude?: number;
 }
 
 export const POETRY_REGIONS: MapRegion[] = [

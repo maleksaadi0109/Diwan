@@ -36,8 +36,23 @@ export interface Poet {
   deathYear?: string;
   avatarUrl?: string;
   externalId?: string;
+  country?: string;
+  city?: string;
+  latitude?: number;
+  longitude?: number;
+  regionId?: PoetryRegionId;
+  school?: string;
 }
 
+export type PoetryRegionId =
+  | 'andalusia'
+  | 'maghreb'
+  | 'egypt'
+  | 'levant'
+  | 'hijaz'
+  | 'najd'
+  | 'iraq'
+  | 'yemen';
 export interface VerseExplanationItem {
   id: string;
   verseId: string;

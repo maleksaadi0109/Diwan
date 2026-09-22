@@ -19,8 +19,33 @@ export const PoetryMapView: React.FC<PoetryMapViewProps> = ({ poems, onOpenPoem 
     POETRY_REGIONS.find(r => r.id === selectedRegionId) || null
   , [selectedRegionId]);
 
+  const mapPoets = useMemo(() => {
+    const byKey = new Map(POETRY_MAP_POETS.map((poet) => [poet.id, poet]));
+    for (const poem of poems) {
+      const poet = poem.poet;
+      if (!poet.regionId) continue;
+      const existing = POETRY_MAP_POETS.find(
+        (item) => poet.name.includes(item.name) || item.name.includes(poet.name)
+      );
+      const id = existing?.id || poet.id;
+      byKey.set(id, {
+        id,
+        name: poet.name,
+        regionId: poet.regionId,
+        era: poet.era,
+        school: poet.school,
+        bio: poet.bio || "",
+        country: poet.country,
+        city: poet.city,
+        latitude: poet.latitude,
+        longitude: poet.longitude,
+      });
+    }
+    return Array.from(byKey.values());
+  }, [poems]);
+
   const filteredPoets = useMemo(() => {
-    let list = POETRY_MAP_POETS;
+    let list = mapPoets;
     if (selectedRegionId) {
       list = list.filter(p => p.regionId === selectedRegionId);
     }
@@ -28,26 +53,26 @@ export const PoetryMapView: React.FC<PoetryMapViewProps> = ({ poems, onOpenPoem 
       list = list.filter(p => p.era === selectedEra);
     }
     return list;
-  }, [selectedRegionId, selectedEra]);
+  }, [mapPoets, selectedRegionId, selectedEra]);
 
   // Find user's poems that match the poet names
   const matchedPoemsByPoet = useMemo(() => {
     const map = new Map<string, Poem[]>();
-    for (const poet of POETRY_MAP_POETS) {
+    for (const poet of mapPoets) {
       const poetMatches = poems.filter(p => 
-        p.poet.name.includes(poet.name) || poet.name.includes(p.poet.name)
+        p.poet.id === poet.id || p.poet.name.includes(poet.name) || poet.name.includes(p.poet.name)
       );
       map.set(poet.id, poetMatches);
     }
     return map;
-  }, [poems]);
+  }, [mapPoets, poems]);
 
   // For visual heat/active state on the map
   const activeRegions = useMemo(() => {
     if (selectedEra === 'الكل') return new Set(POETRY_REGIONS.map(r => r.id));
-    const regionsWithPoetsInEra = POETRY_MAP_POETS.filter(p => p.era === selectedEra).map(p => p.regionId);
+    const regionsWithPoetsInEra = mapPoets.filter(p => p.era === selectedEra).map(p => p.regionId);
     return new Set(regionsWithPoetsInEra);
-  }, [selectedEra]);
+  }, [mapPoets, selectedEra]);
 
   return (
     <div className="flex flex-col md:flex-row h-full w-full bg-charcoal-950 overflow-hidden" data-testid="poetry-map-view">
@@ -258,6 +283,11 @@ export const PoetryMapView: React.FC<PoetryMapViewProps> = ({ poems, onOpenPoem 
                           <p className="text-sm text-ink-300 font-ui leading-relaxed">
                             {poet.bio}
                           </p>
+                           {(poet.city || poet.country) && (
+                             <p className="text-xs text-ink-500 font-ui">
+                               {[poet.city, poet.country].filter(Boolean).join("، ")}
+                             </p>
+                           )}
 
                           {matchedPoems.length > 0 ? (
                             <div className="pt-3 mt-3 border-t border-white/5 space-y-2">

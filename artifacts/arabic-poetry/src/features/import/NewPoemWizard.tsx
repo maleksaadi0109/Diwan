@@ -27,6 +27,7 @@ import {
   KeyRound,
 } from "lucide-react";
 import { YoutubeIcon } from "@/components/icons/YoutubeIcon";
+import { PoetGeography, PoetGeographyFields } from "./PoetGeographyFields";
 
 interface NewPoemWizardProps {
   onFinishWizard: (poem: Poem) => void;
@@ -47,6 +48,8 @@ const ERROR_MAP: Record<string, string> = {
   NETWORK_TIMEOUT: "انتهت مهلة الاتصال أثناء تنزيل الصوت.",
   FILESYSTEM_ERROR: "تعذر حفظ الصوت في مجلد التطبيق.",
 };
+
+const ERAS: Era[] = ["جاهلي", "إسلامي", "أموي", "عباسي", "أندلسي", "مملوكي", "عثماني", "حديث", "معاصر"];
 
 const COOKIE_UNLOCK_CODES = new Set(["LOGIN_REQUIRED", "COOKIES_INVALID"]);
 
@@ -102,6 +105,7 @@ export const NewPoemWizard: React.FC<NewPoemWizardProps> = ({ onFinishWizard }) 
 
   const [title, setTitle] = useState("");
   const [poetName, setPoetName] = useState("");
+  const [poetGeography, setPoetGeography] = useState<PoetGeography>({});
   const [era, setEra] = useState<Era>("عباسي");
   const [bahr, setBahr] = useState<Bahr>("البسيط");
   const [rhyme, setRhyme] = useState("");
@@ -251,6 +255,7 @@ export const NewPoemWizard: React.FC<NewPoemWizardProps> = ({ onFinishWizard }) 
     const payload: PoemImportJobPayload = {
       title,
       poetName,
+      poetGeography,
       era,
       bahr,
       rhyme,
@@ -396,6 +401,17 @@ export const NewPoemWizard: React.FC<NewPoemWizardProps> = ({ onFinishWizard }) 
                 className="w-full bg-charcoal-900 text-parchment-100 placeholder-ink-500 border border-white/10 rounded-2xl px-4 py-2 text-xs focus:outline-none focus:border-accent-700"
               />
             </div>
+            <div>
+              <label className="block text-xs font-semibold text-ink-400 mb-1">العصر الأدبي</label>
+              <select
+                value={era}
+                onChange={(event) => setEra(event.target.value as Era)}
+                className="w-full bg-charcoal-900 text-parchment-100 border border-white/10 rounded-2xl px-4 py-2 text-xs focus:outline-none focus:border-accent-700"
+              >
+                {ERAS.map((item) => <option key={item} value={item}>العصر ال{item}</option>)}
+              </select>
+            </div>
+            <PoetGeographyFields value={poetGeography} onChange={setPoetGeography} />
           </div>
 
           {/* Verses textarea */}

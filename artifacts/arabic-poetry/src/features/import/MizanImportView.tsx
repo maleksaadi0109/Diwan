@@ -3,6 +3,7 @@ import { MizanAlArabProvider, MizanPoemApiResponse } from "@/lib/providers/Mizan
 import { Poem } from "@/types";
 import { Globe, Search, BookOpen, CheckCircle2, AlertCircle, RefreshCw } from "lucide-react";
 import { normalizeArabic, toArabicDigits } from "@/lib/utils";
+import { PoetGeography, PoetGeographyFields } from "./PoetGeographyFields";
 
 interface MizanImportViewProps {
   onPoemImported: (poem: Poem) => void;
@@ -14,6 +15,7 @@ export const MizanImportView: React.FC<MizanImportViewProps> = ({ onPoemImported
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [previewData, setPreviewData] = useState<MizanPoemApiResponse | null>(null);
+  const [poetGeography, setPoetGeography] = useState<PoetGeography>({});
 
   // Enrichment state
   const [isEnriching, setIsEnriching] = useState(false);
@@ -64,6 +66,7 @@ export const MizanImportView: React.FC<MizanImportViewProps> = ({ onPoemImported
           bio: previewData.poet?.bio,
           birthYear: previewData.poet?.birth_year,
           deathYear: previewData.poet?.death_year,
+          ...poetGeography,
         },
         era: parsed.era,
         bahr: parsed.bahr,
@@ -208,6 +211,8 @@ export const MizanImportView: React.FC<MizanImportViewProps> = ({ onPoemImported
               <span>{isSaving ? "جاري الاستيراد..." : "تأكيد واستيراد القصيدة"}</span>
             </button>
           </div>
+
+          <PoetGeographyFields value={poetGeography} onChange={setPoetGeography} compact />
 
           {/* First 3 Verses Preview */}
           <div className="space-y-2 pt-2 border-t border-white/5">
