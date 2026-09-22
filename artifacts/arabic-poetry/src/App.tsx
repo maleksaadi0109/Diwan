@@ -26,6 +26,7 @@ import { markVerseBoundary } from "./lib/verseBoundary";
 import { shouldSyncDisplayedPoem } from "./lib/playerSync";
 import { TARANEEM_POEMS, TARANEEM_POETS, TARANEEM_PLAYLIST } from "./data/taraneemData";
 import { WritingStudioView } from "./features/writing-studio/WritingStudioView";
+import { VideoMakerView } from "./features/video-maker/VideoMakerView";
 
 export function App() {
   return (
@@ -867,6 +868,10 @@ function AppShell() {
 
               {activeTab === "studio" && (
                 <WritingStudioView />
+              )}
+
+              {activeTab === "video" && (
+                <VideoMakerView poems={poems} repository={repo} />
               )}
 
               {activeTab === "catalog" && <CatalogView poems={poems} />}
