@@ -6,6 +6,12 @@ CREATE TABLE IF NOT EXISTS poets (
     bio TEXT,
     birth_year TEXT,
     death_year TEXT,
+    country TEXT,
+    city TEXT,
+    latitude REAL,
+    longitude REAL,
+    region_id TEXT,
+    school TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -162,6 +168,12 @@ export interface PoetRow {
   bio: string | null;
   birth_year: string | null;
   death_year: string | null;
+  country: string | null;
+  city: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  region_id: string | null;
+  school: string | null;
   created_at?: string;
 }
 

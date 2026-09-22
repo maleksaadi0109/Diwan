@@ -58,6 +58,20 @@ export class DiwanRepository {
       // Existing databases already have this migration, or the adapter handles
       // schema creation without SQL column migrations.
     }
+    for (const migration of [
+      "ALTER TABLE poets ADD COLUMN country TEXT;",
+      "ALTER TABLE poets ADD COLUMN city TEXT;",
+      "ALTER TABLE poets ADD COLUMN latitude REAL;",
+      "ALTER TABLE poets ADD COLUMN longitude REAL;",
+      "ALTER TABLE poets ADD COLUMN region_id TEXT;",
+      "ALTER TABLE poets ADD COLUMN school TEXT;",
+    ]) {
+      try {
+        await this.adapter.execute(migration);
+      } catch {
+        // Additive migration: existing poet and poem rows remain untouched.
+      }
+    }
     // Background processing queue: extend older import_jobs tables in-place.
     const importJobMigrations = [
       "ALTER TABLE import_jobs ADD COLUMN title TEXT NOT NULL DEFAULT '';",
@@ -96,14 +110,20 @@ export class DiwanRepository {
   // --- Poet Methods ---
   async savePoet(poet: Poet): Promise<void> {
     const sql = `
-      INSERT INTO poets (id, name, era, bio, birth_year, death_year)
-      VALUES (?, ?, ?, ?, ?, ?)
+      INSERT INTO poets (id, name, era, bio, birth_year, death_year, country, city, latitude, longitude, region_id, school)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(id) DO UPDATE SET
         name = excluded.name,
         era = excluded.era,
         bio = excluded.bio,
         birth_year = excluded.birth_year,
-        death_year = excluded.death_year;
+        death_year = excluded.death_year,
+        country = excluded.country,
+        city = excluded.city,
+        latitude = excluded.latitude,
+        longitude = excluded.longitude,
+        region_id = excluded.region_id,
+        school = excluded.school;
     `;
     await this.adapter.execute(sql, [
       poet.id,
@@ -112,6 +132,12 @@ export class DiwanRepository {
       poet.bio || null,
       poet.birthYear || null,
       poet.deathYear || null,
+      poet.country || null,
+      poet.city || null,
+      poet.latitude ?? null,
+      poet.longitude ?? null,
+      poet.regionId || null,
+      poet.school || null,
     ]);
   }
 
@@ -129,6 +155,12 @@ export class DiwanRepository {
       bio: r.bio || undefined,
       birthYear: r.birth_year || undefined,
       deathYear: r.death_year || undefined,
+      country: r.country || undefined,
+      city: r.city || undefined,
+      latitude: r.latitude ?? undefined,
+      longitude: r.longitude ?? undefined,
+      regionId: (r.region_id as Poet["regionId"]) || undefined,
+      school: r.school || undefined,
     };
   }
 
@@ -141,6 +173,12 @@ export class DiwanRepository {
       bio: r.bio || undefined,
       birthYear: r.birth_year || undefined,
       deathYear: r.death_year || undefined,
+      country: r.country || undefined,
+      city: r.city || undefined,
+      latitude: r.latitude ?? undefined,
+      longitude: r.longitude ?? undefined,
+      regionId: (r.region_id as Poet["regionId"]) || undefined,
+      school: r.school || undefined,
     }));
   }
 

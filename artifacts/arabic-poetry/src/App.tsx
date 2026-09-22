@@ -292,6 +292,19 @@ function AppShell() {
     [repo, activePoem]
   );
 
+  const handleUpdatePoet = useCallback(
+    async (poet: Poem["poet"]) => {
+      if (repo) await repo.savePoet(poet);
+      setPoems((current) =>
+        current.map((poem) => (poem.poet.id === poet.id ? { ...poem, poet, era: poet.era } : poem))
+      );
+      setActivePoem((current) =>
+        current?.poet.id === poet.id ? { ...current, poet, era: poet.era } : current
+      );
+    },
+    [repo]
+  );
+
   const handleImportExplanations = useCallback(
     async (blocks: ParsedExplanationBlock[]) => {
       if (!activePoem) return;
@@ -833,6 +846,7 @@ function AppShell() {
                   }
                   onSaveExplanations={handleSaveExplanations}
                   onChangeCoverImage={handleChangeCoverImage}
+                  onUpdatePoet={handleUpdatePoet}
                   onDeleteVerse={handleDeleteVerse}
                   onEditVerse={handleEditVerse}
                   onImportExplanations={handleImportExplanations}

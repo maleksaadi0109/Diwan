@@ -1,5 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
-import { Bahr, Era, ImportJob, Poem } from "@/types";
+import { Bahr, Era, ImportJob, Poem, Poet } from "@/types";
 import { DiwanRepository } from "@/lib/db/repository";
 import { normalizeArabic } from "@/lib/utils";
 import { getPoemRecordingDirectory, copyAudioToAppData } from "@/lib/audio/fileManager";
@@ -23,6 +23,7 @@ import type { ParsedVersePayload } from "@/lib/providers/types";
 export interface PoemImportJobPayload {
   title: string;
   poetName: string;
+  poetGeography?: Pick<Poet, "country" | "city" | "latitude" | "longitude" | "regionId" | "school">;
   era: Era;
   bahr: Bahr;
   rhyme: string;
@@ -496,6 +497,7 @@ export function ImportQueueProvider({ children }: { children: React.ReactNode })
           id: `poet-${job.id}`,
           name: poetName.trim() || "شاعر",
           era,
+          ...payload.poetGeography,
         },
         era,
         bahr,
