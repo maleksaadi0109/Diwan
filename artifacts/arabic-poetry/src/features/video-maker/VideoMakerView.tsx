@@ -1,14 +1,18 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { Poem, Recording } from "@/types";
-import { VideoState, AspectRatio, BackgroundType } from "./types";
+import { VideoState, AspectRatio, BackgroundType, VideoTemplate } from "./types";
 import { generateTimeline } from "./timelineUtils";
 import { VideoPreview } from "./VideoPreview";
 import { useVideoExport } from "./useVideoExport";
 import { useMicrophoneRecorder } from "./useMicrophoneRecorder";
 import { useLiveRecitationGuide } from "./useLiveRecitationGuide";
-import { Film, Image as ImageIcon, Download, X, AlertCircle, CheckCircle2, Upload, Mic, Square } from "lucide-react";
+import { Film, Image as ImageIcon, Download, X, AlertCircle, CheckCircle2, Upload, Mic, Square, Settings2, Palette, PlaySquare, Music } from "lucide-react";
 import { DiwanRepository } from "@/lib/db/repository";
 import { pickAudioFile, resolveAudioSrcAsync } from "@/lib/audio/fileManager";
+import { VideoStyle, DEFAULT_VIDEO_STYLE, loadVideoFonts } from "./videoStyles";
+import { VideoStyleControls } from "./VideoStyleControls";
+import { VideoStylePresets, VideoPreset } from "./VideoStylePresets";
+import { VideoSidebarCard } from "./VideoSidebarCard";
 
 interface VideoMakerViewProps {
   poems: Poem[];
@@ -88,7 +92,7 @@ export const VideoMakerView: React.FC<VideoMakerViewProps> = ({
   }, [customRecording]);
 
   const [template, setTemplate] = useState<VideoState["template"]>("classic");
-  const [aspectRatio, setAspectRatio] = useState<AspectRatio>("16:9");
+  const [aspectRatio, setAspectRatio] = useState<AspectRatio>("9:16");
   const [backgroundType, setBackgroundType] = useState<BackgroundType>("gradient");
   const [backgroundImageUrl, setBackgroundImageUrl] = useState<string | null>(null);
   const [backgroundImageElement, setBackgroundImageElement] = useState<HTMLImageElement | null>(null);
@@ -96,6 +100,9 @@ export const VideoMakerView: React.FC<VideoMakerViewProps> = ({
   const [overlayOpacity, setOverlayOpacity] = useState(0.4);
   const [timelinePoem, setTimelinePoem] = useState<Poem | null>(selectedPoem);
   const [isLoadingAlignment, setIsLoadingAlignment] = useState(false);
+  const [videoStyle, setVideoStyle] = useState<VideoStyle>(DEFAULT_VIDEO_STYLE);
+  const [isPreparingExport, setIsPreparingExport] = useState(false);
+  const [fontLoadError, setFontLoadError] = useState<string | null>(null);
 
   useEffect(() => {
     return () => {
@@ -167,7 +174,8 @@ export const VideoMakerView: React.FC<VideoMakerViewProps> = ({
     fontScale,
     textColor: "#f7f4ec", // parchment-100
     overlayOpacity,
-    events
+    events,
+    style: videoStyle,
   };
 
   const {
@@ -179,6 +187,13 @@ export const VideoMakerView: React.FC<VideoMakerViewProps> = ({
     cancelExport,
     exportTimeMsRef,
   } = useVideoExport();
+
+  const handleApplyPreset = (preset: VideoPreset) => {
+    setTemplate(preset.template);
+    setAspectRatio(preset.aspectRatio);
+    setBackgroundType(preset.backgroundType);
+    setVideoStyle((current) => ({ ...current, ...preset.styleOverrides }));
+  };
 
   const selectCapturedVoice = (captured: {
     audioPath: string;
@@ -271,9 +286,21 @@ export const VideoMakerView: React.FC<VideoMakerViewProps> = ({
   };
 
   const handleExport = async () => {
-    if (!selectedRecording) return;
+    if (!selectedRecording || isPreparingExport || isExporting) return;
     const canvas = document.querySelector<HTMLCanvasElement>('[data-testid="video-preview-canvas"]');
     if (!canvas) return;
+
+    setIsPreparingExport(true);
+    setFontLoadError(null);
+
+    try {
+      await loadVideoFonts(videoStyle);
+    } catch (e) {
+      console.error("Font loading failed", e);
+      setFontLoadError("تعذر تحميل خطوط الفيديو. يرجى المحاولة مرة أخرى.");
+      setIsPreparingExport(false);
+      return;
+    }
 
     // Use total duration which might extend past audio if we added an outro delay
     // Actually the video should just be the length of the audio, or max of audio and last event end
@@ -290,6 +317,8 @@ export const VideoMakerView: React.FC<VideoMakerViewProps> = ({
       );
     } catch (e) {
       console.log("Export failed/cancelled");
+    } finally {
+      setIsPreparingExport(false);
     }
   };
 
@@ -308,270 +337,297 @@ export const VideoMakerView: React.FC<VideoMakerViewProps> = ({
           </p>
         </div>
 
-        <div className="p-6 flex flex-col gap-8 flex-1">
-          {/* Poem & Recording Selection */}
-          <section className="flex flex-col gap-4">
-            <div>
-              <label className="block text-xs font-bold text-ink-400 mb-2">القصيدة</label>
-              <select 
-                className="w-full bg-charcoal-950 border border-white/10 rounded-xl px-3 py-2 text-sm text-parchment-100 focus:border-accent-700 focus:outline-none"
-                value={selectedPoemId}
-                onChange={e => setSelectedPoemId(e.target.value)}
-                disabled={isExporting}
-              >
-                {poems.length === 0 && <option value="">لا توجد قصائد</option>}
-                {poems.map(p => (
-                  <option key={p.id} value={p.id}>
-                    {p.title} - {p.poet.name}
-                    {p.recordings.some((recording) => recording.audioPath.trim().length > 0)
-                      ? ""
-                      : " (بدون تسجيل صالح)"}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {selectedPoem && (
+        <div className="p-4 flex flex-col gap-4 flex-1">
+          <VideoSidebarCard title="القصيدة والصوت" icon={Music}>
+            <div className="flex flex-col gap-4">
               <div>
-                <label className="block text-xs font-bold text-ink-400 mb-2">التسجيل الصوتي</label>
-                <select 
+                <label className="block text-xs font-bold text-ink-400 mb-2">القصيدة</label>
+                <select
                   className="w-full bg-charcoal-950 border border-white/10 rounded-xl px-3 py-2 text-sm text-parchment-100 focus:border-accent-700 focus:outline-none"
-                  value={selectedRecordingId}
-                  onChange={e => setSelectedRecordingId(e.target.value)}
-                  disabled={isExporting}
+                  value={selectedPoemId}
+                  onChange={e => setSelectedPoemId(e.target.value)}
+                  disabled={isExporting || isPreparingExport}
                 >
-                  {usableRecordings.length === 0 && <option value="">لا توجد تسجيلات صالحة</option>}
-                  {customRecording && (
-                    <option value={customRecording.id}>
-                      {customRecording.title} (ملف مختار)
+                  {poems.length === 0 && <option value="">لا توجد قصائد</option>}
+                  {poems.map(p => (
+                    <option key={p.id} value={p.id}>
+                      {p.title} - {p.poet.name}
+                      {p.recordings.some((recording) => recording.audioPath.trim().length > 0)
+                        ? ""
+                        : " (بدون تسجيل صالح)"}
                     </option>
-                  )}
-                  {usableRecordings.map(r => {
-                    const hasAlign = selectedPoem.verses.every(v => v.alignment?.recordingId === r.id);
-                    return (
-                      <option key={r.id} value={r.id}>
-                        {r.title} {hasAlign ? '(مُزامن)' : '(بدون مزامنة)'}
-                      </option>
-                    );
-                  })}
+                  ))}
                 </select>
-                <div className="mt-3 grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={handlePickAudio}
-                    disabled={isExporting || isRecording}
-                    data-testid="button-pick-video-audio"
-                    className="rounded-xl border border-dashed border-accent-700/40 bg-accent-700/5 px-3 py-2.5 text-xs font-ui text-accent-500 hover:bg-accent-700/10 disabled:opacity-50 flex items-center justify-center gap-2"
+              </div>
+
+              {selectedPoem && (
+                <div>
+                  <label className="block text-xs font-bold text-ink-400 mb-2">التسجيل الصوتي</label>
+                  <select
+                    className="w-full bg-charcoal-950 border border-white/10 rounded-xl px-3 py-2 text-sm text-parchment-100 focus:border-accent-700 focus:outline-none"
+                    value={selectedRecordingId}
+                    onChange={e => setSelectedRecordingId(e.target.value)}
+                    disabled={isExporting || isPreparingExport}
                   >
-                    <Upload className="w-4 h-4" />
-                    ملف صوتي
-                  </button>
+                    {usableRecordings.length === 0 && <option value="">لا توجد تسجيلات صالحة</option>}
+                    {customRecording && (
+                      <option value={customRecording.id}>
+                        {customRecording.title} (ملف مختار)
+                      </option>
+                    )}
+                    {usableRecordings.map(r => {
+                      const hasAlign = selectedPoem.verses.every(v => v.alignment?.recordingId === r.id);
+                      return (
+                        <option key={r.id} value={r.id}>
+                          {r.title} {hasAlign ? '(مُزامن)' : '(بدون مزامنة)'}
+                        </option>
+                      );
+                    })}
+                  </select>
+                  <div className="mt-3 grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={handlePickAudio}
+                      disabled={isExporting || isPreparingExport || isRecording}
+                      data-testid="button-pick-video-audio"
+                      className="rounded-xl border border-dashed border-accent-700/40 bg-accent-700/5 px-3 py-2.5 text-xs font-ui text-accent-500 hover:bg-accent-700/10 disabled:opacity-50 flex items-center justify-center gap-2"
+                    >
+                      <Upload className="w-4 h-4" />
+                      ملف صوتي
+                    </button>
+                    <button
+                      type="button"
+                      onClick={isRecording ? stopRecording : startRecording}
+                      disabled={isExporting || isPreparingExport}
+                      data-testid="button-record-video-audio"
+                      className={`rounded-xl border px-3 py-2.5 text-xs font-ui transition-colors flex items-center justify-center gap-2 disabled:opacity-50 ${
+                        isRecording
+                          ? "border-crimson-500/50 bg-crimson-500/15 text-crimson-500"
+                          : "border-white/10 bg-white/5 text-parchment-100 hover:bg-white/10"
+                      }`}
+                    >
+                      {isRecording ? (
+                        <>
+                          <Square className="w-3.5 h-3.5 fill-current" />
+                          إيقاف {formatRecordingTime(recordingElapsedMs)}
+                        </>
+                      ) : (
+                        <>
+                          <Mic className="w-4 h-4 text-accent-700" />
+                          تسجيل صوتي
+                        </>
+                      )}
+                    </button>
+                  </div>
+                  <p className="mt-2 text-[10px] text-ink-600">
+                    يمكنك تسجيل صوتك مباشرة لمدة تصل إلى 5 دقائق.
+                  </p>
+                  {(audioPickError || recordingError) && (
+                    <p className="mt-2 text-[11px] text-crimson-500" role="alert">
+                      {audioPickError || recordingError}
+                    </p>
+                  )}
+                  {selectedRecording && (
+                    <p
+                      className="mt-2 text-[11px] text-ink-500"
+                      data-testid="status-video-timing"
+                    >
+                      {isLoadingAlignment
+                        ? "جارٍ تحميل توقيت هذا التسجيل..."
+                        : timelinePoem?.verses.every(
+                        (verse) => verse.alignment?.recordingId === selectedRecording.id
+                      )
+                        ? "سيُستخدم توقيت الأبيات المتزامن مع هذا التسجيل."
+                        : "لا توجد مزامنة كاملة لهذا التسجيل؛ سيُستخدم توقيت تقريبي متساوٍ."}
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+          </VideoSidebarCard>
+
+          <VideoSidebarCard title="مظاهر جاهزة" icon={Palette} defaultOpen={false}>
+            <VideoStylePresets onSelect={handleApplyPreset} disabled={isExporting || isPreparingExport} />
+          </VideoSidebarCard>
+
+          <VideoSidebarCard title="تنسيق الفيديو والمقاسات" icon={Settings2}>
+            <div className="flex flex-col gap-5">
+              {/* Aspect Ratio */}
+              <div>
+                <label className="block text-xs font-bold text-ink-400 mb-3">أبعاد الفيديو</label>
+                <div className="grid grid-cols-2 gap-3">
+                  {(["16:9", "9:16"] as AspectRatio[]).map(ratio => (
+                    <button
+                      key={ratio}
+                      disabled={isExporting || isPreparingExport}
+                      onClick={() => setAspectRatio(ratio)}
+                      className={`py-3 rounded-xl text-sm font-sans font-bold flex items-center justify-center gap-2 border transition-all ${
+                        aspectRatio === ratio
+                          ? "bg-accent-700/10 text-accent-500 border-accent-700/30"
+                          : "bg-charcoal-950 text-ink-500 border-white/5 hover:bg-white/5"
+                      }`}
+                    >
+                      {ratio === "16:9" ? "16:9 (يوتيوب)" : "9:16 (ريلز)"}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Template */}
+              <div>
+                <label className="block text-xs font-bold text-ink-400 mb-3">قالب الفيديو الأساسي</label>
+                <div className="grid grid-cols-2 gap-2">
+                  {([
+                    { id: "classic", name: "كلاسيكي", desc: "أنيق وهادئ" },
+                    { id: "cinematic", name: "سينمائي", desc: "عمق ودراما" },
+                    { id: "manuscript", name: "مخطوطة", desc: "طابع أثري" },
+                    { id: "minimalist", name: "بسيط", desc: "نقي وحديث" },
+                    { id: "calligraphy", name: "ديواني", desc: "حركة وخط" }
+                  ] as const).map(t => (
+                    <button
+                      key={t.id}
+                      disabled={isExporting || isPreparingExport}
+                      onClick={() => setTemplate(t.id)}
+                      className={`px-3 py-2.5 rounded-xl text-right transition-all flex flex-col gap-1 border active:scale-[0.98] ${
+                        template === t.id
+                          ? "bg-accent-700/10 text-accent-500 border-accent-700/30 shadow-[0_0_15px_rgba(212,175,55,0.1)]"
+                          : "bg-charcoal-950 text-ink-500 border-white/5 hover:bg-charcoal-900 hover:border-white/10 hover:text-parchment-100"
+                      } ${t.id === "classic" ? "col-span-2" : ""}`}
+                    >
+                      <span className="text-sm font-bold font-poetry">{t.name}</span>
+                      <span className="text-[10px] opacity-70 font-sans">{t.desc}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Background */}
+              <div>
+                <label className="block text-xs font-bold text-ink-400 mb-3">الخلفية</label>
+                <div className="grid grid-cols-2 gap-3 mb-3">
                   <button
-                    type="button"
-                    onClick={isRecording ? stopRecording : startRecording}
-                    disabled={isExporting}
-                    data-testid="button-record-video-audio"
-                    className={`rounded-xl border px-3 py-2.5 text-xs font-ui transition-colors flex items-center justify-center gap-2 disabled:opacity-50 ${
-                      isRecording
-                        ? "border-crimson-500/50 bg-crimson-500/15 text-crimson-500"
-                        : "border-white/10 bg-white/5 text-parchment-100 hover:bg-white/10"
+                    disabled={isExporting || isPreparingExport}
+                    onClick={() => setBackgroundType("gradient")}
+                    className={`py-2 rounded-xl text-xs font-bold border transition-all ${
+                      backgroundType === "gradient" ? "bg-accent-700/10 text-accent-500 border-accent-700/30" : "bg-charcoal-950 text-ink-500 border-white/5"
                     }`}
                   >
-                    {isRecording ? (
-                      <>
-                        <Square className="w-3.5 h-3.5 fill-current" />
-                        إيقاف {formatRecordingTime(recordingElapsedMs)}
-                      </>
-                    ) : (
-                      <>
-                        <Mic className="w-4 h-4 text-accent-700" />
-                        تسجيل صوتي
-                      </>
-                    )}
+                    تدرج لوني
+                  </button>
+                  <button
+                    disabled={isExporting || isPreparingExport}
+                    onClick={() => setBackgroundType("particles")}
+                    className={`py-2 rounded-xl text-xs font-bold border transition-all ${
+                      backgroundType === "particles" ? "bg-accent-700/10 text-accent-500 border-accent-700/30" : "bg-charcoal-950 text-ink-500 border-white/5"
+                    }`}
+                  >
+                    جزيئات
+                  </button>
+                  <button
+                    disabled={isExporting || isPreparingExport}
+                    onClick={() => setBackgroundType("solid")}
+                    className={`py-2 rounded-xl text-xs font-bold border transition-all ${
+                      backgroundType === "solid" ? "bg-accent-700/10 text-accent-500 border-accent-700/30" : "bg-charcoal-950 text-ink-500 border-white/5"
+                    }`}
+                  >
+                    لون صلب
+                  </button>
+                  <button
+                    disabled={isExporting || isPreparingExport}
+                    onClick={() => {
+                      if (backgroundImageElement) setBackgroundType("image");
+                      else document.getElementById("video-bg-upload")?.click();
+                    }}
+                    className={`py-2 rounded-xl text-xs font-bold border transition-all flex items-center justify-center gap-1.5 ${
+                      backgroundType === "image" ? "bg-accent-700/10 text-accent-500 border-accent-700/30" : "bg-charcoal-950 text-ink-500 border-white/5"
+                    }`}
+                  >
+                    <ImageIcon className="w-3.5 h-3.5" />
+                    صورة
                   </button>
                 </div>
-                <p className="mt-2 text-[10px] text-ink-600">
-                  يمكنك تسجيل صوتك مباشرة لمدة تصل إلى 5 دقائق.
-                </p>
-                {(audioPickError || recordingError) && (
-                  <p className="mt-2 text-[11px] text-crimson-500" role="alert">
-                    {audioPickError || recordingError}
-                  </p>
-                )}
-                {selectedRecording && (
-                  <p
-                    className="mt-2 text-[11px] text-ink-500"
-                    data-testid="status-video-timing"
-                  >
-                    {isLoadingAlignment
-                      ? "جارٍ تحميل توقيت هذا التسجيل..."
-                      : timelinePoem?.verses.every(
-                      (verse) => verse.alignment?.recordingId === selectedRecording.id
-                    )
-                      ? "سيُستخدم توقيت الأبيات المتزامن مع هذا التسجيل."
-                      : "لا توجد مزامنة كاملة لهذا التسجيل؛ سيُستخدم توقيت تقريبي متساوٍ."}
-                  </p>
+                <input
+                  type="file"
+                  id="video-bg-upload"
+                  accept="image/jpeg,image/png,image/webp"
+                  className="hidden"
+                  onChange={handleImageUpload}
+                />
+                {backgroundImageUrl && (
+                  <div className="mt-2 flex items-center gap-2">
+                    <img src={backgroundImageUrl} className="w-10 h-10 rounded-lg object-cover bg-black" />
+                    <button
+                      disabled={isExporting || isPreparingExport}
+                      onClick={() => document.getElementById("video-bg-upload")?.click()}
+                      className="text-xs text-accent-500 hover:text-accent-400"
+                    >
+                      تغيير الصورة
+                    </button>
+                  </div>
                 )}
               </div>
-            )}
-          </section>
-
-          {/* Template */}
-          <section>
-            <label className="block text-xs font-bold text-ink-400 mb-3">قالب الفيديو</label>
-            <div className="grid grid-cols-2 gap-2">
-              {([
-                { id: "classic", name: "كلاسيكي", desc: "أنيق وهادئ" },
-                { id: "cinematic", name: "سينمائي", desc: "عمق ودراما" },
-                { id: "manuscript", name: "مخطوطة", desc: "طابع أثري" },
-                { id: "minimalist", name: "بسيط", desc: "نقي وحديث" },
-                { id: "calligraphy", name: "ديواني", desc: "حركة وخط" }
-              ] as const).map(t => (
-                <button
-                  key={t.id}
-                  disabled={isExporting}
-                  onClick={() => setTemplate(t.id)}
-                  className={`px-3 py-2.5 rounded-xl text-right transition-all flex flex-col gap-1 border active:scale-[0.98] ${
-                    template === t.id
-                      ? "bg-accent-700/10 text-accent-500 border-accent-700/30 shadow-[0_0_15px_rgba(212,175,55,0.1)]"
-                      : "bg-charcoal-950 text-ink-500 border-white/5 hover:bg-charcoal-900 hover:border-white/10 hover:text-parchment-100"
-                  } ${t.id === "classic" ? "col-span-2" : ""}`}
-                >
-                  <span className="text-sm font-bold font-poetry">{t.name}</span>
-                  <span className="text-[10px] opacity-70 font-sans">{t.desc}</span>
-                </button>
-              ))}
             </div>
-          </section>
+          </VideoSidebarCard>
 
-          {/* Aspect Ratio */}
-          <section>
-            <label className="block text-xs font-bold text-ink-400 mb-3">أبعاد الفيديو</label>
-            <div className="grid grid-cols-2 gap-3">
-              {(["16:9", "9:16"] as AspectRatio[]).map(ratio => (
-                <button
-                  key={ratio}
-                  disabled={isExporting}
-                  onClick={() => setAspectRatio(ratio)}
-                  className={`py-3 rounded-xl text-sm font-sans font-bold flex items-center justify-center gap-2 border transition-all ${
-                    aspectRatio === ratio 
-                      ? "bg-accent-700/10 text-accent-500 border-accent-700/30" 
-                      : "bg-charcoal-950 text-ink-500 border-white/5 hover:bg-white/5"
-                  }`}
-                >
-                  {ratio === "16:9" ? "16:9 (يوتيوب)" : "9:16 (ريلز)"}
-                </button>
-              ))}
-            </div>
-          </section>
-
-          {/* Background */}
-          <section>
-            <label className="block text-xs font-bold text-ink-400 mb-3">الخلفية</label>
-            <div className="grid grid-cols-2 gap-3 mb-3">
-              <button
-                disabled={isExporting}
-                onClick={() => setBackgroundType("gradient")}
-                className={`py-2 rounded-xl text-xs font-bold border transition-all ${
-                  backgroundType === "gradient" ? "bg-accent-700/10 text-accent-500 border-accent-700/30" : "bg-charcoal-950 text-ink-500 border-white/5"
-                }`}
-              >
-                تدرج لوني
-              </button>
-              <button
-                disabled={isExporting}
-                onClick={() => setBackgroundType("particles")}
-                className={`py-2 rounded-xl text-xs font-bold border transition-all ${
-                  backgroundType === "particles" ? "bg-accent-700/10 text-accent-500 border-accent-700/30" : "bg-charcoal-950 text-ink-500 border-white/5"
-                }`}
-              >
-                جزيئات
-              </button>
-              <button
-                disabled={isExporting}
-                onClick={() => setBackgroundType("solid")}
-                className={`py-2 rounded-xl text-xs font-bold border transition-all ${
-                  backgroundType === "solid" ? "bg-accent-700/10 text-accent-500 border-accent-700/30" : "bg-charcoal-950 text-ink-500 border-white/5"
-                }`}
-              >
-                لون صلب
-              </button>
-              <button
-                disabled={isExporting}
-                onClick={() => {
-                  if (backgroundImageElement) setBackgroundType("image");
-                  else document.getElementById("video-bg-upload")?.click();
-                }}
-                className={`py-2 rounded-xl text-xs font-bold border transition-all flex items-center justify-center gap-1.5 ${
-                  backgroundType === "image" ? "bg-accent-700/10 text-accent-500 border-accent-700/30" : "bg-charcoal-950 text-ink-500 border-white/5"
-                }`}
-              >
-                <ImageIcon className="w-3.5 h-3.5" />
-                صورة
-              </button>
-            </div>
-            <input 
-              type="file" 
-              id="video-bg-upload" 
-              accept="image/jpeg,image/png,image/webp"
-              className="hidden" 
-              onChange={handleImageUpload}
+          <VideoSidebarCard title="تخصيص العرض والخطوط" icon={PlaySquare}>
+            <VideoStyleControls
+              style={videoStyle}
+              onChange={setVideoStyle}
+              disabled={isExporting || isPreparingExport}
             />
-            {backgroundImageUrl && (
-              <div className="mt-2 flex items-center gap-2">
-                <img src={backgroundImageUrl} className="w-10 h-10 rounded-lg object-cover bg-black" />
-                <button 
-                  onClick={() => document.getElementById("video-bg-upload")?.click()}
-                  className="text-xs text-accent-500 hover:text-accent-400"
-                >
-                  تغيير الصورة
-                </button>
+            <hr className="border-white/5 my-4" />
+            <div className="flex flex-col gap-4">
+              <div>
+                <label className="flex justify-between text-xs font-bold text-ink-500 mb-2">
+                  <span>حجم النص الإضافي</span>
+                  <span>{Math.round(fontScale * 100)}%</span>
+                </label>
+                <input
+                  type="range"
+                  min="0.5" max="2.0" step="0.1"
+                  value={fontScale}
+                  onChange={e => setFontScale(parseFloat(e.target.value))}
+                  disabled={isExporting || isPreparingExport}
+                  className="w-full accent-accent-700 h-2 bg-charcoal-950 rounded-lg appearance-none cursor-pointer"
+                />
               </div>
-            )}
-          </section>
 
-          {/* Typography */}
-          <section>
-            <label className="block text-xs font-bold text-ink-400 mb-3">حجم النص ({Math.round(fontScale * 100)}%)</label>
-            <input 
-              type="range" 
-              min="0.5" max="2.0" step="0.1"
-              value={fontScale}
-              onChange={e => setFontScale(parseFloat(e.target.value))}
-              disabled={isExporting}
-              className="w-full accent-accent-700 h-2 bg-charcoal-950 rounded-lg appearance-none cursor-pointer"
-            />
-            
-            <label className="block text-xs font-bold text-ink-400 mt-4 mb-3">تعتيم الخلفية ({Math.round(overlayOpacity * 100)}%)</label>
-            <input 
-              type="range" 
-              min="0" max="0.9" step="0.1"
-              value={overlayOpacity}
-              onChange={e => setOverlayOpacity(parseFloat(e.target.value))}
-              disabled={isExporting}
-              className="w-full accent-accent-700 h-2 bg-charcoal-950 rounded-lg appearance-none cursor-pointer"
-            />
-          </section>
+              <div>
+                <label className="flex justify-between text-xs font-bold text-ink-500 mb-2">
+                  <span>تعتيم الخلفية</span>
+                  <span>{Math.round(overlayOpacity * 100)}%</span>
+                </label>
+                <input
+                  type="range"
+                  min="0" max="0.9" step="0.1"
+                  value={overlayOpacity}
+                  onChange={e => setOverlayOpacity(parseFloat(e.target.value))}
+                  disabled={isExporting || isPreparingExport}
+                  className="w-full accent-accent-700 h-2 bg-charcoal-950 rounded-lg appearance-none cursor-pointer"
+                />
+              </div>
+            </div>
+          </VideoSidebarCard>
         </div>
 
         {/* Action Button */}
         <div className="p-6 border-t border-white/5 shrink-0 bg-charcoal-900/50 backdrop-blur-md">
-          {(exportError || exportMessage) && (
+          {(exportError || exportMessage || fontLoadError) && (
             <div
               className={`mb-3 rounded-xl border p-3 text-xs font-ui flex items-start gap-2 ${
-                exportError
+                (exportError || fontLoadError)
                   ? "border-crimson-500/30 bg-crimson-500/10 text-crimson-500"
                   : "border-accent-700/30 bg-accent-700/10 text-accent-500"
               }`}
               role="status"
               data-testid="status-video-export"
             >
-              {exportError ? (
+              {(exportError || fontLoadError) ? (
                 <AlertCircle className="w-4 h-4 shrink-0" />
               ) : (
                 <CheckCircle2 className="w-4 h-4 shrink-0" />
               )}
-              <span>{exportError || exportMessage}</span>
+              <span>{fontLoadError || exportError || exportMessage}</span>
             </div>
           )}
           {isExporting ? (
@@ -581,6 +637,14 @@ export const VideoMakerView: React.FC<VideoMakerViewProps> = ({
             >
               <X className="w-5 h-5" />
               إلغاء التصدير
+            </button>
+          ) : isPreparingExport ? (
+            <button
+              disabled
+              className="w-full py-3.5 rounded-xl font-bold flex items-center justify-center gap-2 transition-all bg-accent-700/50 text-charcoal-950/50 cursor-wait shadow-[0_0_20px_rgba(212,175,55,0.1)]"
+            >
+              <div className="w-5 h-5 border-2 border-charcoal-950/20 border-t-charcoal-950/80 rounded-full animate-spin" />
+              جاري التجهيز...
             </button>
           ) : (
             <button

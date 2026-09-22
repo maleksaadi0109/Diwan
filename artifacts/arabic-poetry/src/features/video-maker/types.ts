@@ -1,4 +1,5 @@
 import { Poem, Verse, Recording } from "@/types";
+import type { VideoStyle } from "./videoStyles";
 
 export interface VideoTimelineEvent {
   type: 'intro' | 'verse' | 'outro';
@@ -24,4 +25,5 @@ export interface VideoState {
   textColor: string;
   overlayOpacity: number;
   events: VideoTimelineEvent[];
+  style?: VideoStyle;
 }
