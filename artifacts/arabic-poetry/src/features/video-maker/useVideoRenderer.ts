@@ -85,6 +85,8 @@ export function useVideoRenderer(
         ctx.drawImage(state.backgroundImageElement, sdx, sdy, sdw, sdh);
       }
 
+      drawTemplateBackdrop(ctx, state.template, width, height, timeMs);
+
       // Overlay
       ctx.fillStyle = `rgba(10, 11, 14, ${state.overlayOpacity})`;
       ctx.fillRect(0, 0, width, height);
@@ -98,18 +100,71 @@ export function useVideoRenderer(
           const fadeDuration = 800;
           const shouldAnimateText = previewPlaying || exportTimeMsRef.current !== null;
           const opacity = shouldAnimateText ? Math.min(1, eventTime / fadeDuration) : 1;
-          
+
           const timeRemaining = currentEvent.endMs - timeMs;
           const fadeOut = shouldAnimateText ? Math.min(1, timeRemaining / fadeDuration) : 1;
-          
+
           ctx.globalAlpha = opacity * fadeOut;
-          ctx.fillStyle = state.textColor;
+
+          // Template-specific configuration
+          const is169 = state.aspectRatio === '16:9';
+          let baseFontSize = (is169 ? 64 : 72) * state.fontScale;
+          let titleFamily = '"Amiri", serif';
+          let bodyFamily = '"Amiri", serif';
+          let titleColor = state.textColor;
+          let bodyColor = state.textColor;
+          let templateScale = 1.0;
+          let templateX = 0;
+          let templateY = 0;
+          let templateShadowBlur = 0;
+          let templateShadowColor = 'transparent';
+
+          const eventDuration = currentEvent.endMs - currentEvent.startMs;
+          const progress = eventDuration > 0 ? (eventTime / eventDuration) : 0;
+
+          if (state.template === 'cinematic') {
+            templateScale = 1.0 + (progress * 0.15);
+            templateShadowBlur = 40;
+            templateShadowColor = 'rgba(0, 0, 0, 0.9)';
+            titleColor = '#ffffff';
+            bodyColor = '#f5f5f5';
+          } else if (state.template === 'manuscript') {
+            titleColor = '#e8d5a5';
+            bodyColor = '#e8d5a5';
+            templateShadowBlur = 10;
+            templateShadowColor = 'rgba(20, 10, 0, 0.8)';
+            templateY = Math.sin(progress * Math.PI) * -20;
+          } else if (state.template === 'minimalist') {
+            titleFamily = '"Cairo", sans-serif';
+            bodyFamily = '"Cairo", sans-serif';
+            titleColor = '#ffffff';
+            bodyColor = '#ffffff';
+            if (eventTime < fadeDuration) {
+              templateY = (1 - opacity) * 40;
+            } else if (timeRemaining < fadeDuration) {
+              templateY = -(1 - fadeOut) * 40;
+            }
+          } else if (state.template === 'calligraphy') {
+            titleColor = '#d4af37';
+            bodyColor = '#d4af37';
+            templateScale = 1.05 + (progress * 0.08);
+            templateX = (progress - 0.5) * 50;
+            baseFontSize *= 1.15;
+            templateShadowBlur = 15;
+            templateShadowColor = 'rgba(0,0,0,0.5)';
+          }
+
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
           ctx.direction = 'rtl';
 
-          const is169 = state.aspectRatio === '16:9';
-          const baseFontSize = (is169 ? 64 : 72) * state.fontScale;
+          ctx.save();
+          ctx.translate(width / 2, height / 2);
+          ctx.scale(templateScale, templateScale);
+          ctx.translate(-width / 2 + templateX, -height / 2 + templateY);
+
+          ctx.shadowBlur = templateShadowBlur;
+          ctx.shadowColor = templateShadowColor;
 
           if (currentEvent.type === 'intro') {
             const titleLayout = fitTextBlock(
@@ -120,8 +175,10 @@ export function useVideoRenderer(
               baseFontSize * 1.5,
               baseFontSize * 0.65,
               "bold",
-              '"Amiri", serif'
+              titleFamily
             );
+
+            ctx.fillStyle = titleColor;
             drawCenteredLines(
               ctx,
               titleLayout.lines,
@@ -129,8 +186,15 @@ export function useVideoRenderer(
               height / 2 - baseFontSize,
               titleLayout.lineHeight
             );
+
+            if (state.template === 'manuscript' || state.template === 'calligraphy') {
+               ctx.fillStyle = titleColor;
+               const yLine = height / 2 - baseFontSize + (titleLayout.lines.length * titleLayout.lineHeight * 0.5);
+               ctx.fillRect(width/2 - 120, yLine + 20, 240, 3);
+            }
+
             ctx.font = `${Math.max(baseFontSize * 0.75, 34)}px "Cairo", sans-serif`;
-            ctx.fillStyle = '#d4af37';
+            ctx.fillStyle = state.template === 'minimalist' ? '#a0aab7' : '#d4af37';
             ctx.fillText(
               state.poem.poet.name,
               width / 2,
@@ -145,8 +209,9 @@ export function useVideoRenderer(
               baseFontSize,
               Math.max(30, baseFontSize * 0.48),
               "bold",
-              '"Amiri", serif'
+              bodyFamily
             );
+            ctx.fillStyle = bodyColor;
             drawCenteredLines(
               ctx,
               verseLayout.lines,
@@ -155,13 +220,15 @@ export function useVideoRenderer(
               verseLayout.lineHeight
             );
           } else if (currentEvent.type === 'outro') {
-            ctx.font = `bold ${baseFontSize * 1.8}px "Amiri", serif`;
+            ctx.font = `bold ${baseFontSize * 1.8}px ${titleFamily}`;
+            ctx.fillStyle = titleColor;
             ctx.fillText("دِيـــوَان", width/2, height/2);
             ctx.font = `${baseFontSize * 0.6}px "Cairo", sans-serif`;
-            ctx.fillStyle = '#a0aab7';
+            ctx.fillStyle = state.template === 'minimalist' ? '#a0aab7' : '#d4af37';
             ctx.fillText("شعر عربي ومحاذاة صوتية", width/2, height/2 + (baseFontSize * 1.5));
           }
           
+          ctx.restore();
           ctx.globalAlpha = 1.0;
         }
       }
@@ -175,6 +242,77 @@ export function useVideoRenderer(
 
     return () => cancelAnimationFrame(animationId);
   }, [canvasRef, state, audioElement, exportTimeMsRef, previewPlaying]);
+}
+
+function drawTemplateBackdrop(
+  ctx: CanvasRenderingContext2D,
+  template: VideoState["template"],
+  width: number,
+  height: number,
+  timeMs: number
+) {
+  const phase = timeMs / 1000;
+  ctx.save();
+
+  if (template === "classic") {
+    const glowX = width * (0.5 + Math.sin(phase * 0.18) * 0.22);
+    const glowY = height * (0.42 + Math.cos(phase * 0.14) * 0.12);
+    const glow = ctx.createRadialGradient(glowX, glowY, 0, glowX, glowY, width * 0.52);
+    glow.addColorStop(0, "rgba(212, 175, 55, 0.13)");
+    glow.addColorStop(1, "rgba(212, 175, 55, 0)");
+    ctx.fillStyle = glow;
+    ctx.fillRect(0, 0, width, height);
+  } else if (template === "cinematic") {
+    const sweepX = ((phase * 90) % (width * 1.6)) - width * 0.3;
+    const sweep = ctx.createLinearGradient(sweepX - width * 0.25, 0, sweepX + width * 0.25, height);
+    sweep.addColorStop(0, "rgba(0,0,0,0)");
+    sweep.addColorStop(0.5, "rgba(77, 116, 168, 0.22)");
+    sweep.addColorStop(1, "rgba(0,0,0,0)");
+    ctx.fillStyle = sweep;
+    ctx.fillRect(0, 0, width, height);
+    ctx.fillStyle = "rgba(0,0,0,0.5)";
+    ctx.fillRect(0, 0, width, height * 0.055);
+    ctx.fillRect(0, height * 0.945, width, height * 0.055);
+  } else if (template === "manuscript") {
+    ctx.fillStyle = "rgba(112, 74, 31, 0.18)";
+    ctx.fillRect(0, 0, width, height);
+    ctx.strokeStyle = "rgba(232, 213, 165, 0.12)";
+    ctx.lineWidth = 2;
+    const offset = (phase * 18) % 70;
+    for (let y = -70 + offset; y < height + 70; y += 70) {
+      ctx.beginPath();
+      ctx.moveTo(width * 0.08, y);
+      ctx.quadraticCurveTo(width * 0.5, y + Math.sin(y * 0.01 + phase) * 12, width * 0.92, y);
+      ctx.stroke();
+    }
+  } else if (template === "minimalist") {
+    const travel = (phase * 0.08) % 1;
+    ctx.fillStyle = "rgba(41, 196, 169, 0.13)";
+    ctx.fillRect(width * travel - width * 0.18, 0, width * 0.18, height);
+    ctx.fillStyle = "rgba(255,255,255,0.08)";
+    ctx.fillRect(0, height * (0.18 + Math.sin(phase * 0.35) * 0.04), width, 2);
+    ctx.fillRect(0, height * (0.82 + Math.cos(phase * 0.3) * 0.04), width, 2);
+  } else {
+    ctx.translate(width / 2, height / 2);
+    ctx.rotate(phase * 0.025);
+    ctx.strokeStyle = "rgba(212, 175, 55, 0.2)";
+    ctx.lineWidth = Math.max(3, width * 0.003);
+    for (let index = 0; index < 4; index += 1) {
+      ctx.beginPath();
+      ctx.ellipse(
+        0,
+        0,
+        width * (0.22 + index * 0.1),
+        height * (0.16 + index * 0.08),
+        index * 0.45 + Math.sin(phase * 0.2) * 0.12,
+        0,
+        Math.PI * 1.55
+      );
+      ctx.stroke();
+    }
+  }
+
+  ctx.restore();
 }
 
 function fitTextBlock(

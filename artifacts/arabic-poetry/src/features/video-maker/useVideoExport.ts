@@ -83,7 +83,10 @@ export function useVideoExport() {
 
     try {
       const audioSrc = await resolveAudioSrcAsync(audioPath);
-      if (cancelled) return;
+      if (cancelled) {
+        cleanup();
+        return;
+      }
       const loadedAudio = new Audio(audioSrc);
       audio = loadedAudio;
       loadedAudio.crossOrigin = "anonymous";
@@ -100,16 +103,25 @@ export function useVideoExport() {
         };
         loadedAudio.load();
       });
-      if (cancelled) return;
+      if (cancelled) {
+        cleanup();
+        return;
+      }
 
       if (typeof document !== "undefined" && "fonts" in document) {
         await document.fonts.ready;
       }
-      if (cancelled) return;
+      if (cancelled) {
+        cleanup();
+        return;
+      }
 
       audioCtx = new AudioContextCtor();
       await audioCtx.resume();
-      if (cancelled) return;
+      if (cancelled) {
+        cleanup();
+        return;
+      }
       const dest = audioCtx.createMediaStreamDestination();
       const source = audioCtx.createMediaElementSource(loadedAudio);
       

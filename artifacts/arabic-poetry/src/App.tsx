@@ -214,6 +214,11 @@ function AppShell() {
     setActiveTab("player");
   };
 
+  const handleCreatePoemVideo = useCallback((poem: Poem) => {
+    setActivePoem(poem);
+    setActiveTab("video");
+  }, []);
+
   // Undo/redo history is scoped to the poem/playlist being edited -- once
   // the user navigates to a different one, that entry can no longer be
   // undone visibly, so it's evicted rather than left to silently resurface
@@ -855,6 +860,7 @@ function AppShell() {
                   onApplySegmentationSuggestions={handleApplySegmentationSuggestions}
                   onMarkVerseBoundary={handleMarkVerseBoundary}
                   onOpenShortcutsHelp={() => setShowShortcutsHelp(true)}
+                   onCreateVideo={() => handleCreatePoemVideo(activePoem)}
                 />
               )}
 
@@ -871,7 +877,11 @@ function AppShell() {
               )}
 
               {activeTab === "video" && (
-                <VideoMakerView poems={poems} repository={repo} />
+                <VideoMakerView
+                  poems={poems}
+                  repository={repo}
+                  initialPoemId={activePoem?.id}
+                />
               )}
 
               {activeTab === "catalog" && <CatalogView poems={poems} />}

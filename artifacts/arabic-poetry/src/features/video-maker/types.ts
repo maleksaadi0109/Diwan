@@ -10,9 +10,12 @@ export interface VideoTimelineEvent {
 export type AspectRatio = '16:9' | '9:16';
 export type BackgroundType = 'solid' | 'gradient' | 'particles' | 'image';
 
+export type VideoTemplate = 'classic' | 'cinematic' | 'manuscript' | 'minimalist' | 'calligraphy';
+
 export interface VideoState {
   poem: Poem | null;
   recording: Recording | null;
+  template: VideoTemplate;
   aspectRatio: AspectRatio;
   backgroundType: BackgroundType;
   backgroundImageUrl: string | null;
