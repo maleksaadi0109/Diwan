@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState } from "react";
-import { Maximize2, Play, Pause } from "lucide-react";
+import { Maximize2, Play, Pause, Layout } from "lucide-react";
 import { VideoState } from "./types";
 import { useVideoRenderer } from "./useVideoRenderer";
 import { resolveAudioSrcAsync } from "@/lib/audio/fileManager";
@@ -122,6 +122,8 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
   const canvasWidth = is169 ? 1920 : 1080;
   const canvasHeight = is169 ? 1080 : 1920;
 
+  const [showSafeAreaOverlay, setShowSafeAreaOverlay] = useState(false);
+
   return (
     <div className="flex-1 min-w-0 min-h-0 bg-charcoal-950 flex flex-col relative overflow-hidden">
       <div 
@@ -131,18 +133,26 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
           backgroundColor: '#0a0b0e' // charcol-950
         }}
       >
-        <canvas
-          ref={canvasRef}
-          data-testid="video-preview-canvas"
-          width={canvasWidth}
-          height={canvasHeight}
-          className={`shadow-2xl object-contain bg-black ${
-            is169 ? "w-full h-auto max-h-full" : "h-full w-auto max-w-full"
-          }`}
-          style={{
-            aspectRatio: is169 ? '16/9' : '9/16'
-          }}
-        />
+        <div className="relative max-w-full max-h-full flex items-center justify-center shadow-2xl" style={{ aspectRatio: is169 ? '16/9' : '9/16' }}>
+          <canvas
+            ref={canvasRef}
+            data-testid="video-preview-canvas"
+            width={canvasWidth}
+            height={canvasHeight}
+            className="w-full h-full object-contain bg-black"
+          />
+
+          {/* Safe Area Preview Overlay */}
+          {showSafeAreaOverlay && state.style?.safeArea && (
+            <div className="absolute inset-0 pointer-events-none z-20 border-[2px] border-dashed border-red-500/50">
+              <div className="absolute top-[10%] bottom-[15%] left-[8%] right-[8%] border-[1px] border-solid border-red-400/50 bg-red-500/10 flex items-center justify-center">
+                <span className="text-red-300/70 text-xs font-bold font-sans bg-black/50 px-2 py-1 rounded">
+                  المنطقة الآمنة للمحتوى
+                </span>
+              </div>
+            </div>
+          )}
+        </div>
         
         {isExporting && (
           <div className="absolute inset-0 bg-black/80 flex flex-col items-center justify-center text-parchment-100 z-10">
@@ -193,13 +203,26 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
           </button>
         </div>
 
-        <button
-          onClick={handleFullscreen}
-          className="p-2 rounded-xl text-ink-500 hover:text-parchment-100 hover:bg-white/5 transition-colors"
-          title="ملء الشاشة"
-        >
-          <Maximize2 className="w-5 h-5" />
-        </button>
+        <div className="flex items-center gap-3">
+          {state.style?.safeArea && (
+            <button
+              onClick={() => setShowSafeAreaOverlay(!showSafeAreaOverlay)}
+              aria-pressed={showSafeAreaOverlay}
+              aria-label={showSafeAreaOverlay ? "إخفاء دليل المنطقة الآمنة" : "إظهار دليل المنطقة الآمنة"}
+              className={`p-2 rounded-xl text-ink-500 hover:text-parchment-100 hover:bg-white/5 transition-colors ${showSafeAreaOverlay ? 'text-accent-500 bg-accent-700/10' : ''}`}
+              title={showSafeAreaOverlay ? "إخفاء الدليل البصري للمنطقة الآمنة" : "إظهار الدليل البصري للمنطقة الآمنة"}
+            >
+              <Layout className="w-5 h-5" />
+            </button>
+          )}
+          <button
+            onClick={handleFullscreen}
+            className="p-2 rounded-xl text-ink-500 hover:text-parchment-100 hover:bg-white/5 transition-colors"
+            title="ملء الشاشة"
+          >
+            <Maximize2 className="w-5 h-5" />
+          </button>
+        </div>
       </div>
     </div>
   );
