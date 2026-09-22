@@ -7,6 +7,7 @@ import { LibraryView } from "./features/library/LibraryView";
 import { PoemPlayerView } from "./features/player/PoemPlayerView";
 import { ImportView } from "./features/import/ImportView";
 import { CatalogView } from "./features/catalog/CatalogView";
+import { PoetryMapView } from "./features/poetry-map/PoetryMapView";
 import { SettingsView } from "./features/settings/SettingsView";
 import { PlaylistsView } from "./features/playlists/PlaylistsView";
 import { PlaylistDetailView } from "./features/playlists/PlaylistDetailView";
@@ -843,6 +844,10 @@ function AppShell() {
 
               {activeTab === "import" && (
                 <ImportView onImportPoem={handleImportPoem} />
+              )}
+
+              {activeTab === "map" && (
+                <PoetryMapView poems={poems} onOpenPoem={handleOpenPoem} />
               )}
 
               {activeTab === "catalog" && <CatalogView poems={poems} />}

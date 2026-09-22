@@ -1,5 +1,5 @@
 import React from "react";
-import { BookOpen, PlayCircle, PlusCircle, Settings, Feather, ListMusic, Keyboard, Library, ListChecks } from "lucide-react";
+import { BookOpen, PlayCircle, PlusCircle, Settings, Feather, ListMusic, Keyboard, Library, ListChecks, Map } from "lucide-react";
 import { ActiveTab } from "@/types";
 import { cn, toArabicDigits } from "@/lib/utils";
 import { useImportQueueContext } from "@/contexts/ImportQueueContext";
@@ -47,6 +47,12 @@ export const Navigation: React.FC<NavigationProps> = ({
       label: "مكتبة جاهزة",
       mobileLabel: "جاهزة",
       icon: Library,
+    },
+    {
+      id: "map" as ActiveTab,
+      label: "خريطة الشعر",
+      mobileLabel: "الخريطة",
+      icon: Map,
     },
     {
       id: "playlists" as ActiveTab,
