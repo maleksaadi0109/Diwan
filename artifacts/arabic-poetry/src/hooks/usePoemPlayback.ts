@@ -3,7 +3,7 @@ import { Poem, Verse } from "@/types";
 import { useAudioPlayerContext } from "@/contexts/AudioPlayerContext";
 
 export function usePoemPlayback(poem: Poem | null) {
-  const { controller, playerState, loadPoem, currentPoem, hasQueue } = useAudioPlayerContext();
+  const { controller, playerState, loadPoem } = useAudioPlayerContext();
 
   const [isUserScrolling, setIsUserScrolling] = useState(false);
   const userScrollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -14,10 +14,9 @@ export function usePoemPlayback(poem: Poem | null) {
   // playback is never interrupted.
   useEffect(() => {
     if (poem) {
-      const isAlreadyInQueue = hasQueue && currentPoem?.id === poem.id;
-      loadPoem(poem, isAlreadyInQueue ? { fromQueue: true } : undefined);
+      loadPoem(poem);
     }
-  }, [poem, loadPoem, hasQueue, currentPoem?.id]);
+  }, [poem, loadPoem]);
 
   useEffect(() => {
     return () => {
