@@ -12,7 +12,7 @@ interface VideoPreviewProps {
   exportProgress: number;
   isVoiceRecording?: boolean;
   recitationWordCount?: number;
-  recitationGuideMode?: "speech" | "voice-pace";
+  recitationGuideMode?: "speech" | "unavailable";
 }
 
 export const VideoPreview: React.FC<VideoPreviewProps> = ({ 
@@ -22,7 +22,7 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
   exportProgress,
   isVoiceRecording = false,
   recitationWordCount = 0,
-  recitationGuideMode = "voice-pace",
+  recitationGuideMode = "unavailable",
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
