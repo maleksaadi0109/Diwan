@@ -22,6 +22,7 @@ import { UndoHistoryProvider, useUndoHistory } from "./contexts/UndoHistoryConte
 import { UndoToastStack } from "./components/UndoToastStack";
 import { ShortcutsReferenceModal } from "./components/ShortcutsReferenceModal";
 import { markVerseBoundary } from "./lib/verseBoundary";
+import { TARANEEM_POEMS, TARANEEM_POETS, TARANEEM_PLAYLIST } from "./data/taraneemData";
 
 export function App() {
   return (
@@ -47,6 +48,7 @@ function AppShell() {
   const [repo, setRepo] = useState<DiwanRepository | null>(null);
   const [poems, setPoems] = useState<Poem[]>([]);
   const [activeTab, setActiveTab] = useState<ActiveTab>("library");
+  const [playerReturnTab, setPlayerReturnTab] = useState<ActiveTab>("library");
   const [activePoem, setActivePoem] = useState<Poem | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [playlists, setPlaylists] = useState<Playlist[]>([]);
@@ -59,6 +61,7 @@ function AppShell() {
     clearPoem,
     loadQueue,
     activePlaylistId,
+    queue,
     queueIndex,
     hasQueue,
     shuffle,
@@ -71,6 +74,14 @@ function AppShell() {
   const { subscribeToCompletion } = useImportQueueContext();
   const { pushEntry, undo, redo, canUndo, canRedo, undoLabel, redoLabel, clearScope, notify } = useUndoHistory();
   const [showShortcutsHelp, setShowShortcutsHelp] = useState(false);
+
+  // Automatically sync the active displayed poem with current playing poem
+  // when navigating across tracks in a playlist queue while in player view.
+  useEffect(() => {
+    if (activeTab === "player" && currentPoem && activePoem?.id !== currentPoem.id) {
+      setActivePoem(currentPoem);
+    }
+  }, [activeTab, currentPoem, activePoem?.id]);
 
   // Global "?" opens the shortcuts reference from anywhere in the app,
   // ignored while typing in a text field the same way every other
@@ -116,7 +127,26 @@ function AppShell() {
           loadedPoems = await repository.getAllPoems();
         }
 
-        const loadedPlaylists = await repository.getAllPlaylists();
+        let loadedPlaylists = await repository.getAllPlaylists();
+
+        // Ensure Taraneem 30-poem collection & playlist are seeded
+        const hasTaraneemPlaylist = loadedPlaylists.some(
+          (p) => p.id === TARANEEM_PLAYLIST.id || p.name.includes("ترنيم")
+        );
+        if (!hasTaraneemPlaylist) {
+          for (const poet of Object.values(TARANEEM_POETS)) {
+            await repository.savePoet(poet);
+          }
+          for (const poem of TARANEEM_POEMS) {
+            await repository.savePoem(poem);
+          }
+          const created = await repository.createPlaylist(TARANEEM_PLAYLIST.name, TARANEEM_PLAYLIST.id);
+          for (let i = 0; i < TARANEEM_PLAYLIST.poemIds.length; i++) {
+            await repository.addPoemToPlaylist(created.id, TARANEEM_PLAYLIST.poemIds[i]);
+          }
+          loadedPoems = await repository.getAllPoems();
+          loadedPlaylists = await repository.getAllPlaylists();
+        }
 
         if (isMounted) {
           setPoems(loadedPoems);
@@ -159,6 +189,7 @@ function AppShell() {
   }, [subscribeToCompletion]);
 
   const handleOpenPoem = (poem: Poem) => {
+    setPlayerReturnTab("library");
     setActivePoem(poem);
     setActiveTab("player");
   };
@@ -694,6 +725,32 @@ function AppShell() {
     [getPlaylistPoems, loadQueue]
   );
 
+  const currentPlaylistContext =
+    activePlaylist || (activePlaylistId ? playlists.find((p) => p.id === activePlaylistId) || null : null);
+
+  const handleBackFromPlayer = useCallback(() => {
+    if (playerReturnTab === "playlists") {
+      if (!activePlaylist && activePlaylistId) {
+        const found = playlists.find((p) => p.id === activePlaylistId);
+        if (found) setActivePlaylist(found);
+      }
+      setActiveTab("playlists");
+    } else {
+      setActiveTab(playerReturnTab || "library");
+    }
+  }, [playerReturnTab, activePlaylist, activePlaylistId, playlists]);
+
+  const playerBackLabel = (() => {
+    if (playerReturnTab === "playlists") {
+      const pl = activePlaylist || (activePlaylistId ? playlists.find((p) => p.id === activePlaylistId) : null);
+      return pl ? `قائمة: ${pl.name}` : "قوائم التشغيل";
+    }
+    if (playerReturnTab === "catalog") return "المكتبة الجاهزة";
+    if (playerReturnTab === "settings") return "الإعدادات";
+    if (playerReturnTab === "import") return "الاستيراد";
+    return "المكتبة";
+  })();
+
   return (
     <div className="h-[100dvh] w-full flex flex-col md:flex-row bg-charcoal-950 text-parchment-100 overflow-hidden font-sans selection:bg-accent-700/30 selection:text-accent-500">
       {/* Right-side RTL Navigation (Sidebar on Desktop, Bottom bar on Mobile) */}
@@ -710,6 +767,8 @@ function AppShell() {
         <Header
           activeTab={activeTab}
           activePoem={activePoem}
+          onBack={handleBackFromPlayer}
+          backLabel={playerBackLabel}
           onBackToLibrary={() => setActiveTab("library")}
           canUndo={canUndo}
           canRedo={canRedo}
@@ -741,6 +800,19 @@ function AppShell() {
               {activeTab === "player" && activePoem && (
                 <PoemPlayerView
                   poem={activePoem}
+                  playlistName={hasQueue && currentPlaylistContext ? currentPlaylistContext.name : null}
+                  queueIndex={hasQueue ? queueIndex : undefined}
+                  queueTotal={hasQueue ? queue.length : undefined}
+                  onNextPoem={hasQueue ? playNextInQueue : undefined}
+                  onPrevPoem={hasQueue ? playPreviousInQueue : undefined}
+                  onBackToPlaylist={
+                    currentPlaylistContext
+                      ? () => {
+                          setActivePlaylist(currentPlaylistContext);
+                          setActiveTab("playlists");
+                        }
+                      : undefined
+                  }
                   onSaveExplanations={handleSaveExplanations}
                   onChangeCoverImage={handleChangeCoverImage}
                   onDeleteVerse={handleDeleteVerse}
@@ -777,7 +849,16 @@ function AppShell() {
                   shuffle={shuffle}
                   repeatMode={repeatMode}
                   onBack={() => setActivePlaylist(null)}
-                  onPlayFromIndex={(index) => handlePlayPlaylistFromIndex(activePlaylist, index)}
+                  onPlayFromIndex={(index) => {
+                    setPlayerReturnTab("playlists");
+                    handlePlayPlaylistFromIndex(activePlaylist, index);
+                  }}
+                  onOpenPoem={(poem, index) => {
+                    setPlayerReturnTab("playlists");
+                    handlePlayPlaylistFromIndex(activePlaylist, index);
+                    setActivePoem(poem);
+                    setActiveTab("player");
+                  }}
                   onTogglePlay={() => controller.togglePlay()}
                   onToggleShuffle={toggleShuffle}
                   onCycleRepeatMode={cycleRepeatMode}
@@ -806,6 +887,7 @@ function AppShell() {
             playerState={playerState}
             onTogglePlay={() => controller.togglePlay()}
             onExpand={() => {
+              setPlayerReturnTab(activeTab);
               setActivePoem(currentPoem);
               setActiveTab("player");
             }}

@@ -93,6 +93,7 @@ export class AudioController {
   private rafId: number | null = null;
   private anchor1: SyncAnchor | null = null;
   private anchor2: SyncAnchor | null = null;
+  private playSessionId: number = 0;
 
   // Telemetry
   private frameCount: number = 0;
@@ -135,9 +136,12 @@ export class AudioController {
     this.audio.addEventListener("loadedmetadata", () => {
       if (this.audio && isFinite(this.audio.duration)) {
         const durMs = Math.round(this.audio.duration * 1000);
+        const nextStatus = this.state.isPlaying
+          ? "playing"
+          : (this.state.status === "loading" ? "paused" : this.state.status);
         this.updateState({
           durationMs: durMs,
-          status: "paused",
+          status: nextStatus,
           errorMessage: null,
         });
         this.recomputeSyncImmediately();
@@ -146,8 +150,24 @@ export class AudioController {
 
     this.audio.addEventListener("canplay", () => {
       if (this.state.status === "loading") {
-        this.updateState({ status: "paused", errorMessage: null });
+        const nextStatus = this.state.isPlaying ? "playing" : "paused";
+        this.updateState({ status: nextStatus, errorMessage: null });
       }
+    });
+
+    this.audio.addEventListener("pause", () => {
+      if (
+        this.state.status === "ended" ||
+        this.state.status === "error" ||
+        this.state.status === "loading"
+      ) {
+        return;
+      }
+      this.stopPrecisionLoop();
+      this.updateState({
+        isPlaying: false,
+        status: "paused",
+      });
     });
 
     this.audio.addEventListener("seeking", () => {
@@ -197,6 +217,10 @@ export class AudioController {
     });
 
     this.audio.addEventListener("error", () => {
+      // Ignore error events when no valid source was set or src was cleared/reset
+      if (!this.currentSrc || !this.audio || !this.audio.getAttribute("src") || this.audio.getAttribute("src") === "") {
+        return;
+      }
       this.stopPrecisionLoop();
       const code = this.audio?.error?.code;
       let errorMsg = "تعذر تشغيل الملف الصوتي";
@@ -229,6 +253,33 @@ export class AudioController {
     return this.audio;
   }
 
+  public prepareLoading(fallbackDurationMs?: number): void {
+    this.playSessionId++;
+    this.stopPrecisionLoop();
+    if (this.audio) {
+      try {
+        this.audio.pause();
+      } catch {}
+    }
+    this.updateState({
+      status: "loading",
+      isPlaying: false,
+      currentTimeMs: 0,
+      durationMs: fallbackDurationMs || this.state.durationMs,
+      errorMessage: null,
+    });
+    this.recomputeSyncImmediately(0);
+  }
+
+  public setError(errorMessage: string): void {
+    this.stopPrecisionLoop();
+    this.updateState({
+      status: "error",
+      isPlaying: false,
+      errorMessage,
+    });
+  }
+
   public loadAudio(src: string, fallbackDurationMs?: number) {
     if (this.currentSrc === src && this.audio && this.audio.src) {
       if (fallbackDurationMs && this.state.durationMs === 0) {
@@ -237,13 +288,17 @@ export class AudioController {
       return;
     }
 
+    this.playSessionId++;
     this.stopPrecisionLoop();
     this.currentSrc = src;
 
     if (!src) {
       if (this.audio) {
-        this.audio.pause();
-        this.audio.src = "";
+        try {
+          this.audio.pause();
+          this.audio.removeAttribute("src");
+          this.audio.load();
+        } catch {}
       }
       this.updateState({
         status: "idle",
@@ -257,9 +312,15 @@ export class AudioController {
     }
 
     if (this.audio) {
-      this.audio.pause();
+      try {
+        this.audio.pause();
+      } catch {}
       this.audio.src = src;
-      this.audio.currentTime = 0;
+      try {
+        if (isFinite(this.audio.duration) && this.audio.duration > 0) {
+          this.audio.currentTime = 0;
+        }
+      } catch {}
       this.audio.playbackRate = this.state.playbackRate;
       this.audio.volume = this.state.isMuted ? 0 : this.state.volume;
       this.updateState({
@@ -273,19 +334,38 @@ export class AudioController {
       // 1 (see findActiveVerseIndexBinary: a recording can start with a
       // silent intro before verse 1 actually begins).
       this.recomputeSyncImmediately(0);
-      this.audio.load();
+      try {
+        this.audio.load();
+      } catch {}
     }
   }
 
   public play(): Promise<void> {
-    if (this.state.isPlaying) return Promise.resolve();
+    if (this.state.isPlaying && (!this.audio || !this.audio.paused)) {
+      return Promise.resolve();
+    }
 
+    const currentSession = ++this.playSessionId;
     let playPromise: Promise<void> = Promise.resolve();
+
     if (this.audio && this.audio.src) {
       try {
         playPromise = this.audio.play().then(
-          () => {},
+          () => {
+            if (this.playSessionId !== currentSession) return;
+            this.updateState({
+              isPlaying: true,
+              status: "playing",
+              errorMessage: null,
+            });
+          },
           (err) => {
+            // If superseded by a newer play or load session, ignore completely
+            if (this.playSessionId !== currentSession) return;
+            // AbortError is a normal browser lifecycle event when switching tracks or pausing
+            if (err?.name === "AbortError") {
+              return;
+            }
             console.warn("[AudioController] Audio element play REJECTED:", err?.name, err?.message, err);
             this.stopPrecisionLoop();
             this.updateState({
@@ -312,8 +392,11 @@ export class AudioController {
   }
 
   public pause(): void {
+    this.playSessionId++;
     if (this.audio) {
-      this.audio.pause();
+      try {
+        this.audio.pause();
+      } catch {}
     }
     this.stopPrecisionLoop();
     this.updateState({
@@ -603,7 +686,7 @@ export class AudioController {
     this.stopPrecisionLoop();
     if (this.audio) {
       this.audio.pause();
-      this.audio.src = "";
+      this.audio.removeAttribute("src");
       this.audio = null;
     }
     this.listeners.clear();

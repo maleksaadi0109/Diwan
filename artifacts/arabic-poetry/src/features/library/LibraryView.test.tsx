@@ -146,4 +146,56 @@ describe("LibraryView component", () => {
 
     expect(handleBulkDelete).toHaveBeenCalledWith(["poem-1", "poem-2"]);
   });
+
+  it("renders reciters filter bar with photos when library has poems with reciters", () => {
+    const poemsWithReciters: Poem[] = [
+      {
+        ...testLibraryPoems[0],
+        recordings: [
+          {
+            id: "rec-1",
+            poemId: testLibraryPoems[0].id,
+            title: "تسجيل المتنبي",
+            reciter: "أسامة الواعظ",
+            audioPath: "/audio/1.mp3",
+            durationMs: 60000,
+          },
+        ],
+      },
+      {
+        ...testLibraryPoems[1],
+        recordings: [
+          {
+            id: "rec-2",
+            poemId: testLibraryPoems[1].id,
+            title: "معلقة امرئ القيس",
+            reciter: "عمر الشرفي",
+            audioPath: "/audio/2.mp3",
+            durationMs: 120000,
+          },
+        ],
+      },
+    ];
+
+    render(
+      <LibraryView
+        poems={poemsWithReciters}
+        onOpenPoem={vi.fn()}
+        onNavigateToImport={vi.fn()}
+      />
+    );
+
+    // Shows reciter filter section
+    expect(screen.getByText("القارئ:")).toBeInTheDocument();
+    expect(screen.getAllByText(/أسامة الواعظ/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/عمر الشرفي/).length).toBeGreaterThan(0);
+
+    // Filter by Omar Al-Sharafi
+    const omarFilterBtn = screen.getByTitle("تصفية بقصائد عمر الشرفي");
+    fireEvent.click(omarFilterBtn);
+
+    // Only Imru' al-Qais poem should be visible
+    expect(screen.getAllByText("قِفا نَبكِ مِن ذِكرى حَبيبٍ وَمَنزِلِ").length).toBeGreaterThan(0);
+    expect(screen.queryByText("واحَرَّ قَلباهُ مِمَّن قَلبُهُ شَبِمُ")).not.toBeInTheDocument();
+  });
 });

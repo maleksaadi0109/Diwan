@@ -1,7 +1,8 @@
 import React from "react";
-import { BookOpen, PlayCircle, PlusCircle, Settings, Feather, ListMusic, Keyboard, Library } from "lucide-react";
+import { BookOpen, PlayCircle, PlusCircle, Settings, Feather, ListMusic, Keyboard, Library, ListChecks } from "lucide-react";
 import { ActiveTab } from "@/types";
 import { cn, toArabicDigits } from "@/lib/utils";
+import { useImportQueueContext } from "@/contexts/ImportQueueContext";
 
 interface NavigationProps {
   activeTab: ActiveTab;
@@ -18,6 +19,8 @@ export const Navigation: React.FC<NavigationProps> = ({
   poemsCount = 0,
   onOpenShortcutsHelp,
 }) => {
+  const { jobs, isTrayHidden, setIsTrayHidden } = useImportQueueContext();
+  const activeCount = jobs.filter((j) => j.status === "pending" || j.status === "processing").length;
   const navItems = [
     {
       id: "library" as ActiveTab,
@@ -116,6 +119,22 @@ export const Navigation: React.FC<NavigationProps> = ({
 
         {/* Footer info & offline badge */}
         <div className="p-6 flex flex-col gap-3">
+          {isTrayHidden && activeCount > 0 && (
+            <button
+              onClick={() => setIsTrayHidden(false)}
+              className="w-full flex items-center justify-between px-4 py-2.5 rounded-2xl bg-accent-700/10 border border-accent-700/30 text-accent-500 hover:bg-accent-700/20 transition-colors text-xs font-ui font-medium cursor-pointer animate-pulse"
+              title="انقر لإظهار شريط طابور المعالجة"
+            >
+              <div className="flex items-center gap-2">
+                <ListChecks className="w-4 h-4" />
+                <span>معالجة بالخلفية</span>
+              </div>
+              <span className="px-2 py-0.5 rounded-full bg-accent-700 text-charcoal-950 text-[10px] font-bold">
+                {toArabicDigits(activeCount)}
+              </span>
+            </button>
+          )}
+
           {onOpenShortcutsHelp && (
             <button
               onClick={onOpenShortcutsHelp}

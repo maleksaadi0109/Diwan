@@ -5,6 +5,8 @@
   "scripts": {
     "preinstall": "node scripts/preinstall.mjs",
     "build": "pnpm run typecheck && pnpm -r --if-present run build",
+    "build:linux": "bash scripts/build-linux.sh",
+    "install:desktop": "bash scripts/install-desktop.sh",
     "typecheck:libs": "tsc --build",
     "typecheck": "pnpm run typecheck:libs && pnpm -r --filter \"./artifacts/**\" --filter \"./scripts\" --if-present run typecheck"
   },

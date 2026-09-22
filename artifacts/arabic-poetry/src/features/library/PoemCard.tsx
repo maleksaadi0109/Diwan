@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { Poem } from "@/types";
+import { findReciterForPoem } from "@/data/poemCatalog";
 import { Mic, BookOpen, ChevronLeft, Feather, Trash2, AlertTriangle, X, ListPlus, Check } from "lucide-react";
 import { toArabicDigits } from "@/lib/utils";
 
@@ -23,6 +24,7 @@ export const PoemCard: React.FC<PoemCardProps> = ({
   onToggleSelect,
 }) => {
   const [showConfirmDelete, setShowConfirmDelete] = useState(false);
+  const reciter = findReciterForPoem(poem);
   const hasAudio = poem.recordings.length > 0;
   const firstVerse = poem.verses[0];
 
@@ -100,9 +102,9 @@ export const PoemCard: React.FC<PoemCardProps> = ({
         aria-pressed={selectionMode ? isSelected : undefined}
       >
         <div>
-          {/* Cover image, when available (e.g. imported from YouTube) */}
-          {poem.coverImageUrl && (
-            <div className="w-full h-28 md:h-32 mb-4 rounded-2xl overflow-hidden border border-white/5 bg-charcoal-950/50">
+          {/* Cover image or reciter portrait banner */}
+          {poem.coverImageUrl ? (
+            <div className="w-full h-28 md:h-32 mb-4 rounded-2xl overflow-hidden border border-white/5 bg-charcoal-950/50 relative">
               <img
                 src={poem.coverImageUrl}
                 alt=""
@@ -111,8 +113,37 @@ export const PoemCard: React.FC<PoemCardProps> = ({
                   (e.currentTarget as HTMLImageElement).style.display = "none";
                 }}
               />
+              {reciter && (
+                <div className="absolute bottom-2 end-2 flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-charcoal-950/80 backdrop-blur-md border border-white/10 text-parchment-200 text-[10px] font-sans shadow-md">
+                  <img
+                    src={reciter.avatarUrl}
+                    alt=""
+                    className="w-3.5 h-3.5 rounded-full object-cover ring-1 ring-accent-700/40"
+                    onError={(e) => {
+                      (e.currentTarget as HTMLImageElement).style.display = "none";
+                    }}
+                  />
+                  <span>بصوت {reciter.name}</span>
+                </div>
+              )}
             </div>
-          )}
+          ) : reciter ? (
+            <div className="w-full h-20 mb-4 rounded-2xl overflow-hidden border border-white/5 bg-gradient-to-r from-charcoal-900 via-charcoal-850 to-accent-700/10 p-3 flex items-center gap-3 relative shadow-inner">
+              <img
+                src={reciter.avatarUrl}
+                alt={reciter.name}
+                className="w-14 h-14 rounded-xl object-cover ring-2 ring-accent-700/30 shadow-md shrink-0"
+                onError={(e) => {
+                  (e.currentTarget as HTMLImageElement).style.display = "none";
+                }}
+              />
+              <div className="overflow-hidden">
+                <span className="text-[10px] text-accent-500 font-bold block mb-0.5 font-sans">إلقاء صوتي</span>
+                <h4 className="text-sm font-bold text-parchment-100 truncate font-poetry">{reciter.name}</h4>
+                <span className="text-[10px] text-ink-600 block truncate font-sans">{reciter.role}</span>
+              </div>
+            </div>
+          ) : null}
 
           {/* Header Badges (action buttons render as siblings above, not here) */}
           <div className={`flex items-center justify-between gap-2 mb-4 ${hasActions ? "pe-14" : ""}`}>
@@ -126,7 +157,10 @@ export const PoemCard: React.FC<PoemCardProps> = ({
             </div>
 
             {hasAudio && (
-              <span className="inline-flex items-center gap-1 text-[10px] md:text-[11px] px-2.5 py-0.5 rounded-full border border-emerald-500/20 text-emerald-400 font-bold bg-emerald-500/10 shadow-sm" aria-label="يحتوي على تسجيل صوتي">
+              <span
+                className="inline-flex items-center gap-1 text-[10px] md:text-[11px] px-2.5 py-0.5 rounded-full border border-emerald-500/20 text-emerald-400 font-bold bg-emerald-500/10 shadow-sm"
+                aria-label="يحتوي على تسجيل صوتي"
+              >
                 <Mic className="w-3 h-3" />
                 <span>صوتي</span>
               </span>

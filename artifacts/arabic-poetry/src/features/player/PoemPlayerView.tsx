@@ -9,11 +9,12 @@ import { ImportExplanationModal } from "./ImportExplanationModal";
 import { FocusModeView } from "./FocusModeView";
 import { VerseShareModal } from "./VerseShareModal";
 import { usePoemPlayback } from "@/hooks/usePoemPlayback";
-import { Info, BookOpen, AlertCircle, Maximize2, ClipboardPaste, Keyboard } from "lucide-react";
+import { Info, BookOpen, AlertCircle, Maximize2, ClipboardPaste, Keyboard, ChevronRight, SkipForward, SkipBack } from "lucide-react";
 import { ParsedExplanationBlock } from "@/lib/import/pasteExplanationParser";
 import { analyzeVerseMeter } from "@/lib/arud/meterDetector";
 import { DiwanRepository } from "@/lib/db/repository";
 import { MizanAlArabProvider } from "@/lib/providers/MizanAlArabProvider";
+import { toArabicDigits } from "@/lib/utils";
 
 interface PoemPlayerViewProps {
   poem: Poem;
@@ -25,6 +26,13 @@ interface PoemPlayerViewProps {
   onApplySegmentationSuggestions?: (accepted: VerseSegmentationSuggestion[]) => Promise<void> | void;
   onMarkVerseBoundary?: (verseId: string, boundaryMs: number) => Promise<void> | void;
   onOpenShortcutsHelp?: () => void;
+  // Playlist context navigation
+  playlistName?: string | null;
+  queueIndex?: number;
+  queueTotal?: number;
+  onNextPoem?: () => void;
+  onPrevPoem?: () => void;
+  onBackToPlaylist?: () => void;
 }
 
 interface ExplanationViewState {
@@ -43,6 +51,12 @@ export const PoemPlayerView: React.FC<PoemPlayerViewProps> = ({
   onApplySegmentationSuggestions,
   onMarkVerseBoundary,
   onOpenShortcutsHelp,
+  playlistName,
+  queueIndex,
+  queueTotal,
+  onNextPoem,
+  onPrevPoem,
+  onBackToPlaylist,
 }) => {
   const [isFocusMode, setIsFocusMode] = useState(false);
   const [explanationModalVerseId, setExplanationModalVerseId] = useState<string | null>(null);
@@ -254,6 +268,50 @@ export const PoemPlayerView: React.FC<PoemPlayerViewProps> = ({
 
   return (
     <div className="h-full flex flex-col justify-between overflow-hidden relative pb-[env(safe-area-inset-bottom)]">
+      {/* Active Playlist Context Banner */}
+      {playlistName && onBackToPlaylist && (
+        <div className="px-4 md:px-8 py-2.5 bg-gradient-to-r from-accent-700/15 via-charcoal-850 to-charcoal-900 border-b border-accent-700/20 flex items-center justify-between gap-3 text-xs font-sans shrink-0 z-20">
+          <div className="flex items-center gap-2 min-w-0">
+            <button
+              onClick={onBackToPlaylist}
+              className="flex items-center gap-1.5 font-bold text-accent-500 hover:text-accent-400 cursor-pointer px-2.5 py-1 rounded-lg hover:bg-accent-700/10 transition-colors shrink-0"
+              title={`العودة إلى قائمة التشغيل (${playlistName})`}
+            >
+              <ChevronRight className="w-4 h-4 text-accent-500" strokeWidth={2.5} />
+              <span>العودة إلى قائمة: <strong>{playlistName}</strong></span>
+            </button>
+            {typeof queueIndex === "number" && typeof queueTotal === "number" && queueTotal > 0 && (
+              <span className="text-ink-500 text-[11px] ltr-num hidden sm:inline border-r border-white/10 pr-2.5 mr-1">
+                القصيدة {toArabicDigits(queueIndex + 1)} من {toArabicDigits(queueTotal)}
+              </span>
+            )}
+          </div>
+
+          <div className="flex items-center gap-1.5 shrink-0">
+            {onPrevPoem && (
+              <button
+                onClick={onPrevPoem}
+                className="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-ink-400 hover:text-parchment-100 flex items-center gap-1 transition-colors cursor-pointer text-xs"
+                title="القصيدة السابقة في القائمة"
+              >
+                <SkipForward className="w-3.5 h-3.5 text-accent-700" />
+                <span className="hidden sm:inline">السابقة</span>
+              </button>
+            )}
+            {onNextPoem && (
+              <button
+                onClick={onNextPoem}
+                className="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-ink-400 hover:text-parchment-100 flex items-center gap-1 transition-colors cursor-pointer text-xs"
+                title="القصيدة التالية في القائمة"
+              >
+                <span className="hidden sm:inline">التالية</span>
+                <SkipBack className="w-3.5 h-3.5 text-accent-700" />
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Header bar within Player */}
       <div className="px-4 md:px-8 py-4 border-b border-white/5 bg-charcoal-900/90 backdrop-blur-xl flex flex-col md:flex-row md:items-center justify-between gap-4 shrink-0 z-10 shadow-sm">
         <div className="min-w-0 flex-1">

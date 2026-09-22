@@ -4,7 +4,8 @@ import { SearchBar } from "./SearchBar";
 import { FilterPills } from "./FilterPills";
 import { PoemCard } from "./PoemCard";
 import { normalizeArabic, toArabicDigits } from "@/lib/utils";
-import { BookOpen, Plus, Feather, Sparkles, ListChecks, ListPlus, X, Trash2, AlertTriangle, CheckSquare, Square } from "lucide-react";
+import { findReciterForPoem, CatalogReciter } from "@/data/poemCatalog";
+import { BookOpen, Plus, Feather, Sparkles, ListChecks, ListPlus, X, Trash2, AlertTriangle, CheckSquare, Square, Users } from "lucide-react";
 
 interface LibraryViewProps {
   poems: Poem[];
@@ -27,6 +28,7 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
 }) => {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedEra, setSelectedEra] = useState<Era | "الكل">("الكل");
+  const [selectedReciterId, setSelectedReciterId] = useState<string | "all">("all");
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [showConfirmBulkDelete, setShowConfirmBulkDelete] = useState(false);
@@ -47,12 +49,31 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
     });
   };
 
+  const availableReciters = useMemo(() => {
+    const map = new Map<string, { reciter: CatalogReciter; count: number }>();
+    for (const p of poems) {
+      const r = findReciterForPoem(p);
+      if (r) {
+        const current = map.get(r.id);
+        if (current) current.count++;
+        else map.set(r.id, { reciter: r, count: 1 });
+      }
+    }
+    return Array.from(map.values());
+  }, [poems]);
+
   const filteredPoems = useMemo(() => {
     const normalizedQuery = normalizeArabic(searchQuery);
 
     return poems.filter((poem) => {
       if (selectedEra !== "الكل" && poem.era !== selectedEra) {
         return false;
+      }
+      if (selectedReciterId !== "all") {
+        const reciter = findReciterForPoem(poem);
+        if (!reciter || reciter.id !== selectedReciterId) {
+          return false;
+        }
       }
       if (!normalizedQuery) return true;
 
@@ -64,10 +85,12 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
       const verseMatch = poem.verses.some((verse) =>
         verse.normalizedText.includes(normalizedQuery)
       );
+      const reciter = findReciterForPoem(poem);
+      const reciterMatch = reciter && normalizeArabic(reciter.name).includes(normalizedQuery);
 
-      return titleMatch || poetMatch || tagMatch || verseMatch;
+      return titleMatch || poetMatch || tagMatch || verseMatch || !!reciterMatch;
     });
-  }, [poems, searchQuery, selectedEra]);
+  }, [poems, searchQuery, selectedEra, selectedReciterId]);
 
   const allFilteredSelected = filteredPoems.length > 0 && filteredPoems.every((p) => selectedIds.has(p.id));
 
@@ -157,12 +180,66 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
 
         {/* Search & Filter Bar */}
         {hasPoems && (
-          <div className="flex flex-col md:flex-row items-stretch md:items-center gap-4 bg-charcoal-850 p-2 md:p-3 rounded-2xl border border-white/5 shadow-md">
-            <div className="flex-1">
-              <SearchBar value={searchQuery} onChange={setSearchQuery} />
+          <div className="flex flex-col gap-3">
+            <div className="flex flex-col md:flex-row items-stretch md:items-center gap-4 bg-charcoal-850 p-2 md:p-3 rounded-2xl border border-white/5 shadow-md">
+              <div className="flex-1">
+                <SearchBar value={searchQuery} onChange={setSearchQuery} />
+              </div>
+              <div className="w-px h-8 bg-white/10 hidden md:block" />
+              <FilterPills selectedEra={selectedEra} onSelectEra={setSelectedEra} />
             </div>
-            <div className="w-px h-8 bg-white/10 hidden md:block" />
-            <FilterPills selectedEra={selectedEra} onSelectEra={setSelectedEra} />
+
+            {/* Reciters Filter Row with Photos */}
+            {availableReciters.length > 0 && (
+              <div className="flex items-center gap-2 overflow-x-auto pb-1 px-1 scrollbar-none">
+                <span className="text-xs text-ink-500 font-sans shrink-0 flex items-center gap-1.5 ms-1">
+                  <Users className="w-3.5 h-3.5 text-accent-700" />
+                  <span>القارئ:</span>
+                </span>
+
+                <button
+                  type="button"
+                  onClick={() => setSelectedReciterId("all")}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-sans transition-all cursor-pointer shrink-0 border ${
+                    selectedReciterId === "all"
+                      ? "bg-accent-700 text-charcoal-950 font-bold border-accent-700 shadow-sm"
+                      : "bg-charcoal-850 hover:bg-charcoal-800 border-white/5 text-ink-400 hover:text-parchment-100"
+                  }`}
+                >
+                  الكل
+                </button>
+
+                {availableReciters.map(({ reciter, count }) => {
+                  const isSelected = selectedReciterId === reciter.id;
+                  return (
+                    <button
+                      key={reciter.id}
+                      type="button"
+                      onClick={() => setSelectedReciterId(isSelected ? "all" : reciter.id)}
+                      className={`flex items-center gap-2 ps-1.5 pe-3 py-1 rounded-xl text-xs font-sans transition-all cursor-pointer shrink-0 border ${
+                        isSelected
+                          ? "bg-accent-700/20 border-accent-700 text-accent-400 font-bold ring-1 ring-accent-700/40 shadow-sm"
+                          : "bg-charcoal-850 hover:bg-charcoal-800 border-white/5 text-ink-400 hover:text-parchment-100"
+                      }`}
+                      title={`تصفية بقصائد ${reciter.name}`}
+                    >
+                      <img
+                        src={reciter.avatarUrl}
+                        alt={reciter.name}
+                        className={`w-5 h-5 rounded-full object-cover ring-1 shrink-0 ${
+                          isSelected ? "ring-accent-700" : "ring-white/20"
+                        }`}
+                        onError={(e) => {
+                          (e.currentTarget as HTMLImageElement).style.display = "none";
+                        }}
+                      />
+                      <span>{reciter.name}</span>
+                      <span className="text-[10px] opacity-70 font-mono">({toArabicDigits(count)})</span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -212,6 +289,7 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
             onClick={() => {
               setSearchQuery("");
               setSelectedEra("الكل");
+              setSelectedReciterId("all");
             }}
             className="px-6 py-2.5 bg-white/5 hover:bg-white/10 border border-white/10 text-ink-900 font-bold font-sans text-xs transition-colors rounded-xl cursor-pointer"
           >

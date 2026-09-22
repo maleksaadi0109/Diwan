@@ -392,16 +392,7 @@ def download_youtube_audio(
     on_progress: Optional[ProgressCallback] = None,
     cookies_content: Optional[str] = None,
 ) -> Dict[str, Any]:
-    """
-    Executes the two-stage YouTube audio import:
-    1. Downloads raw audio into {job_dir}/raw/source.%(ext)s using yt-dlp Python API.
-    2. Validates raw audio with ffprobe.
-    3. Converts to {job_dir}/final/playback.mp3 (192k) and {job_dir}/final/processing.wav (16k mono).
-    4. Validates both converted files with ffprobe before returning.
-
-    `cookies_content` is optional Netscape-format cookie text (see
-    `fetch_youtube_video_info`) used to unlock login-required videos.
-    """
+    
     try:
         import yt_dlp
     except ImportError:

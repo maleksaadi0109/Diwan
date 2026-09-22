@@ -956,8 +956,8 @@ export class DiwanRepository {
   }
 
   // --- Playlist Methods ---
-  async createPlaylist(name: string): Promise<Playlist> {
-    const id = `playlist-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  async createPlaylist(name: string, customId?: string): Promise<Playlist> {
+    const id = customId || `playlist-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     await this.adapter.execute(
       `INSERT INTO playlists (id, name, created_at, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);`,
       [id, name]

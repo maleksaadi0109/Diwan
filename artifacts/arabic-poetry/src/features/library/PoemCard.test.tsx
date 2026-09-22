@@ -81,4 +81,30 @@ describe("PoemCard component", () => {
     fireEvent.click(card);
     expect(handleToggleSelect).toHaveBeenCalledWith(testPoem.id);
   });
+
+  it("renders reciter avatar image and name badge when poem has a reciter", () => {
+    const poemWithReciter: Poem = {
+      ...testPoem,
+      recordings: [
+        {
+          id: "rec-1",
+          poemId: testPoem.id,
+          title: "تسجيل بصوت أسامة الواعظ",
+          reciter: "أسامة الواعظ",
+          audioPath: "/audio/test.mp3",
+          durationMs: 120000,
+        },
+      ],
+    };
+
+    render(<PoemCard poem={poemWithReciter} onOpenPoem={vi.fn()} />);
+
+    // Shows reciter name
+    expect(screen.getAllByText("أسامة الواعظ").length).toBeGreaterThan(0);
+
+    // Shows reciter avatar image
+    const avatarImages = screen.getAllByRole("img");
+    const reciterImg = avatarImages.find((img) => img.getAttribute("src") === "/reciters/osama-alwaaedh.jpg");
+    expect(reciterImg).toBeDefined();
+  });
 });

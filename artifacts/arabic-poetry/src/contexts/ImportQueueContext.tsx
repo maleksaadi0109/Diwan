@@ -37,6 +37,7 @@ export interface PoemImportJobPayload {
   importedFromMizan?: boolean;
   mizanPoemId?: string | null;
   mizanUrl?: string;
+  reciterName?: string;
 }
 
 export interface PoemImportJobResult {
@@ -132,6 +133,8 @@ interface EnqueueYoutubeDownloadOptions {
 
 type JobCompletionListener = (job: ImportJob) => void;
 
+export type TrayCorner = "bottom-left" | "bottom-right" | "top-left" | "top-right";
+
 interface ImportQueueContextValue {
   jobs: ImportJob[];
   isProcessing: boolean;
@@ -140,14 +143,25 @@ interface ImportQueueContextValue {
   retryJob: (jobId: string) => void;
   cancelJob: (jobId: string) => void;
   dismissJob: (jobId: string) => void;
+  dismissAllFinishedJobs: () => void;
   getJobResult: <T>(jobId: string) => T | null;
   notifications: ImportQueueNotification[];
   dismissNotification: (id: string) => void;
   /** Subscribe to job completion/failure transitions (fires once per transition). Returns an unsubscribe fn. */
   subscribeToCompletion: (listener: JobCompletionListener) => () => void;
+  // Tray UI controls & positioning
+  isTrayHidden: boolean;
+  setIsTrayHidden: (hidden: boolean) => void;
+  autoHideWhenIdle: boolean;
+  setAutoHideWhenIdle: (autoHide: boolean) => void;
+  trayCorner: TrayCorner;
+  setTrayCorner: (corner: TrayCorner) => void;
+  customCoordinates: { x: number; y: number } | null;
+  setCustomCoordinates: (coords: { x: number; y: number } | null) => void;
+  resetTrayPosition: () => void;
 }
 
-const ImportQueueContext = createContext<ImportQueueContextValue | null>(null);
+export const ImportQueueContext = createContext<ImportQueueContextValue | null>(null);
 
 function makeJobId(prefix: string): string {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -157,6 +171,77 @@ export function ImportQueueProvider({ children }: { children: React.ReactNode })
   const [jobs, setJobs] = useState<ImportJob[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [notifications, setNotifications] = useState<ImportQueueNotification[]>([]);
+
+  // Tray UI state & persistence
+  const [isTrayHidden, setIsTrayHiddenState] = useState<boolean>(() => {
+    if (typeof localStorage === "undefined") return false;
+    return localStorage.getItem("diwan-queue-tray-hidden") === "true";
+  });
+
+  const [autoHideWhenIdle, setAutoHideWhenIdleState] = useState<boolean>(() => {
+    if (typeof localStorage === "undefined") return true;
+    const stored = localStorage.getItem("diwan-queue-auto-hide-idle");
+    return stored === null ? true : stored === "true";
+  });
+
+  const [trayCorner, setTrayCornerState] = useState<TrayCorner>(() => {
+    if (typeof localStorage === "undefined") return "bottom-left";
+    const stored = localStorage.getItem("diwan-queue-tray-corner") as TrayCorner;
+    return ["bottom-left", "bottom-right", "top-left", "top-right"].includes(stored) ? stored : "bottom-left";
+  });
+
+  const [customCoordinates, setCustomCoordinatesState] = useState<{ x: number; y: number } | null>(() => {
+    if (typeof localStorage === "undefined") return null;
+    try {
+      const stored = localStorage.getItem("diwan-queue-tray-coords");
+      return stored ? JSON.parse(stored) : null;
+    } catch {
+      return null;
+    }
+  });
+
+  const setIsTrayHidden = useCallback((hidden: boolean) => {
+    setIsTrayHiddenState(hidden);
+    if (typeof localStorage !== "undefined") {
+      localStorage.setItem("diwan-queue-tray-hidden", String(hidden));
+    }
+  }, []);
+
+  const setAutoHideWhenIdle = useCallback((autoHide: boolean) => {
+    setAutoHideWhenIdleState(autoHide);
+    if (typeof localStorage !== "undefined") {
+      localStorage.setItem("diwan-queue-auto-hide-idle", String(autoHide));
+    }
+  }, []);
+
+  const setTrayCorner = useCallback((corner: TrayCorner) => {
+    setTrayCornerState(corner);
+    setCustomCoordinatesState(null);
+    if (typeof localStorage !== "undefined") {
+      localStorage.setItem("diwan-queue-tray-corner", corner);
+      localStorage.removeItem("diwan-queue-tray-coords");
+    }
+  }, []);
+
+  const setCustomCoordinates = useCallback((coords: { x: number; y: number } | null) => {
+    setCustomCoordinatesState(coords);
+    if (typeof localStorage !== "undefined") {
+      if (coords) {
+        localStorage.setItem("diwan-queue-tray-coords", JSON.stringify(coords));
+      } else {
+        localStorage.removeItem("diwan-queue-tray-coords");
+      }
+    }
+  }, []);
+
+  const resetTrayPosition = useCallback(() => {
+    setTrayCornerState("bottom-left");
+    setCustomCoordinatesState(null);
+    if (typeof localStorage !== "undefined") {
+      localStorage.removeItem("diwan-queue-tray-coords");
+      localStorage.setItem("diwan-queue-tray-corner", "bottom-left");
+    }
+  }, []);
 
   const repoRef = useRef<DiwanRepository | null>(null);
   const jobsRef = useRef<ImportJob[]>([]);
@@ -450,7 +535,7 @@ export function ImportQueueProvider({ children }: { children: React.ReactNode })
             id: recId,
             poemId,
             title: youtubeInfo?.title || localAudioName || "تسجيل صوتي",
-            reciter: poetName.trim(),
+            reciter: (payload.reciterName && payload.reciterName.trim()) || poetName.trim(),
             audioPath: sourceAudioPath,
             durationMs,
             createdAt: new Date().toISOString(),
@@ -729,6 +814,22 @@ export function ImportQueueProvider({ children }: { children: React.ReactNode })
     }
   }, []);
 
+  const dismissAllFinishedJobs = useCallback(() => {
+    const finished = jobsRef.current.filter(
+      (j) => j.status === "completed" || j.status === "failed" || j.status === "cancelled"
+    );
+    const next = jobsRef.current.filter(
+      (j) => j.status === "pending" || j.status === "processing"
+    );
+    jobsRef.current = next;
+    setJobs(next);
+    getRepo().then(async (repo) => {
+      for (const j of finished) {
+        await repo.deleteImportJob(j.id);
+      }
+    });
+  }, [getRepo]);
+
   const value: ImportQueueContextValue = {
     jobs,
     isProcessing,
@@ -737,10 +838,20 @@ export function ImportQueueProvider({ children }: { children: React.ReactNode })
     retryJob,
     cancelJob,
     dismissJob,
+    dismissAllFinishedJobs,
     getJobResult,
     notifications,
     dismissNotification,
     subscribeToCompletion,
+    isTrayHidden,
+    setIsTrayHidden,
+    autoHideWhenIdle,
+    setAutoHideWhenIdle,
+    trayCorner,
+    setTrayCorner,
+    customCoordinates,
+    setCustomCoordinates,
+    resetTrayPosition,
   };
 
   return <ImportQueueContext.Provider value={value}>{children}</ImportQueueContext.Provider>;
@@ -752,10 +863,34 @@ class CancelledError extends Error {
   }
 }
 
+const DEFAULT_IMPORT_QUEUE_VALUE: ImportQueueContextValue = {
+  jobs: [],
+  isProcessing: false,
+  enqueuePoemImport: () => "",
+  enqueueYoutubeDownload: () => "",
+  retryJob: () => {},
+  cancelJob: () => {},
+  dismissJob: () => {},
+  dismissAllFinishedJobs: () => {},
+  getJobResult: () => null,
+  notifications: [],
+  dismissNotification: () => {},
+  subscribeToCompletion: () => () => {},
+  isTrayHidden: false,
+  setIsTrayHidden: () => {},
+  autoHideWhenIdle: true,
+  setAutoHideWhenIdle: () => {},
+  trayCorner: "bottom-left",
+  setTrayCorner: () => {},
+  customCoordinates: null,
+  setCustomCoordinates: () => {},
+  resetTrayPosition: () => {},
+};
+
 export function useImportQueueContext(): ImportQueueContextValue {
   const ctx = useContext(ImportQueueContext);
   if (!ctx) {
-    throw new Error("useImportQueueContext must be used within an ImportQueueProvider");
+    return DEFAULT_IMPORT_QUEUE_VALUE;
   }
   return ctx;
 }

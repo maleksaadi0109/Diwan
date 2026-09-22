@@ -5,7 +5,9 @@ import { ChevronRight, Feather, Sparkles, Undo2, Redo2 } from "lucide-react";
 interface HeaderProps {
   activeTab: ActiveTab;
   activePoem: Poem | null;
-  onBackToLibrary: () => void;
+  onBack?: () => void;
+  backLabel?: string;
+  onBackToLibrary?: () => void;
   canUndo?: boolean;
   canRedo?: boolean;
   undoLabel?: string | null;
@@ -17,6 +19,8 @@ interface HeaderProps {
 export const Header: React.FC<HeaderProps> = ({
   activeTab,
   activePoem,
+  onBack,
+  backLabel,
   onBackToLibrary,
   canUndo,
   canRedo,
@@ -44,19 +48,21 @@ export const Header: React.FC<HeaderProps> = ({
     }
   };
 
+  const handleBack = onBack || onBackToLibrary;
+
   return (
     <header className="h-16 md:h-20 border-b border-white/5 bg-charcoal-900/80 backdrop-blur-xl px-4 md:px-8 flex items-center justify-between shrink-0 z-10 relative select-none">
       <div className="flex items-center gap-4 min-w-0">
-        {activeTab === "player" && activePoem && (
+        {activeTab === "player" && activePoem && handleBack && (
           <>
             <button
-              onClick={onBackToLibrary}
+              onClick={handleBack}
               className="flex items-center gap-1.5 text-xs font-bold text-ink-500 hover:text-ink-900 px-3 py-1.5 md:px-3.5 md:py-2 bg-white/5 hover:bg-white/10 rounded-xl transition-all shrink-0 whitespace-nowrap font-sans cursor-pointer focus-visible:ring-2 focus-visible:ring-accent-700"
-              title="العودة إلى المكتبة"
-              aria-label="العودة إلى المكتبة"
+              title={backLabel ? `العودة إلى ${backLabel}` : "العودة إلى المكتبة"}
+              aria-label={backLabel ? `العودة إلى ${backLabel}` : "العودة إلى المكتبة"}
             >
               <ChevronRight className="w-4 h-4 text-accent-700" strokeWidth={2.5} />
-              <span className="hidden md:inline">المكتبة</span>
+              <span className="hidden md:inline">{backLabel || "المكتبة"}</span>
             </button>
             <div className="w-px h-6 bg-white/10" />
           </>

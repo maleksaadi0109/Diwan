@@ -1,7 +1,8 @@
 import React, { useState } from "react";
-import { Type, Cpu, ShieldCheck, Database, Trash2, AlertTriangle, Headphones, Radio } from "lucide-react";
+import { Type, Cpu, ShieldCheck, Database, Trash2, AlertTriangle, Headphones, Radio, ListChecks, Move, RotateCcw } from "lucide-react";
 import { toArabicDigits } from "@/lib/utils";
 import { useAudioPlayerContext } from "@/contexts/AudioPlayerContext";
+import { useImportQueueContext, TrayCorner } from "@/contexts/ImportQueueContext";
 import { MAX_POETRY_FONT_SIZE, MIN_POETRY_FONT_SIZE, useSettingsContext } from "@/contexts/SettingsContext";
 import { DiagnosticsPanel } from "./DiagnosticsPanel";
 
@@ -20,6 +21,23 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     mediaSessionEnabled,
     setMediaSessionEnabled,
   } = useAudioPlayerContext();
+
+  const {
+    isTrayHidden,
+    setIsTrayHidden,
+    autoHideWhenIdle,
+    setAutoHideWhenIdle,
+    trayCorner,
+    setTrayCorner,
+    customCoordinates,
+    resetTrayPosition,
+    jobs,
+    dismissAllFinishedJobs,
+  } = useImportQueueContext();
+
+  const finishedJobsCount = jobs.filter(
+    (j) => j.status === "completed" || j.status === "failed" || j.status === "cancelled"
+  ).length;
 
   const { poetryFontSize, setPoetryFontSize } = useSettingsContext();
   const [asrModel, setAsrModel] = useState("tiny");
@@ -108,6 +126,125 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             >
               <span>{mediaSessionEnabled ? "مفعل" : "معطل"}</span>
             </button>
+          </div>
+        </div>
+      </section>
+
+      {/* Background Processing Queue & Floating Tray */}
+      <section className="bg-charcoal-850 border border-white/5 rounded-3xl p-6 md:p-8 space-y-6 shadow-md">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3 text-accent-700 font-bold font-sans text-lg">
+            <ListChecks className="w-5 h-5" />
+            <span>طابور المعالجة وشريط التنزيل العائم</span>
+          </div>
+          {finishedJobsCount > 0 && (
+            <button
+              onClick={dismissAllFinishedJobs}
+              className="text-xs px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-ink-400 hover:text-parchment-100 flex items-center gap-1.5 transition-colors cursor-pointer"
+              title="مسح جميع المهام المنتهية"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              <span>مسح المنتهية ({toArabicDigits(finishedJobsCount)})</span>
+            </button>
+          )}
+        </div>
+
+        <div className="space-y-4 font-sans">
+          {/* Show / Hide Tray Button */}
+          <div className="p-5 bg-charcoal-900 border border-white/5 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <h4 className="text-sm font-bold text-parchment-100">
+                إظهار الزر العائم لطابور المعالجة
+              </h4>
+              <p className="text-xs text-ink-500 mt-1.5 leading-relaxed">
+                إذا كان وجود الزر العائم في الشاشة يزعجك، يمكنك إخفاؤه تماماً، وستستمر المهام في العمل في الخلفية بهدوء مع ظهور إشعارات سريعة عند انتهائها.
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setIsTrayHidden(!isTrayHidden)}
+              className={`px-5 py-2.5 rounded-xl border text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer shrink-0 ${
+                !isTrayHidden
+                  ? "bg-accent-700 text-charcoal-950 border-accent-700 shadow-md shadow-accent-700/20"
+                  : "bg-white/5 text-ink-500 border-white/10 hover:text-parchment-100 hover:bg-white/10"
+              }`}
+            >
+              <span>{!isTrayHidden ? "ظاهر في الشاشة" : "مخفي تماماً"}</span>
+            </button>
+          </div>
+
+          {/* Auto-Hide When Idle Toggle */}
+          <div className="p-5 bg-charcoal-900 border border-white/5 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <h4 className="text-sm font-bold text-parchment-100">
+                إخفاء تلقائي عند عدم وجود مهام (Auto-Hide)
+              </h4>
+              <p className="text-xs text-ink-500 mt-1.5 leading-relaxed">
+                يبقى الزر العائم مخفياً طالما لا توجد مهام جارية، ويظهر تلقائياً فقط عند تنزيل أو معالجة قصيدة جديدة، ثم يختفي فور اكتمالها حتى لا يشغل مساحة من الشاشة.
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setAutoHideWhenIdle(!autoHideWhenIdle)}
+              className={`px-5 py-2.5 rounded-xl border text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer shrink-0 ${
+                autoHideWhenIdle
+                  ? "bg-accent-700 text-charcoal-950 border-accent-700 shadow-md shadow-accent-700/20"
+                  : "bg-white/5 text-ink-500 border-white/10 hover:text-parchment-100 hover:bg-white/10"
+              }`}
+            >
+              <span>{autoHideWhenIdle ? "مفعل (يختفي وقت الفراغ)" : "معطل (يبقى ظاهراً دائماً)"}</span>
+            </button>
+          </div>
+
+          {/* Tray Position & Corner Switcher */}
+          <div className="p-5 bg-charcoal-900 border border-white/5 rounded-2xl space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div>
+                <h4 className="text-sm font-bold text-parchment-100">
+                  موضع الزر العائم في الشاشة
+                </h4>
+                <p className="text-xs text-ink-500 mt-1 leading-relaxed">
+                  يمكنك أيضاً سحب الزر العائم مباشرة بالفأرة أو اللمس إلى أي مكان يناسبك على الشاشة.
+                </p>
+              </div>
+
+              {customCoordinates && (
+                <button
+                  type="button"
+                  onClick={resetTrayPosition}
+                  className="text-xs px-3 py-1.5 rounded-xl bg-accent-700/10 hover:bg-accent-700/20 text-accent-700 flex items-center gap-1.5 self-start sm:self-auto transition-colors cursor-pointer"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  <span>إعادة ضبط الموضع للزاوية</span>
+                </button>
+              )}
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-1">
+              {(
+                [
+                  { id: "bottom-left", label: "أسفل اليسار (افتراضي)" },
+                  { id: "bottom-right", label: "أسفل اليمين" },
+                  { id: "top-left", label: "أعلى اليسار" },
+                  { id: "top-right", label: "أعلى اليمين" },
+                ] as { id: TrayCorner; label: string }[]
+              ).map((corner) => (
+                <button
+                  key={corner.id}
+                  type="button"
+                  onClick={() => setTrayCorner(corner.id)}
+                  className={`py-2.5 px-3 rounded-xl border text-xs font-bold transition-all text-center cursor-pointer ${
+                    trayCorner === corner.id && !customCoordinates
+                      ? "bg-accent-700/20 text-accent-500 border-accent-700/40 shadow-sm"
+                      : "bg-charcoal-850 text-ink-500 border-white/5 hover:text-parchment-100 hover:bg-charcoal-800"
+                  }`}
+                >
+                  {corner.label}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       </section>
