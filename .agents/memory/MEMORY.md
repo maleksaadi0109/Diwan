@@ -19,3 +19,4 @@
 - [Mobile/desktop parity scope](arabic-poetry-mobile-parity-scope.md) — what was ported to mobile vs. deliberately skipped (verse explanations, import queue) and why.
 - [Mobile audio-source picker (upload/record)](arabic-poetry-audio-source-upload.md) — YouTube/upload/record all converge on one align pipeline; uploads convert via direct Node ffmpeg, not the Python worker.
 - [Recording placeholders](arabic-poetry-recording-placeholders.md) — seeded poems may list recording metadata with an empty audio path; playback features must require or collect a real source.
+- [StrictMode media-capture lifecycle](react-strictmode-media-capture.md) — mounted refs used by microphone/camera hooks must reset during effect setup, not only initialize once.

@@ -4,20 +4,28 @@ import { VideoState, AspectRatio, BackgroundType } from "./types";
 import { generateTimeline } from "./timelineUtils";
 import { VideoPreview } from "./VideoPreview";
 import { useVideoExport } from "./useVideoExport";
-import { Film, Image as ImageIcon, Download, X, AlertCircle, CheckCircle2, Upload } from "lucide-react";
+import { useMicrophoneRecorder } from "./useMicrophoneRecorder";
+import { Film, Image as ImageIcon, Download, X, AlertCircle, CheckCircle2, Upload, Mic, Square } from "lucide-react";
 import { DiwanRepository } from "@/lib/db/repository";
 import { pickAudioFile, resolveAudioSrcAsync } from "@/lib/audio/fileManager";
 
 interface VideoMakerViewProps {
   poems: Poem[];
   repository: DiwanRepository | null;
+  initialPoemId?: string | null;
 }
 
-export const VideoMakerView: React.FC<VideoMakerViewProps> = ({ poems, repository }) => {
+export const VideoMakerView: React.FC<VideoMakerViewProps> = ({
+  poems,
+  repository,
+  initialPoemId,
+}) => {
   const firstUsablePoem = poems.find((poem) =>
     poem.recordings.some((recording) => recording.audioPath.trim().length > 0)
   );
-  const [selectedPoemId, setSelectedPoemId] = useState<string>(firstUsablePoem?.id || poems[0]?.id || "");
+  const [selectedPoemId, setSelectedPoemId] = useState<string>(
+    initialPoemId || firstUsablePoem?.id || poems[0]?.id || ""
+  );
   const selectedPoem = useMemo(() => poems.find(p => p.id === selectedPoemId) || null, [poems, selectedPoemId]);
   const usableRecordings = useMemo(
     () => selectedPoem?.recordings.filter((recording) => recording.audioPath.trim().length > 0) || [],
@@ -34,6 +42,12 @@ export const VideoMakerView: React.FC<VideoMakerViewProps> = ({ poems, repositor
         : usableRecordings.find((recording) => recording.id === selectedRecordingId) || null,
     [customRecording, usableRecordings, selectedRecordingId]
   );
+
+  useEffect(() => {
+    if (initialPoemId && poems.some((poem) => poem.id === initialPoemId)) {
+      setSelectedPoemId(initialPoemId);
+    }
+  }, [initialPoemId, poems]);
 
   useEffect(() => {
     if (!selectedPoemId && poems.length > 0) {
@@ -72,6 +86,7 @@ export const VideoMakerView: React.FC<VideoMakerViewProps> = ({ poems, repositor
     };
   }, [customRecording]);
 
+  const [template, setTemplate] = useState<VideoState["template"]>("classic");
   const [aspectRatio, setAspectRatio] = useState<AspectRatio>("16:9");
   const [backgroundType, setBackgroundType] = useState<BackgroundType>("gradient");
   const [backgroundImageUrl, setBackgroundImageUrl] = useState<string | null>(null);
@@ -99,6 +114,13 @@ export const VideoMakerView: React.FC<VideoMakerViewProps> = ({ poems, repositor
     }
 
     setIsLoadingAlignment(true);
+    setTimelinePoem({
+      ...selectedPoem,
+      verses: selectedPoem.verses.map((verse) => ({
+        ...verse,
+        alignment: undefined,
+      })),
+    });
     void Promise.all(
       selectedPoem.verses.map((verse) =>
         repository.getAlignmentByVerseId(verse.id, selectedRecording.id)
@@ -136,6 +158,7 @@ export const VideoMakerView: React.FC<VideoMakerViewProps> = ({ poems, repositor
   const state: VideoState = {
     poem: timelinePoem,
     recording: selectedRecording,
+    template,
     aspectRatio,
     backgroundType,
     backgroundImageUrl,
@@ -155,6 +178,36 @@ export const VideoMakerView: React.FC<VideoMakerViewProps> = ({ poems, repositor
     cancelExport,
     exportTimeMsRef,
   } = useVideoExport();
+
+  const selectCapturedVoice = (captured: {
+    audioPath: string;
+    durationMs: number;
+    fileName: string;
+  }) => {
+    if (!selectedPoem) {
+      URL.revokeObjectURL(captured.audioPath);
+      return;
+    }
+    const recording: Recording = {
+      id: `video-voice-${Date.now()}`,
+      poemId: selectedPoem.id,
+      title: captured.fileName,
+      reciter: "تسجيل بصوتي",
+      audioPath: captured.audioPath,
+      durationMs: captured.durationMs,
+      createdAt: new Date().toISOString(),
+    };
+    setCustomRecording(recording);
+    setSelectedRecordingId(recording.id);
+  };
+
+  const {
+    isRecording,
+    elapsedMs: recordingElapsedMs,
+    recordingError,
+    startRecording,
+    stopRecording,
+  } = useMicrophoneRecorder({ onComplete: selectCapturedVoice });
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -297,19 +350,47 @@ export const VideoMakerView: React.FC<VideoMakerViewProps> = ({ poems, repositor
                     );
                   })}
                 </select>
-                <button
-                  type="button"
-                  onClick={handlePickAudio}
-                  disabled={isExporting}
-                  data-testid="button-pick-video-audio"
-                  className="mt-3 w-full rounded-xl border border-dashed border-accent-700/40 bg-accent-700/5 px-3 py-2.5 text-sm font-ui text-accent-500 hover:bg-accent-700/10 disabled:opacity-50 flex items-center justify-center gap-2"
-                >
-                  <Upload className="w-4 h-4" />
-                  اختيار ملف صوتي من الجهاز
-                </button>
-                {audioPickError && (
+                <div className="mt-3 grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={handlePickAudio}
+                    disabled={isExporting || isRecording}
+                    data-testid="button-pick-video-audio"
+                    className="rounded-xl border border-dashed border-accent-700/40 bg-accent-700/5 px-3 py-2.5 text-xs font-ui text-accent-500 hover:bg-accent-700/10 disabled:opacity-50 flex items-center justify-center gap-2"
+                  >
+                    <Upload className="w-4 h-4" />
+                    ملف صوتي
+                  </button>
+                  <button
+                    type="button"
+                    onClick={isRecording ? stopRecording : startRecording}
+                    disabled={isExporting}
+                    data-testid="button-record-video-audio"
+                    className={`rounded-xl border px-3 py-2.5 text-xs font-ui transition-colors flex items-center justify-center gap-2 disabled:opacity-50 ${
+                      isRecording
+                        ? "border-crimson-500/50 bg-crimson-500/15 text-crimson-500"
+                        : "border-white/10 bg-white/5 text-parchment-100 hover:bg-white/10"
+                    }`}
+                  >
+                    {isRecording ? (
+                      <>
+                        <Square className="w-3.5 h-3.5 fill-current" />
+                        إيقاف {formatRecordingTime(recordingElapsedMs)}
+                      </>
+                    ) : (
+                      <>
+                        <Mic className="w-4 h-4 text-accent-700" />
+                        تسجيل صوتي
+                      </>
+                    )}
+                  </button>
+                </div>
+                <p className="mt-2 text-[10px] text-ink-600">
+                  يمكنك تسجيل صوتك مباشرة لمدة تصل إلى 5 دقائق.
+                </p>
+                {(audioPickError || recordingError) && (
                   <p className="mt-2 text-[11px] text-crimson-500" role="alert">
-                    {audioPickError}
+                    {audioPickError || recordingError}
                   </p>
                 )}
                 {selectedRecording && (
@@ -328,6 +409,34 @@ export const VideoMakerView: React.FC<VideoMakerViewProps> = ({ poems, repositor
                 )}
               </div>
             )}
+          </section>
+
+          {/* Template */}
+          <section>
+            <label className="block text-xs font-bold text-ink-400 mb-3">قالب الفيديو</label>
+            <div className="grid grid-cols-2 gap-2">
+              {([
+                { id: "classic", name: "كلاسيكي", desc: "أنيق وهادئ" },
+                { id: "cinematic", name: "سينمائي", desc: "عمق ودراما" },
+                { id: "manuscript", name: "مخطوطة", desc: "طابع أثري" },
+                { id: "minimalist", name: "بسيط", desc: "نقي وحديث" },
+                { id: "calligraphy", name: "ديواني", desc: "حركة وخط" }
+              ] as const).map(t => (
+                <button
+                  key={t.id}
+                  disabled={isExporting}
+                  onClick={() => setTemplate(t.id)}
+                  className={`px-3 py-2.5 rounded-xl text-right transition-all flex flex-col gap-1 border active:scale-[0.98] ${
+                    template === t.id
+                      ? "bg-accent-700/10 text-accent-500 border-accent-700/30 shadow-[0_0_15px_rgba(212,175,55,0.1)]"
+                      : "bg-charcoal-950 text-ink-500 border-white/5 hover:bg-charcoal-900 hover:border-white/10 hover:text-parchment-100"
+                  } ${t.id === "classic" ? "col-span-2" : ""}`}
+                >
+                  <span className="text-sm font-bold font-poetry">{t.name}</span>
+                  <span className="text-[10px] opacity-70 font-sans">{t.desc}</span>
+                </button>
+              ))}
+            </div>
           </section>
 
           {/* Aspect Ratio */}
@@ -471,7 +580,7 @@ export const VideoMakerView: React.FC<VideoMakerViewProps> = ({ poems, repositor
           ) : (
             <button
               onClick={handleExport}
-              disabled={!selectedRecording || !selectedPoem || isLoadingAlignment}
+              disabled={!selectedRecording || !selectedPoem || isLoadingAlignment || isRecording}
               className="w-full py-3.5 rounded-xl font-bold flex items-center justify-center gap-2 transition-all bg-accent-700 hover:bg-accent-600 text-charcoal-950 disabled:opacity-50 disabled:cursor-not-allowed shadow-[0_0_20px_rgba(212,175,55,0.2)]"
             >
               <Download className="w-5 h-5" />
@@ -518,4 +627,11 @@ async function readAudioDuration(audioPath: string): Promise<number> {
       reject(new Error("audio-load-failed"));
     };
   });
+}
+
+function formatRecordingTime(durationMs: number): string {
+  const totalSeconds = Math.floor(durationMs / 1000);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes}:${seconds.toString().padStart(2, "0")}`;
 }
