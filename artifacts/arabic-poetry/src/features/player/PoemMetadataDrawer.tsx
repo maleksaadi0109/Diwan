@@ -1,5 +1,6 @@
 import React, { useRef, useState } from "react";
 import { Poem } from "@/types";
+import { findReciterForPoem } from "@/data/poemCatalog";
 import { Badge } from "@/components/Badge";
 import { User, Music, Mic, Sparkles, X, Feather, ImageIcon, Pencil, Trash2 } from "lucide-react";
 import { toArabicDigits } from "@/lib/utils";
@@ -199,17 +200,32 @@ export const PoemMetadataDrawer: React.FC<PoemMetadataDrawerProps> = ({
         </div>
         <div className="bg-charcoal-850 p-5 rounded-2xl border border-white/5 shadow-sm space-y-4 font-sans">
           {poem.recordings.length > 0 ? (
-            poem.recordings.map((rec) => (
-              <div key={rec.id} className="space-y-2 border-b border-white/5 last:border-0 pb-3 last:pb-0">
-                <p className="font-bold text-parchment-100 text-sm leading-relaxed">{rec.title}</p>
-                <p className="text-ink-600 text-xs font-medium">بصوت: <span className="text-ink-400 font-bold">{rec.reciter}</span></p>
-                <div className="mt-2">
-                  <span className="inline-block text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                    محاذاة كاملة
-                  </span>
+            poem.recordings.map((rec) => {
+              const reciter = findReciterForPoem(poem);
+              return (
+                <div key={rec.id} className="space-y-2 border-b border-white/5 last:border-0 pb-3 last:pb-0">
+                  <p className="font-bold text-parchment-100 text-sm leading-relaxed">{rec.title}</p>
+                  <div className="flex items-center gap-2">
+                    {reciter && (
+                      <img
+                        src={reciter.avatarUrl}
+                        alt={reciter.name}
+                        className="w-5 h-5 rounded-full object-cover ring-1 ring-accent-700/40 shrink-0"
+                        onError={(e) => {
+                          (e.currentTarget as HTMLImageElement).style.display = "none";
+                        }}
+                      />
+                    )}
+                    <p className="text-ink-600 text-xs font-medium">بصوت: <span className="text-parchment-200 font-bold">{rec.reciter}</span></p>
+                  </div>
+                  <div className="mt-2">
+                    <span className="inline-block text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                      محاذاة كاملة
+                    </span>
+                  </div>
                 </div>
-              </div>
-            ))
+              );
+            })
           ) : (
             <div className="text-xs font-medium text-ink-600 text-center py-4 border border-dashed border-white/10 rounded-xl">
               <p>لا يوجد تسجيل صوتي مرتبط بعد.</p>
