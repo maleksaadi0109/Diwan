@@ -22,6 +22,7 @@ import { UndoHistoryProvider, useUndoHistory } from "./contexts/UndoHistoryConte
 import { UndoToastStack } from "./components/UndoToastStack";
 import { ShortcutsReferenceModal } from "./components/ShortcutsReferenceModal";
 import { markVerseBoundary } from "./lib/verseBoundary";
+import { shouldSyncDisplayedPoem } from "./lib/playerSync";
 import { TARANEEM_POEMS, TARANEEM_POETS, TARANEEM_PLAYLIST } from "./data/taraneemData";
 
 export function App() {
@@ -50,6 +51,7 @@ function AppShell() {
   const [activeTab, setActiveTab] = useState<ActiveTab>("library");
   const [playerReturnTab, setPlayerReturnTab] = useState<ActiveTab>("library");
   const [activePoem, setActivePoem] = useState<Poem | null>(null);
+  const pendingUserPoemSelectionRef = useRef<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [playlists, setPlaylists] = useState<Playlist[]>([]);
   const [activePlaylist, setActivePlaylist] = useState<Playlist | null>(null);
@@ -78,7 +80,21 @@ function AppShell() {
   // Automatically sync the active displayed poem with current playing poem
   // when navigating across tracks in a playlist queue while in player view.
   useEffect(() => {
-    if (activeTab === "player" && currentPoem && activePoem?.id !== currentPoem.id) {
+    const pendingSelectionId = pendingUserPoemSelectionRef.current;
+
+    if (pendingSelectionId && currentPoem?.id === pendingSelectionId) {
+      pendingUserPoemSelectionRef.current = null;
+    }
+
+    if (
+      shouldSyncDisplayedPoem(
+        activeTab,
+        activePoem?.id ?? null,
+        currentPoem?.id ?? null,
+        pendingSelectionId
+      ) &&
+      currentPoem
+    ) {
       setActivePoem(currentPoem);
     }
   }, [activeTab, currentPoem, activePoem?.id]);
@@ -190,6 +206,7 @@ function AppShell() {
 
   const handleOpenPoem = (poem: Poem) => {
     setPlayerReturnTab("library");
+    pendingUserPoemSelectionRef.current = poem.id;
     setActivePoem(poem);
     setActiveTab("player");
   };
