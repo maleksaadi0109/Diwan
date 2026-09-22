@@ -155,6 +155,10 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
         }
       }
       controller.setVerses(poem.verses);
+      // Keep the imperative ref in sync immediately. Waiting for the
+      // post-render effect leaves a window where a second load caused by
+      // navigation still sees the previous poem and can reset queue state.
+      currentPoemRef.current = poem;
       setCurrentPoem(poem);
 
       const defaultRec =

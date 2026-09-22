@@ -259,8 +259,14 @@ export class AudioController {
     if (this.audio) {
       try {
         this.audio.pause();
+        // Detach the previous track while the next source is resolved
+        // asynchronously. Otherwise a play click during this window can
+        // restart the old poem under the new poem's UI.
+        this.audio.removeAttribute("src");
+        this.audio.load();
       } catch {}
     }
+    this.currentSrc = "";
     this.updateState({
       status: "loading",
       isPlaying: false,
@@ -345,41 +351,45 @@ export class AudioController {
       return Promise.resolve();
     }
 
+    if (!this.audio || !this.currentSrc || !this.audio.getAttribute("src")) {
+      console.warn("[AudioController] play() called but audio element or src missing", {
+        hasAudio: !!this.audio,
+        src: this.audio?.src,
+      });
+      return Promise.resolve();
+    }
+
     const currentSession = ++this.playSessionId;
     let playPromise: Promise<void> = Promise.resolve();
 
-    if (this.audio && this.audio.src) {
-      try {
-        playPromise = this.audio.play().then(
-          () => {
-            if (this.playSessionId !== currentSession) return;
-            this.updateState({
-              isPlaying: true,
-              status: "playing",
-              errorMessage: null,
-            });
-          },
-          (err) => {
-            // If superseded by a newer play or load session, ignore completely
-            if (this.playSessionId !== currentSession) return;
-            // AbortError is a normal browser lifecycle event when switching tracks or pausing
-            if (err?.name === "AbortError") {
-              return;
-            }
-            console.warn("[AudioController] Audio element play REJECTED:", err?.name, err?.message, err);
-            this.stopPrecisionLoop();
-            this.updateState({
-              isPlaying: false,
-              status: "error",
-              errorMessage: `تعذر بدء التشغيل: ${err?.name || "خطأ غير معروف"} — ${err?.message || ""}`,
-            });
+    try {
+      playPromise = this.audio.play().then(
+        () => {
+          if (this.playSessionId !== currentSession) return;
+          this.updateState({
+            isPlaying: true,
+            status: "playing",
+            errorMessage: null,
+          });
+        },
+        (err) => {
+          // If superseded by a newer play or load session, ignore completely
+          if (this.playSessionId !== currentSession) return;
+          // AbortError is a normal browser lifecycle event when switching tracks or pausing
+          if (err?.name === "AbortError") {
+            return;
           }
-        );
-      } catch (err) {
-        console.warn("[AudioController] Audio element play sync error:", err);
-      }
-    } else {
-      console.warn("[AudioController] play() called but audio element or src missing", { hasAudio: !!this.audio, src: this.audio?.src });
+          console.warn("[AudioController] Audio element play REJECTED:", err?.name, err?.message, err);
+          this.stopPrecisionLoop();
+          this.updateState({
+            isPlaying: false,
+            status: "error",
+            errorMessage: `تعذر بدء التشغيل: ${err?.name || "خطأ غير معروف"} — ${err?.message || ""}`,
+          });
+        }
+      );
+    } catch (err) {
+      console.warn("[AudioController] Audio element play sync error:", err);
     }
 
     this.updateState({

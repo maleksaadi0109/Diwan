@@ -174,12 +174,25 @@ describe("AudioController Engine & Synchronization Architecture", () => {
     expect(controller.getState().activeVerse?.id).toBe("v-1");
   });
 
-  it("handles pause and resume cleanly without duplicating loops or listeners", () => {
-    controller.play();
+  it("does not report playback when no audio source is loaded", async () => {
+    await controller.play();
+    expect(controller.getState().isPlaying).toBe(false);
+    expect(controller.getState().status).toBe("idle");
+  });
+
+  it("handles pause and resume cleanly without duplicating loops or listeners", async () => {
+    const audioElement = controller.getAudioElement();
+    expect(audioElement).toBeDefined();
+    if (!audioElement) return;
+
+    vi.spyOn(audioElement, "play").mockResolvedValue();
+    controller.loadAudio("blob:resume-test", 30000);
+
+    await controller.play();
     expect(controller.getState().isPlaying).toBe(true);
 
     // Repeated play calls do not duplicate loops
-    controller.play();
+    await controller.play();
     expect(controller.getState().isPlaying).toBe(true);
 
     controller.pause();
@@ -190,7 +203,7 @@ describe("AudioController Engine & Synchronization Architecture", () => {
     expect(controller.getState().isPlaying).toBe(false);
 
     // Resume
-    controller.play();
+    await controller.play();
     expect(controller.getState().isPlaying).toBe(true);
   });
 
@@ -283,6 +296,13 @@ describe("AudioController Engine & Synchronization Architecture", () => {
       controller.prepareLoading(15000);
       expect(controller.getState().status).toBe("loading");
       expect(controller.getState().isPlaying).toBe(false);
+      expect(audioElement.getAttribute("src")).toBeNull();
+
+      // A click while the next source is still resolving must not restart
+      // the previous track or falsely report that playback began.
+      await controller.play();
+      expect(controller.getState().isPlaying).toBe(false);
+      expect(controller.getState().status).toBe("loading");
 
       controller.loadAudio("blob:poem-2", 15000);
       await controller.play();
