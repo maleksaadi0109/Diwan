@@ -937,7 +937,7 @@ function AppShell() {
         {/* Persistent mini player: visible whenever a poem is loaded but the
             full player view isn't showing (e.g. browsing the library while
             a poem keeps playing in the background). */}
-        {activeTab !== "player" && currentPoem && (
+        {activeTab !== "player" && activeTab !== "video" && currentPoem && (
           <MiniPlayer
             poem={currentPoem}
             playerState={playerState}

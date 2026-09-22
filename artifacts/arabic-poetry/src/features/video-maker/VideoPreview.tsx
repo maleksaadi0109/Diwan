@@ -3,19 +3,26 @@ import { Maximize2, Play, Pause } from "lucide-react";
 import { VideoState } from "./types";
 import { useVideoRenderer } from "./useVideoRenderer";
 import { resolveAudioSrcAsync } from "@/lib/audio/fileManager";
+import { RecitationGuide } from "./RecitationGuide";
 
 interface VideoPreviewProps {
   state: VideoState;
   exportTimeMsRef: React.MutableRefObject<number | null>;
   isExporting: boolean;
   exportProgress: number;
+  isVoiceRecording?: boolean;
+  recitationWordCount?: number;
+  recitationGuideMode?: "speech" | "voice-pace";
 }
 
 export const VideoPreview: React.FC<VideoPreviewProps> = ({ 
   state, 
   exportTimeMsRef, 
   isExporting,
-  exportProgress 
+  exportProgress,
+  isVoiceRecording = false,
+  recitationWordCount = 0,
+  recitationGuideMode = "voice-pace",
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -44,8 +51,10 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
         const src = await resolveAudioSrcAsync(state.recording.audioPath);
         if (!active) return;
         
-        const audio = new Audio(src);
+        const audio = new Audio();
         audio.crossOrigin = "anonymous";
+        audio.preload = "metadata";
+        audio.src = src;
         
         audio.ontimeupdate = () => setCurrentTime(audio.currentTime);
         audio.onerror = () => {
@@ -60,6 +69,7 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
         audio.onpause = () => setIsPlaying(false);
         
         audioRef.current = audio;
+        audio.load();
       } catch (err) {
         console.error("Failed to load audio for preview", err);
         setAudioError("تعذر تجهيز هذا التسجيل للمعاينة.");
@@ -149,6 +159,14 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
               {Math.round(exportProgress * 100)}%
             </div>
           </div>
+        )}
+
+        {isVoiceRecording && state.poem && (
+          <RecitationGuide
+            poem={state.poem}
+            highlightedWordCount={recitationWordCount}
+            mode={recitationGuideMode}
+          />
         )}
       </div>
 
