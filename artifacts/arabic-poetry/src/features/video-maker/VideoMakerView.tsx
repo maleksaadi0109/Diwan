@@ -205,7 +205,6 @@ export const VideoMakerView: React.FC<VideoMakerViewProps> = ({
   const {
     isRecording,
     elapsedMs: recordingElapsedMs,
-    voicedDurationMs,
     recordingError,
     startRecording,
     stopRecording,
@@ -213,7 +212,7 @@ export const VideoMakerView: React.FC<VideoMakerViewProps> = ({
   const {
     highlightedWordCount,
     guideMode,
-  } = useLiveRecitationGuide(selectedPoem, isRecording, voicedDurationMs);
+  } = useLiveRecitationGuide(selectedPoem, isRecording);
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];

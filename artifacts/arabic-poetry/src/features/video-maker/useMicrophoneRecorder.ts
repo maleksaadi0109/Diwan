@@ -12,6 +12,9 @@ interface UseMicrophoneRecorderOptions {
 
 const MAX_RECORDING_MS = 5 * 60 * 1000;
 const MAX_CAPTURE_FLOAT_BYTES = 48 * 1024 * 1024;
+const MIN_SPEECH_RMS = 0.025;
+const MIN_SPEECH_PEAK = 0.055;
+const SPEECH_ATTACK_FRAMES = 2;
 
 export function useMicrophoneRecorder({ onComplete }: UseMicrophoneRecorderOptions) {
   const [isRecording, setIsRecording] = useState(false);
@@ -124,6 +127,9 @@ export function useMicrophoneRecorder({ onComplete }: UseMicrophoneRecorderOptio
       chunksRef.current = [];
       sampleCountRef.current = 0;
       voicedSampleCountRef.current = 0;
+      let noiseFloorRms = 0.006;
+      let consecutiveSpeechFrames = 0;
+      let pendingSpeechSamples = 0;
       processor.onaudioprocess = (event) => {
         if (!recordingRef.current) return;
         const samples = new Float32Array(event.inputBuffer.getChannelData(0));
@@ -137,9 +143,38 @@ export function useMicrophoneRecorder({ onComplete }: UseMicrophoneRecorderOptio
         chunksRef.current.push(samples);
         sampleCountRef.current += samples.length;
         let energy = 0;
-        for (const sample of samples) energy += sample * sample;
+        let peak = 0;
+        for (const sample of samples) {
+          energy += sample * sample;
+          peak = Math.max(peak, Math.abs(sample));
+        }
         const rms = Math.sqrt(energy / samples.length);
-        if (rms > 0.012) voicedSampleCountRef.current += samples.length;
+        const speechRmsThreshold = Math.max(
+          MIN_SPEECH_RMS,
+          Math.min(0.06, noiseFloorRms * 3)
+        );
+        const speechPeakThreshold = Math.max(
+          MIN_SPEECH_PEAK,
+          speechRmsThreshold * 1.8
+        );
+        const hasClearVoiceEnergy =
+          rms >= speechRmsThreshold && peak >= speechPeakThreshold;
+
+        if (hasClearVoiceEnergy) {
+          consecutiveSpeechFrames += 1;
+          pendingSpeechSamples += samples.length;
+          if (consecutiveSpeechFrames >= SPEECH_ATTACK_FRAMES) {
+            voicedSampleCountRef.current += pendingSpeechSamples;
+            pendingSpeechSamples = 0;
+          }
+        } else {
+          consecutiveSpeechFrames = 0;
+          pendingSpeechSamples = 0;
+          // Learn the current room/microphone noise only from frames that are
+          // clearly below the speech threshold. This keeps steady hiss, fans,
+          // and automatic microphone gain from advancing the reading guide.
+          noiseFloorRms = noiseFloorRms * 0.96 + Math.min(rms, 0.02) * 0.04;
+        }
       };
       source.connect(processor);
       processor.connect(silentGain);

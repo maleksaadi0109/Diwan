@@ -5,7 +5,7 @@ import { Mic } from "lucide-react";
 interface RecitationGuideProps {
   poem: Poem;
   highlightedWordCount: number;
-  mode: "speech" | "voice-pace";
+  mode: "speech" | "unavailable";
 }
 
 export const RecitationGuide: React.FC<RecitationGuideProps> = ({
@@ -46,12 +46,14 @@ export const RecitationGuide: React.FC<RecitationGuideProps> = ({
             جارٍ تسجيل صوتك
           </div>
           <p className="mt-1 text-xs text-ink-500">
-            اقرأ باتجاه الكلمة الذهبية؛ الكلمات التي مررت بها تتحول إلى الأخضر.
+            {mode === "speech"
+              ? "اقرأ باتجاه الكلمة الذهبية؛ الكلمات التي يتعرّف عليها النظام تتحول إلى الأخضر."
+              : "يمكنك متابعة النص أثناء التسجيل، لكن التعرّف المباشر على الكلمات غير متاح على هذا الجهاز."}
           </p>
         </div>
         <div className="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-[11px] text-ink-400">
           <Mic className="h-3.5 w-3.5 text-accent-700" />
-          {mode === "speech" ? "تعرّف مباشر على الكلمات" : "متابعة بحسب إيقاع الصوت"}
+          {mode === "speech" ? "تعرّف مباشر على الكلمات" : "دليل قراءة ثابت"}
         </div>
       </div>
 

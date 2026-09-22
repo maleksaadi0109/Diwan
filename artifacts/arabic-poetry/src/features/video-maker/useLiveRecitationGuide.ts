@@ -25,8 +25,7 @@ type SpeechRecognitionConstructor = new () => SpeechRecognitionLike;
 
 export function useLiveRecitationGuide(
   poem: Poem | null,
-  isRecording: boolean,
-  voicedDurationMs: number
+  isRecording: boolean
 ) {
   const poemWords = useMemo(
     () => poem?.verses.flatMap((verse) => verse.text.trim().split(/\s+/)) || [],
@@ -106,16 +105,9 @@ export function useLiveRecitationGuide(
     };
   }, [isRecording, normalizedPoemWords]);
 
-  const voicePacedWordCount = Math.min(
-    poemWords.length,
-    Math.floor(voicedDurationMs / 650)
-  );
-
   return {
-    highlightedWordCount: recognitionAvailable
-      ? recognizedWordCount
-      : voicePacedWordCount,
-    guideMode: recognitionAvailable ? "speech" as const : "voice-pace" as const,
+    highlightedWordCount: recognizedWordCount,
+    guideMode: recognitionAvailable ? "speech" as const : "unavailable" as const,
   };
 }
 
