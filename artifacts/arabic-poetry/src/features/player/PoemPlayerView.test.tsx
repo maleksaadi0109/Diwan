@@ -56,6 +56,38 @@ describe("PoemPlayerView component", () => {
     fireEvent.click(screen.getByLabelText("عرض اختصارات لوحة المفاتيح"));
     expect(onOpenShortcutsHelp).toHaveBeenCalledTimes(1);
   });
+
+  it("renders playlist banner with back and navigation buttons when playlistName is provided", () => {
+    const onBackToPlaylist = vi.fn();
+    const onNextPoem = vi.fn();
+    const onPrevPoem = vi.fn();
+
+    render(
+      <AudioPlayerProvider>
+        <PoemPlayerView
+          poem={samplePoem}
+          playlistName="قصائد المتنبي المختارة"
+          queueIndex={1}
+          queueTotal={5}
+          onBackToPlaylist={onBackToPlaylist}
+          onNextPoem={onNextPoem}
+          onPrevPoem={onPrevPoem}
+        />
+      </AudioPlayerProvider>
+    );
+
+    expect(screen.getByText("قصائد المتنبي المختارة")).toBeInTheDocument();
+    expect(screen.getByTitle(/العودة إلى قائمة التشغيل/)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByTitle(/العودة إلى قائمة التشغيل/));
+    expect(onBackToPlaylist).toHaveBeenCalledTimes(1);
+
+    fireEvent.click(screen.getByTitle(/القصيدة التالية في القائمة/));
+    expect(onNextPoem).toHaveBeenCalledTimes(1);
+
+    fireEvent.click(screen.getByTitle(/القصيدة السابقة في القائمة/));
+    expect(onPrevPoem).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe("PoemPlayerView keyboard row navigation & boundary marking", () => {

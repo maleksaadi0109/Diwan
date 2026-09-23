@@ -9,7 +9,7 @@ interface AudioPlayerContextValue {
   playerState: AudioPlayerState;
   currentPoem: Poem | null;
   /** Sync the given poem's verses/audio into the shared controller. No-op (keeps playing) if the same track is already loaded. */
-  loadPoem: (poem: Poem) => void;
+  loadPoem: (poem: Poem, options?: { fromQueue?: boolean; autoplay?: boolean }) => void;
   /** Stop playback and clear the currently loaded poem (used to dismiss the mini player). */
   clearPoem: () => void;
   /** Load a playlist's poems into the playback queue and start playing at the given index. */
@@ -32,7 +32,7 @@ interface AudioPlayerContextValue {
   setMediaSessionEnabled: (enabled: boolean) => void;
 }
 
-const AudioPlayerContext = createContext<AudioPlayerContextValue | null>(null);
+export const AudioPlayerContext = createContext<AudioPlayerContextValue | null>(null);
 
 const STORAGE_CLOSE_TO_TRAY = "diwan-close-to-tray";
 const STORAGE_MEDIA_SESSION = "diwan-media-session-enabled";
@@ -101,10 +101,12 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
   const lastLoadedPoemIdRef = useRef<string | null>(null);
   const lastLoadedAudioPathRef = useRef<string | null>(null);
   const loadRequestIdRef = useRef(0);
+  const pendingAutoplayRef = useRef(false);
 
   // Mirror the latest queue state in refs so effects can read up-to-date values
   const queueRef = useRef<Poem[]>([]);
   const queueIndexRef = useRef(-1);
+  const activePlaylistIdRef = useRef<string | null>(null);
   const shuffleRef = useRef(false);
   const repeatModeRef = useRef<RepeatMode>("off");
   const currentPoemRef = useRef<Poem | null>(null);
@@ -115,6 +117,9 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
   useEffect(() => {
     queueIndexRef.current = queueIndex;
   }, [queueIndex]);
+  useEffect(() => {
+    activePlaylistIdRef.current = activePlaylistId;
+  }, [activePlaylistId]);
   useEffect(() => {
     shuffleRef.current = shuffle;
   }, [shuffle]);
@@ -133,12 +138,27 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
   const loadPoem = useCallback(
     (poem: Poem, options?: { fromQueue?: boolean; autoplay?: boolean }) => {
       if (!options?.fromQueue) {
-        // Loading a poem outside of queue navigation exits any active playlist queue.
-        setQueue([]);
-        setQueueIndex(-1);
-        setActivePlaylistId(null);
+        const isCurrentPoemInQueue =
+          currentPoemRef.current?.id === poem.id && queueRef.current.length > 0;
+        const poemInQueueIndex = queueRef.current.findIndex((p) => p.id === poem.id);
+
+        if (isCurrentPoemInQueue) {
+          // It's the same poem already loaded in the queue; keep the queue intact
+        } else if (poemInQueueIndex !== -1 && activePlaylistIdRef.current) {
+          // If this poem is actually in the active playlist queue, navigate to it instead of wiping the queue
+          setQueueIndex(poemInQueueIndex);
+        } else {
+          // Loading a poem outside of queue navigation exits any active playlist queue.
+          setQueue([]);
+          setQueueIndex(-1);
+          setActivePlaylistId(null);
+        }
       }
       controller.setVerses(poem.verses);
+      // Keep the imperative ref in sync immediately. Waiting for the
+      // post-render effect leaves a window where a second load caused by
+      // navigation still sees the previous poem and can reset queue state.
+      currentPoemRef.current = poem;
       setCurrentPoem(poem);
 
       const defaultRec =
@@ -151,37 +171,58 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
       );
       const defaultDuration = defaultRec?.durationMs || lastAlignedEnd;
       const audioPath = defaultRec?.audioPath || "";
-      const isNewPoemOrTrack =
-        lastLoadedPoemIdRef.current !== poem.id ||
-        lastLoadedAudioPathRef.current !== audioPath;
 
-      if (!isNewPoemOrTrack) {
-        if (options?.autoplay) controller.play();
+      if (options?.autoplay) {
+        pendingAutoplayRef.current = true;
+      }
+
+      const isSamePoemAndTrack =
+        lastLoadedPoemIdRef.current === poem.id &&
+        lastLoadedAudioPathRef.current === audioPath;
+
+      if (isSamePoemAndTrack) {
+        if (pendingAutoplayRef.current && controller.getState().status !== "loading") {
+          pendingAutoplayRef.current = false;
+          controller.play();
+        }
         return;
       }
+
+      // Mark targets immediately to deduplicate concurrent in-flight calls
+      lastLoadedPoemIdRef.current = poem.id;
+      lastLoadedAudioPathRef.current = audioPath;
 
       const requestId = ++loadRequestIdRef.current;
 
       if (audioPath) {
-        controller.loadAudio("", defaultDuration);
-        resolveAudioSrcAsync(audioPath).then((audioUrl) => {
-          if (requestId !== loadRequestIdRef.current) return;
-          lastLoadedPoemIdRef.current = poem.id;
-          lastLoadedAudioPathRef.current = audioPath;
-          controller.loadAudio(audioUrl, defaultDuration);
-          if (options?.autoplay) controller.play();
-        });
+        // Prepare controller in loading state without clearing src to ""
+        // (setting src="" triggers a transient MEDIA_ERR_SRC_NOT_SUPPORTED in browsers).
+        controller.prepareLoading(defaultDuration);
+        resolveAudioSrcAsync(audioPath)
+          .then((audioUrl) => {
+            if (requestId !== loadRequestIdRef.current) return;
+            controller.loadAudio(audioUrl, defaultDuration);
+            if (pendingAutoplayRef.current || options?.autoplay) {
+              pendingAutoplayRef.current = false;
+              controller.play();
+            }
+          })
+          .catch((err) => {
+            if (requestId !== loadRequestIdRef.current) return;
+            pendingAutoplayRef.current = false;
+            console.error("Failed to resolve audio source:", err);
+            controller.setError("لم يتم العثور على الملف الصوتي في المسار المحدد (Missing file)");
+          });
       } else {
-        lastLoadedPoemIdRef.current = poem.id;
-        lastLoadedAudioPathRef.current = audioPath;
+        pendingAutoplayRef.current = false;
         controller.loadAudio("", defaultDuration);
-        if (options?.autoplay) controller.play();
       }
     },
     [controller]
   );
 
   const clearPoem = useCallback(() => {
+    pendingAutoplayRef.current = false;
     controller.pause();
     controller.setVerses([]);
     controller.loadAudio("");
@@ -368,10 +409,44 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
   return <AudioPlayerContext.Provider value={value}>{children}</AudioPlayerContext.Provider>;
 }
 
+const DEFAULT_AUDIO_PLAYER_VALUE: AudioPlayerContextValue = {
+  controller: new AudioController(),
+  playerState: {
+    status: "idle",
+    isPlaying: false,
+    currentTimeMs: 0,
+    durationMs: 0,
+    playbackRate: 1,
+    volume: 1,
+    isMuted: false,
+    activeVerseIndex: -1,
+    activeVerse: null,
+    errorMessage: null,
+  },
+  currentPoem: null,
+  loadPoem: () => {},
+  clearPoem: () => {},
+  loadQueue: () => {},
+  activePlaylistId: null,
+  queue: [],
+  queueIndex: -1,
+  hasQueue: false,
+  shuffle: false,
+  repeatMode: "off",
+  toggleShuffle: () => {},
+  cycleRepeatMode: () => {},
+  playNextInQueue: () => {},
+  playPreviousInQueue: () => {},
+  closeToTray: false,
+  setCloseToTray: () => {},
+  mediaSessionEnabled: false,
+  setMediaSessionEnabled: () => {},
+};
+
 export function useAudioPlayerContext(): AudioPlayerContextValue {
   const ctx = useContext(AudioPlayerContext);
   if (!ctx) {
-    throw new Error("useAudioPlayerContext must be used within an AudioPlayerProvider");
+    return DEFAULT_AUDIO_PLAYER_VALUE;
   }
   return ctx;
 }

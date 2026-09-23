@@ -48,6 +48,11 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
 export function useSettingsContext(): SettingsContextValue {
   const ctx = useContext(SettingsContext);
-  if (!ctx) throw new Error("useSettingsContext must be used within a SettingsProvider");
+  if (!ctx) {
+    return {
+      poetryFontSize: DEFAULT_POETRY_FONT_SIZE,
+      setPoetryFontSize: () => {},
+    };
+  }
   return ctx;
 }

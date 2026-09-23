@@ -650,12 +650,14 @@ export async function fetchUrlViaWorker(
     }
   }
 
-  // Web Browser / Proxy mode: rewrite to local vite proxy if mizanalarab.com
+  // In web browser (non-Tauri) development mode, rewrite to local vite proxy for CORS
   let targetUrl = url;
-  if (url.startsWith("https://mizanalarab.com")) {
-    targetUrl = url.replace("https://mizanalarab.com", "/api-mizan");
-  } else if (url.startsWith("https://adabworld.com") || url.startsWith("https://www.adabworld.com")) {
-    targetUrl = url.replace(/^https:\/\/(www\.)?adabworld\.com/, "/api-adabworld");
+  if (!isTauri) {
+    if (url.startsWith("https://mizanalarab.com")) {
+      targetUrl = url.replace("https://mizanalarab.com", "/api-mizan");
+    } else if (url.startsWith("https://adabworld.com") || url.startsWith("https://www.adabworld.com")) {
+      targetUrl = url.replace(/^https:\/\/(www\.)?adabworld\.com/, "/api-adabworld");
+    }
   }
 
   // Filter out forbidden browser headers in client-side fetch (e.g., User-Agent)
@@ -685,8 +687,8 @@ export async function fetchUrlViaWorker(
       text,
     };
   } catch (browserFetchErr) {
-    // If standard fetch was blocked by CORS and we are not using proxy, try proxy
-    if (targetUrl === url && url.startsWith("https://mizanalarab.com")) {
+    // If standard fetch was blocked by CORS and we are in browser, try proxy
+    if (!isTauri && targetUrl === url && url.startsWith("https://mizanalarab.com")) {
       const proxyUrl = url.replace("https://mizanalarab.com", "/api-mizan");
       const proxyResp = await fetch(proxyUrl, {
         method: "GET",

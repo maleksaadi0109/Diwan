@@ -36,8 +36,23 @@ export interface Poet {
   deathYear?: string;
   avatarUrl?: string;
   externalId?: string;
+  country?: string;
+  city?: string;
+  latitude?: number;
+  longitude?: number;
+  regionId?: PoetryRegionId;
+  school?: string;
 }
 
+export type PoetryRegionId =
+  | 'andalusia'
+  | 'maghreb'
+  | 'egypt'
+  | 'levant'
+  | 'hijaz'
+  | 'najd'
+  | 'iraq'
+  | 'yemen';
 export interface VerseExplanationItem {
   id: string;
   verseId: string;
@@ -209,4 +224,4 @@ export interface Playlist {
 
 export type RepeatMode = 'off' | 'one' | 'all';
 
-export type ActiveTab = 'library' | 'player' | 'import' | 'settings' | 'playlists' | 'catalog';
+export type ActiveTab = 'library' | 'player' | 'import' | 'settings' | 'playlists' | 'catalog' | 'map' | 'studio' | 'video';

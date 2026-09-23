@@ -47,6 +47,9 @@ testem.log
 .DS_Store
 Thumbs.db
 
+.cursor/rules/nx-rules.mdc
+.github/instructions/nx.instructions.md
+
 # Replit
 .replit
 .replitignore
@@ -61,6 +64,10 @@ replit.md
 .claude/
 .gemini/
 
+# Mobile project (separate repository; keep it out of desktop main)
+artifacts/mobile/
+mobile/
+
 # Rust & Tauri
 src-tauri/target/
 target/
@@ -71,8 +78,4 @@ __pycache__/
 *.pyo
 .pytest_cache/
 .data/
-
-# Mobile project (separate repository)
-artifacts/mobile/
-mobile/
 

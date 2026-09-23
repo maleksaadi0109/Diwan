@@ -1,14 +1,19 @@
 import React, { useRef, useState } from "react";
-import { Poem } from "@/types";
+import { Poem, Poet } from "@/types";
+import { findReciterForPoem } from "@/data/poemCatalog";
 import { Badge } from "@/components/Badge";
 import { User, Music, Mic, Sparkles, X, Feather, ImageIcon, Pencil, Trash2 } from "lucide-react";
 import { toArabicDigits } from "@/lib/utils";
+import { PoetGeographyFields } from "@/features/import/PoetGeographyFields";
+
+const ERAS: Poet["era"][] = ["جاهلي", "إسلامي", "أموي", "عباسي", "أندلسي", "مملوكي", "عثماني", "حديث", "معاصر"];
 
 interface PoemMetadataDrawerProps {
   poem: Poem;
   isOpen: boolean;
   onToggle: () => void;
   onChangeCoverImage?: (coverImageUrl: string | null) => void | Promise<void>;
+  onUpdatePoet?: (poet: Poet) => void | Promise<void>;
 }
 
 export const PoemMetadataDrawer: React.FC<PoemMetadataDrawerProps> = ({
@@ -16,9 +21,12 @@ export const PoemMetadataDrawer: React.FC<PoemMetadataDrawerProps> = ({
   isOpen,
   onToggle,
   onChangeCoverImage,
+  onUpdatePoet,
 }) => {
   const [isEditingImage, setIsEditingImage] = useState(false);
   const [imageUrlInput, setImageUrlInput] = useState("");
+  const [isEditingPoet, setIsEditingPoet] = useState(false);
+  const [poetDraft, setPoetDraft] = useState<Poet>(poem.poet);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   if (!isOpen) return null;
@@ -137,7 +145,40 @@ export const PoemMetadataDrawer: React.FC<PoemMetadataDrawerProps> = ({
         <div className="flex items-center gap-2 text-accent-700 text-sm font-bold font-ui">
           <Feather className="w-4 h-4" />
           <span>عن الشاعر</span>
+          {onUpdatePoet && (
+            <button type="button" onClick={() => { setPoetDraft(poem.poet); setIsEditingPoet((value) => !value); }} className="mr-auto text-ink-500 hover:text-accent-500" title="تعديل بيانات الشاعر">
+              <Pencil className="w-4 h-4" />
+            </button>
+          )}
         </div>
+        {isEditingPoet && (
+          <div className="bg-charcoal-850 p-4 rounded-2xl border border-white/5 space-y-3">
+            <input
+              value={poetDraft.name}
+              onChange={(event) => setPoetDraft({ ...poetDraft, name: event.target.value })}
+              className="w-full bg-charcoal-950 text-parchment-100 border border-white/10 rounded-xl px-3 py-2.5 text-xs"
+              placeholder="اسم الشاعر"
+            />
+            <select
+              value={poetDraft.era}
+              onChange={(event) => setPoetDraft({ ...poetDraft, era: event.target.value as Poet["era"] })}
+              className="w-full bg-charcoal-950 text-parchment-100 border border-white/10 rounded-xl px-3 py-2.5 text-xs"
+            >
+              {ERAS.map((era) => <option key={era} value={era}>العصر ال{era}</option>)}
+            </select>
+            <PoetGeographyFields value={poetDraft} onChange={(geography) => setPoetDraft({ ...poetDraft, ...geography })} compact />
+            <button
+              type="button"
+              onClick={async () => {
+                await onUpdatePoet?.(poetDraft);
+                setIsEditingPoet(false);
+              }}
+              className="w-full rounded-xl bg-accent-700 text-charcoal-950 px-3 py-2 text-xs font-bold"
+            >
+              حفظ بيانات الشاعر
+            </button>
+          </div>
+        )}
         <div className="bg-charcoal-850 p-5 rounded-2xl border border-white/5 shadow-sm relative overflow-hidden">
           <h4 className="font-heading text-2xl font-bold text-parchment-100 leading-tight">
             {poem.poet.name}
@@ -199,17 +240,32 @@ export const PoemMetadataDrawer: React.FC<PoemMetadataDrawerProps> = ({
         </div>
         <div className="bg-charcoal-850 p-5 rounded-2xl border border-white/5 shadow-sm space-y-4 font-sans">
           {poem.recordings.length > 0 ? (
-            poem.recordings.map((rec) => (
-              <div key={rec.id} className="space-y-2 border-b border-white/5 last:border-0 pb-3 last:pb-0">
-                <p className="font-bold text-parchment-100 text-sm leading-relaxed">{rec.title}</p>
-                <p className="text-ink-600 text-xs font-medium">بصوت: <span className="text-ink-400 font-bold">{rec.reciter}</span></p>
-                <div className="mt-2">
-                  <span className="inline-block text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                    محاذاة كاملة
-                  </span>
+            poem.recordings.map((rec) => {
+              const reciter = findReciterForPoem(poem);
+              return (
+                <div key={rec.id} className="space-y-2 border-b border-white/5 last:border-0 pb-3 last:pb-0">
+                  <p className="font-bold text-parchment-100 text-sm leading-relaxed">{rec.title}</p>
+                  <div className="flex items-center gap-2">
+                    {reciter && (
+                      <img
+                        src={reciter.avatarUrl}
+                        alt={reciter.name}
+                        className="w-5 h-5 rounded-full object-cover ring-1 ring-accent-700/40 shrink-0"
+                        onError={(e) => {
+                          (e.currentTarget as HTMLImageElement).style.display = "none";
+                        }}
+                      />
+                    )}
+                    <p className="text-ink-600 text-xs font-medium">بصوت: <span className="text-parchment-200 font-bold">{rec.reciter}</span></p>
+                  </div>
+                  <div className="mt-2">
+                    <span className="inline-block text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                      محاذاة كاملة
+                    </span>
+                  </div>
                 </div>
-              </div>
-            ))
+              );
+            })
           ) : (
             <div className="text-xs font-medium text-ink-600 text-center py-4 border border-dashed border-white/10 rounded-xl">
               <p>لا يوجد تسجيل صوتي مرتبط بعد.</p>

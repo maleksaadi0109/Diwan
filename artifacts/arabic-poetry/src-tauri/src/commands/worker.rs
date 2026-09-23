@@ -3,17 +3,14 @@ use std::io::{BufRead, BufReader, Write};
 use std::path::PathBuf;
 use std::process::{Command, Stdio};
 use std::sync::Mutex;
-use tauri::{path::BaseDirectory, AppHandle, Emitter, Manager};
+use tauri::{AppHandle, Emitter};
+
+#[cfg(target_os = "windows")]
+use tauri::{path::BaseDirectory, Manager};
 
 #[cfg(target_os = "windows")]
 use std::os::windows::process::CommandExt;
 
-// CREATE_NO_WINDOW: prevents Windows from popping up a console window for
-// the spawned worker process. The worker communicates over piped
-// stdin/stdout/stderr, so it never needs a visible console -- without this
-// flag, Windows still allocates and shows one because the worker binary
-// (a frozen Python console app / python.exe) is a console subsystem
-// executable.
 #[cfg(target_os = "windows")]
 const CREATE_NO_WINDOW: u32 = 0x0800_0000;
 
@@ -24,6 +21,18 @@ fn hide_console_window(command: &mut Command) {
 
 #[cfg(not(target_os = "windows"))]
 fn hide_console_window(_command: &mut Command) {}
+
+#[cfg(target_os = "windows")]
+fn clean_windows_path(path: &std::path::Path) -> PathBuf {
+    // Tauri may return extended-length paths such as \\?\C:\... . Python
+    // and some bundled tools do not accept that prefix consistently, so pass
+    // them a normal Windows path when possible.
+    let value = path.to_string_lossy();
+    value
+        .strip_prefix("\\\\?\\")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| path.to_path_buf())
+}
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct WorkerRequestPayload {
@@ -77,7 +86,39 @@ fn resolve_worker_dir() -> PathBuf {
         }
     }
 
-    // 2. Relative paths from current working directory
+    // 2. User home and XDG data dirs
+    if let Ok(home) = std::env::var("HOME") {
+        let home_path = PathBuf::from(&home);
+        let p1 = home_path.join(".local/share/diwan/worker");
+        if p1.join("diwan_worker").exists() {
+            return p1;
+        }
+        let p2 = home_path.join(".diwan/worker");
+        if p2.join("diwan_worker").exists() {
+            return p2;
+        }
+    }
+    if let Ok(xdg) = std::env::var("XDG_DATA_HOME") {
+        let p = PathBuf::from(xdg).join("diwan").join("worker");
+        if p.join("diwan_worker").exists() {
+            return p;
+        }
+    }
+
+    // 4. Built-in compile-time relative path from cargo manifest dir
+    let compile_time_candidates = [
+        concat!(env!("CARGO_MANIFEST_DIR"), "/../worker"),
+        concat!(env!("CARGO_MANIFEST_DIR"), "/../../worker"),
+        concat!(env!("CARGO_MANIFEST_DIR"), "/artifacts/arabic-poetry/worker"),
+    ];
+    for cand in &compile_time_candidates {
+        let p = PathBuf::from(cand);
+        if p.join("diwan_worker").exists() {
+            return p;
+        }
+    }
+
+    // 5. Relative paths from current working directory
     let relative_candidates = [
         "worker",
         "../worker",
@@ -95,7 +136,7 @@ fn resolve_worker_dir() -> PathBuf {
         }
     }
 
-    // 3. Search relative to current executable
+    // 6. Search relative to current executable
     if let Ok(exe) = std::env::current_exe() {
         let mut cur = exe.parent();
         while let Some(dir) = cur {
@@ -113,11 +154,7 @@ fn resolve_worker_dir() -> PathBuf {
     PathBuf::from("worker")
 }
 
-/// Candidate Python launcher commands, tried in order. Windows Python
-/// installs typically only provide `python.exe`/`py.exe`, not
-/// `python3.exe`, while Linux/macOS conventionally provide `python3`.
-/// Trying a short list keeps one binary working across all desktop
-/// platforms without requiring the user to alias anything.
+/// Candidate Python launcher commands, tried in order.
 fn python_command_candidates() -> Vec<(&'static str, Vec<&'static str>)> {
     #[cfg(target_os = "windows")]
     {
@@ -133,13 +170,6 @@ fn python_command_candidates() -> Vec<(&'static str, Vec<&'static str>)> {
     }
 }
 
-/// Resolves the frozen, self-contained Windows worker executable bundled as
-/// a Tauri resource (see `tauri.windows.conf.json` and
-/// `WINDOWS_PACKAGING.md`), if the packaged app actually includes one. Dev
-/// builds and platforms other than Windows always return `None` and fall
-/// back to invoking a system Python interpreter (`spawn_worker_process`'s
-/// existing behavior), so nothing changes for Linux/macOS or for Windows
-/// dev machines that haven't run the freeze step.
 #[cfg(target_os = "windows")]
 fn resolve_frozen_worker_exe(app: &AppHandle) -> Option<PathBuf> {
     app.path()
@@ -153,22 +183,6 @@ fn resolve_frozen_worker_exe(_app: &AppHandle) -> Option<PathBuf> {
     None
 }
 
-/// Strips the Windows UNC / extended-length prefix (`\\?\`) that Tauri /
-/// `canonicalize` prepends, which breaks C/C++ libraries like ctranslate2.
-fn clean_windows_path(p: &std::path::Path) -> PathBuf {
-    let s = p.to_string_lossy();
-    if let Some(stripped) = s.strip_prefix(r"\\?\") {
-        PathBuf::from(stripped)
-    } else {
-        p.to_path_buf()
-    }
-}
-
-/// Resolves a bundled binary (ffmpeg.exe/ffprobe.exe) under the app's
-/// resource directory on Windows. Returns `None` when running in dev, on a
-/// non-Windows platform, or when the resource simply isn't bundled, in
-/// which case callers fall back to letting the worker resolve the bare
-/// command name via PATH exactly as before.
 #[cfg(target_os = "windows")]
 fn resolve_bundled_bin(app: &AppHandle, filename: &str) -> Option<PathBuf> {
     app.path()
@@ -183,8 +197,6 @@ fn resolve_bundled_bin(_app: &AppHandle, _filename: &str) -> Option<PathBuf> {
     None
 }
 
-/// Resolves the bundled offline models directory under the app's resource
-/// directory on Windows (e.g. `models/` containing faster-whisper weights).
 #[cfg(target_os = "windows")]
 fn resolve_bundled_models_dir(app: &AppHandle) -> Option<PathBuf> {
     app.path()
@@ -204,21 +216,12 @@ fn spawn_worker_process(app: &AppHandle, worker_dir: &PathBuf) -> Result<std::pr
     let ffprobe_path = resolve_bundled_bin(app, "ffprobe.exe");
     let models_dir = resolve_bundled_models_dir(app);
 
-    // On Windows, prefer a frozen, self-contained worker executable (built
-    // via PyInstaller, see WINDOWS_PACKAGING.md) so no system Python
-    // install is required at all. It still needs the bundled ffmpeg/
-    // ffprobe paths passed through env vars, exactly like the Python
-    // source path below.
     if let Some(frozen_exe) = resolve_frozen_worker_exe(app) {
         let mut command = Command::new(&frozen_exe);
         hide_console_window(&mut command);
         command
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
-            // Applied by the interpreter at startup, before any of our own
-            // stream reconfiguration runs, so it also covers writes from
-            // yt-dlp internals and uncaught-exception tracebacks that would
-            // otherwise hit Windows' legacy strict-mode console codec.
             .env("PYTHONIOENCODING", "utf-8:backslashreplace")
             .env("PYTHONUTF8", "1")
             .stderr(Stdio::piped());
@@ -281,11 +284,98 @@ fn spawn_worker_process(app: &AppHandle, worker_dir: &PathBuf) -> Result<std::pr
     ))
 }
 
+/// Fast native HTTP fetch using system curl for instant reliability
+fn fetch_url_native(req_id: &str, url: &str, headers: Option<&serde_json::Value>) -> Result<WorkerResponsePayload, String> {
+    let mut cmd = Command::new("curl");
+    hide_console_window(&mut cmd);
+    cmd.args([
+        "-s",
+        "-S",
+        "-L",
+        "-i",
+        "--max-time",
+        "30",
+        "-A",
+        "DiwanDesktop/1.0 (Arabic Poetic Audio Sync; +https://github.com/diwan/diwan)",
+    ]);
+
+    if let Some(h) = headers.and_then(|v| v.as_object()) {
+        for (k, v) in h {
+            if let Some(s) = v.as_str() {
+                cmd.arg("-H").arg(format!("{}: {}", k, s));
+            }
+        }
+    }
+    cmd.arg(url);
+
+    let output = cmd.output().map_err(|e| format!("Failed to execute curl: {}", e))?;
+    let raw = String::from_utf8_lossy(&output.stdout);
+
+    // Parse HTTP headers and body from curl -i
+    let (header_part, body) = if let Some(pos) = raw.rfind("\r\n\r\n") {
+        (&raw[..pos], &raw[pos + 4..])
+    } else if let Some(pos) = raw.rfind("\n\n") {
+        (&raw[..pos], &raw[pos + 2..])
+    } else {
+        ("", raw.as_ref())
+    };
+
+    let status = header_part
+        .lines()
+        .filter(|l| l.starts_with("HTTP/"))
+        .last()
+        .and_then(|line| {
+            line.split_whitespace()
+                .nth(1)
+                .and_then(|s| s.parse::<u16>().ok())
+        })
+        .unwrap_or(if output.status.success() { 200 } else { 500 });
+
+    let content_type = header_part
+        .lines()
+        .find(|l| l.to_lowercase().starts_with("content-type:"))
+        .map(|l| l.split(':').nth(1).unwrap_or("").trim().to_string())
+        .unwrap_or_else(|| "application/json".to_string());
+
+    Ok(WorkerResponsePayload {
+        msg_type: "response".to_string(),
+        id: req_id.to_string(),
+        success: status >= 200 && status < 300,
+        data: Some(serde_json::json!({
+            "status": status,
+            "content_type": content_type,
+            "text": body,
+        })),
+        error_code: if status >= 200 && status < 300 {
+            None
+        } else {
+            Some("HTTP_ERROR".to_string())
+        },
+        error_message: if status >= 200 && status < 300 {
+            None
+        } else {
+            Some(format!("HTTP error {}", status))
+        },
+        stage: None,
+        progress: None,
+    })
+}
+
 #[tauri::command]
 pub async fn execute_worker_command(
     app: AppHandle,
     request: WorkerRequestPayload,
 ) -> Result<WorkerResponsePayload, String> {
+    // Fast path: fetch_url can run via native system curl without needing Python
+    if request.command == "fetch_url" {
+        if let Some(url) = request.payload.get("url").and_then(|v| v.as_str()) {
+            let headers = request.payload.get("headers");
+            if let Ok(native_resp) = fetch_url_native(&request.id, url, headers) {
+                return Ok(native_resp);
+            }
+        }
+    }
+
     let req_json = serde_json::to_string(&request)
         .map_err(|e| format!("Failed to serialize request: {}", e))?;
 
@@ -329,12 +419,7 @@ pub async fn execute_worker_command(
         }
     }
 
-    // Reap the process in the background instead of blocking here. Heavy ML
-    // dependencies used for transcription can leave lingering background
-    // threads on Windows even after the worker has sent its final response
-    // and flushed stdout, which would otherwise make `child.wait()` hang and
-    // make the whole command look stuck to the user even though the answer
-    // has already arrived.
+    // Reap the process in the background
     std::thread::spawn(move || {
         let _ = child.wait();
     });

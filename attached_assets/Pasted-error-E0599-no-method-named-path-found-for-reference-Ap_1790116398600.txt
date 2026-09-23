@@ -1,0 +1,84 @@
+error[E0599]: no method named `path` found for reference `&AppHandle` in the current scope
+   --> src\commands\worker.rs:163:9
+    |
+163 |     app.path()
+    |         ^^^^ method not found in `&AppHandle`
+    |
+    = help: items from traits can only be used if the trait is in scope
+help: trait `Manager` which provides `path` is implemented but not in scope; perhaps you want to import it
+    |
+  1 + use tauri::Manager;
+    |
+
+error[E0282]: type annotations needed
+   --> src\commands\worker.rs:166:18
+    |
+166 |         .filter(|p| p.exists())
+    |                  ^  - type must be known at this point
+    |
+help: consider giving this closure parameter an explicit type
+    |
+166 |         .filter(|p: /* Type */| p.exists())
+    |                   ++++++++++++
+
+error[E0599]: no method named `path` found for reference `&AppHandle` in the current scope
+   --> src\commands\worker.rs:176:9
+    |
+176 |     app.path()
+    |         ^^^^ method not found in `&AppHandle`
+    |
+    = help: items from traits can only be used if the trait is in scope
+help: trait `Manager` which provides `path` is implemented but not in scope; perhaps you want to import it
+    |
+  1 + use tauri::Manager;
+    |
+
+error[E0282]: type annotations needed
+   --> src\commands\worker.rs:179:18
+    |
+179 |         .filter(|p| p.exists())
+    |                  ^  - type must be known at this point
+    |
+help: consider giving this closure parameter an explicit type
+    |
+179 |         .filter(|p: /* Type */| p.exists())
+    |                   ++++++++++++
+
+error[E0425]: cannot find function `clean_windows_path` in this scope
+   --> src\commands\worker.rs:180:18
+    |
+180 |         .map(|p| clean_windows_path(&p))
+    |                  ^^^^^^^^^^^^^^^^^^ not found in this scope
+
+error[E0599]: no method named `path` found for reference `&AppHandle` in the current scope
+   --> src\commands\worker.rs:190:9
+    |
+190 |     app.path()
+    |         ^^^^ method not found in `&AppHandle`
+    |
+    = help: items from traits can only be used if the trait is in scope
+help: trait `Manager` which provides `path` is implemented but not in scope; perhaps you want to import it
+    |
+  1 + use tauri::Manager;
+    |
+
+error[E0282]: type annotations needed
+   --> src\commands\worker.rs:193:18
+    |
+193 |         .filter(|p| p.exists())
+    |                  ^  - type must be known at this point
+    |
+help: consider giving this closure parameter an explicit type
+    |
+193 |         .filter(|p: /* Type */| p.exists())
+    |                   ++++++++++++
+
+error[E0425]: cannot find function `clean_windows_path` in this scope
+   --> src\commands\worker.rs:194:18
+    |
+194 |         .map(|p| clean_windows_path(&p))
+    |                  ^^^^^^^^^^^^^^^^^^ not found in this scope
+
+Some errors have detailed explanations: E0282, E0425, E0599.
+For more information about an error, try `rustc --explain E0282`.
+error: could not compile `diwan` (lib) due to 8 previous errors

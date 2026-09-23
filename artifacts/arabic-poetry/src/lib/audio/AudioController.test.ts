@@ -174,12 +174,25 @@ describe("AudioController Engine & Synchronization Architecture", () => {
     expect(controller.getState().activeVerse?.id).toBe("v-1");
   });
 
-  it("handles pause and resume cleanly without duplicating loops or listeners", () => {
-    controller.play();
+  it("does not report playback when no audio source is loaded", async () => {
+    await controller.play();
+    expect(controller.getState().isPlaying).toBe(false);
+    expect(controller.getState().status).toBe("idle");
+  });
+
+  it("handles pause and resume cleanly without duplicating loops or listeners", async () => {
+    const audioElement = controller.getAudioElement();
+    expect(audioElement).toBeDefined();
+    if (!audioElement) return;
+
+    vi.spyOn(audioElement, "play").mockResolvedValue();
+    controller.loadAudio("blob:resume-test", 30000);
+
+    await controller.play();
     expect(controller.getState().isPlaying).toBe(true);
 
     // Repeated play calls do not duplicate loops
-    controller.play();
+    await controller.play();
     expect(controller.getState().isPlaying).toBe(true);
 
     controller.pause();
@@ -190,7 +203,7 @@ describe("AudioController Engine & Synchronization Architecture", () => {
     expect(controller.getState().isPlaying).toBe(false);
 
     // Resume
-    controller.play();
+    await controller.play();
     expect(controller.getState().isPlaying).toBe(true);
   });
 
@@ -227,5 +240,82 @@ describe("AudioController Engine & Synchronization Architecture", () => {
     controller.seekTo(8000);
     // Listener should not be called again after unsubscribe
     expect(listener).toHaveBeenCalledTimes(2);
+  });
+
+  it("prepares loading state cleanly without setting error message", () => {
+    controller.prepareLoading(25000);
+    const state = controller.getState();
+    expect(state.status).toBe("loading");
+    expect(state.isPlaying).toBe(false);
+    expect(state.errorMessage).toBeNull();
+    expect(state.durationMs).toBe(25000);
+  });
+
+  it("does not set error message when error event fires while src is empty or not set", () => {
+    const audioElement = controller.getAudioElement();
+    expect(audioElement).toBeDefined();
+
+    if (audioElement) {
+      // Simulate browser firing an error event when src is empty / not set
+      audioElement.dispatchEvent(new Event("error"));
+      expect(controller.getState().errorMessage).toBeNull();
+      expect(controller.getState().status).not.toBe("error");
+    }
+  });
+
+  it("gracefully ignores AbortError when play request is interrupted by pause or track switch", async () => {
+    const audioElement = controller.getAudioElement();
+    if (audioElement) {
+      const abortError = new DOMException(
+        "The play() request was interrupted by a new load request.",
+        "AbortError"
+      );
+      vi.spyOn(audioElement, "play").mockRejectedValueOnce(abortError);
+
+      controller.loadAudio("blob:test-audio-1", 10000);
+      await controller.play();
+
+      expect(controller.getState().status).not.toBe("error");
+      expect(controller.getState().errorMessage).toBeNull();
+    }
+  });
+
+  it("safely switches audio tracks while playing without state collision or freeze", async () => {
+    const audioElement = controller.getAudioElement();
+    if (audioElement) {
+      vi.spyOn(audioElement, "play").mockResolvedValue();
+      vi.spyOn(audioElement, "pause").mockImplementation(() => {});
+
+      // Track 1 starts playing
+      controller.loadAudio("blob:poem-1", 20000);
+      await controller.play();
+      expect(controller.getState().isPlaying).toBe(true);
+      expect(controller.getState().status).toBe("playing");
+
+      // Switch to Track 2 immediately while Track 1 is playing
+      controller.prepareLoading(15000);
+      expect(controller.getState().status).toBe("loading");
+      expect(controller.getState().isPlaying).toBe(false);
+      expect(audioElement.getAttribute("src")).toBeNull();
+
+      // A click while the next source is still resolving must not restart
+      // the previous track or falsely report that playback began.
+      await controller.play();
+      expect(controller.getState().isPlaying).toBe(false);
+      expect(controller.getState().status).toBe("loading");
+
+      controller.loadAudio("blob:poem-2", 15000);
+      await controller.play();
+
+      expect(controller.getState().isPlaying).toBe(true);
+      expect(controller.getState().status).toBe("playing");
+      expect(controller.getState().errorMessage).toBeNull();
+
+      // Switch to Track 3 which has no audio source ("")
+      controller.loadAudio("", 10000);
+      expect(controller.getState().isPlaying).toBe(false);
+      expect(controller.getState().status).toBe("idle");
+      expect(controller.getState().errorMessage).toBeNull();
+    }
   });
 });

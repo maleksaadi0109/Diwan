@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { Playlist, Poem, RepeatMode } from "@/types";
+import { findReciterForPoem } from "@/data/poemCatalog";
 import {
   ChevronRight,
   Play,
@@ -13,6 +14,8 @@ import {
   Pencil,
   Check,
   X,
+  Feather,
+  Maximize2,
 } from "lucide-react";
 import { toArabicDigits } from "@/lib/utils";
 
@@ -26,6 +29,7 @@ interface PlaylistDetailViewProps {
   repeatMode: RepeatMode;
   onBack: () => void;
   onPlayFromIndex: (index: number) => void;
+  onOpenPoem?: (poem: Poem, index: number) => void;
   onTogglePlay: () => void;
   onToggleShuffle: () => void;
   onCycleRepeatMode: () => void;
@@ -44,6 +48,7 @@ export const PlaylistDetailView: React.FC<PlaylistDetailViewProps> = ({
   repeatMode,
   onBack,
   onPlayFromIndex,
+  onOpenPoem,
   onTogglePlay,
   onToggleShuffle,
   onCycleRepeatMode,
@@ -256,24 +261,74 @@ export const PlaylistDetailView: React.FC<PlaylistDetailViewProps> = ({
                   )}
                 </button>
 
-                {poem.coverImageUrl ? (
-                  <img
-                    src={poem.coverImageUrl}
-                    alt=""
-                    className="w-8 h-8 md:w-9 md:h-9 rounded-lg object-cover border border-white/10 shrink-0 shadow-sm"
-                  />
-                ) : (
-                  <span className="w-6 text-center text-xs font-mono text-ink-600 shrink-0">
-                    {toArabicDigits(index + 1)}
-                  </span>
-                )}
+                <span className="w-5 text-center text-xs font-mono text-ink-600 shrink-0 select-none">
+                  {toArabicDigits(index + 1)}
+                </span>
 
-                <div className="flex-1 min-w-0 text-right">
-                  <p className={`text-sm md:text-base font-bold truncate font-poetry ${isCurrent ? "text-accent-500" : "text-parchment-100"}`}>
+                {/* Cover Image Button: ONLY clicking this opens the full poem player view per user request */}
+                {(() => {
+                  const reciter = findReciterForPoem(poem);
+                  const thumbUrl = poem.coverImageUrl || reciter?.avatarUrl;
+                  return (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (onOpenPoem) {
+                          onOpenPoem(poem, index);
+                        }
+                      }}
+                      className="relative group/thumb shrink-0 w-9 h-9 md:w-10 md:h-10 rounded-xl overflow-hidden border border-white/10 hover:border-accent-700/60 transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-700 bg-charcoal-800 shadow-sm flex items-center justify-center"
+                      title="عرض صفحة القصيدة والكلمات (انقر على الصورة)"
+                      aria-label={`عرض صفحة ${poem.title}`}
+                    >
+                      {thumbUrl ? (
+                        <img
+                          src={thumbUrl}
+                          alt={poem.title}
+                          className="w-full h-full object-cover group-hover/thumb:scale-110 transition-transform duration-200"
+                          onError={(e) => {
+                            (e.currentTarget as HTMLImageElement).style.display = "none";
+                          }}
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center bg-accent-700/10 text-accent-500 group-hover/thumb:bg-accent-700/20 transition-colors">
+                          <Feather className="w-4 h-4" />
+                        </div>
+                      )}
+                      {/* Hover overlay indicator */}
+                      <div className="absolute inset-0 bg-charcoal-950/50 opacity-0 group-hover/thumb:opacity-100 flex items-center justify-center transition-opacity">
+                        <Maximize2 className="w-3.5 h-3.5 text-parchment-100" />
+                      </div>
+                    </button>
+                  );
+                })()}
+
+                {/* Poem title & poet name: Clicking this plays/pauses in the playlist WITHOUT navigating away */}
+                <button
+                  type="button"
+                  onClick={() => (isCurrent ? onTogglePlay() : onPlayFromIndex(index))}
+                  className="flex-1 min-w-0 text-right cursor-pointer select-none group/title py-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-700 rounded-lg"
+                  title={isCurrent && isPlaying ? "إيقاف مؤقت" : "تشغيل القصيدة في القائمة"}
+                >
+                  <p className={`text-sm md:text-base font-bold truncate font-poetry transition-colors ${
+                    isCurrent ? "text-accent-500" : "text-parchment-100 group-hover/title:text-accent-500"
+                  }`}>
                     {poem.title}
                   </p>
-                  <p className="text-[10px] md:text-[11px] text-ink-500 truncate">{poem.poet.name}</p>
-                </div>
+                  <p className="text-[10px] md:text-[11px] text-ink-500 truncate flex items-center gap-1.5">
+                    <span>{poem.poet.name}</span>
+                    {(() => {
+                      const reciter = findReciterForPoem(poem);
+                      return reciter ? (
+                        <>
+                          <span className="text-white/20">•</span>
+                          <span className="text-accent-500 font-sans">بصوت {reciter.name}</span>
+                        </>
+                      ) : null;
+                    })()}
+                  </p>
+                </button>
 
                 <button
                   onClick={() => onRemovePoem(poem.id)}
