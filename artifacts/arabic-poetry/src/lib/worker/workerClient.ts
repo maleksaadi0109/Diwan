@@ -306,7 +306,7 @@ export async function transcribeArabicAudio(
           command: "transcribe",
           payload: {
             audio_path: audioPath,
-            model_size: options.model_size || "tiny",
+            model_size: options.model_size || "small",
             device: options.device || "cpu",
             compute_type: options.compute_type || "default",
             output_json_path: outputJsonPath,
@@ -338,7 +338,7 @@ export async function transcribeArabicAudio(
       body: JSON.stringify({
         audio_path: audioPath,
         output_json_path: outputJsonPath,
-        model_size: options.model_size || "tiny",
+        model_size: options.model_size || "small",
         device: options.device || "cpu",
         compute_type: options.compute_type || "default",
       }),
@@ -371,7 +371,7 @@ export async function transcribeArabicAudio(
       language: "ar",
       raw_text: sampleWords.join(" "),
       duration_ms: sampleWords.length * 600 + 2000,
-      model_used: options.model_size || "tiny (Web Simulation)",
+      model_used: options.model_size || "small (Web Simulation)",
       device_used: "cpu",
       segments: [
         {

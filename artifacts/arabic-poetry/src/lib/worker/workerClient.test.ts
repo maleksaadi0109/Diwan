@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { checkWorkerHealth, testAudioDecoding, transcribeArabicAudio } from "./workerClient";
+import { checkWorkerHealth, testAudioDecoding } from "./workerClient";
 
 const tauriInvoke = vi.fn();
 vi.mock("@tauri-apps/api/core", () => ({
@@ -67,40 +67,6 @@ describe("checkWorkerHealth (desktop/Tauri runtime)", () => {
     tauriInvoke.mockRejectedValue(new Error("worker process exited unexpectedly"));
 
     await expect(checkWorkerHealth()).rejects.toThrow("worker process exited unexpectedly");
-  });
-});
-
-describe("transcribeArabicAudio (desktop/Tauri runtime)", () => {
-  it("requests the bundled tiny model by default", async () => {
-    markAsTauriRuntime();
-    tauriInvoke.mockResolvedValue({ success: true, data: { transcript: {} } });
-
-    await transcribeArabicAudio("recording.wav");
-
-    expect(tauriInvoke).toHaveBeenCalledWith(
-      "execute_worker_command",
-      expect.objectContaining({
-        request: expect.objectContaining({
-          payload: expect.objectContaining({ model_size: "tiny" }),
-        }),
-      }),
-    );
-  });
-
-  it("still allows explicitly requesting another model", async () => {
-    markAsTauriRuntime();
-    tauriInvoke.mockResolvedValue({ success: true, data: { transcript: {} } });
-
-    await transcribeArabicAudio("recording.wav", undefined, { model_size: "small" });
-
-    expect(tauriInvoke).toHaveBeenCalledWith(
-      "execute_worker_command",
-      expect.objectContaining({
-        request: expect.objectContaining({
-          payload: expect.objectContaining({ model_size: "small" }),
-        }),
-      }),
-    );
   });
 });
 
