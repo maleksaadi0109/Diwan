@@ -28,10 +28,10 @@ function pythonCandidates() {
     : ["python3", "python"];
 }
 
-function runFetchModelScript() {
+function runFetchModelScript(modelSize) {
   const scriptPath = path.join(workerDir, "scripts", "fetch_bundled_model.py");
   for (const python of pythonCandidates()) {
-    const result = spawnSync(python, [scriptPath], {
+    const result = spawnSync(python, [scriptPath, "--model-size", modelSize], {
       stdio: "inherit",
       cwd: workerDir,
     });
@@ -42,7 +42,7 @@ function runFetchModelScript() {
     }
     if (result.status !== 0) {
       fail(
-        "fetch_bundled_model.py failed -- the Windows build cannot proceed " +
+        `fetch_bundled_model.py failed for '${modelSize}' -- the Windows build cannot proceed ` +
           "without the offline speech model. See output above for details."
       );
     }
@@ -61,14 +61,16 @@ function requireResource(relativePath, hint) {
   }
 }
 
-runFetchModelScript();
+// Every current transcription flow uses tiny. Keep the offline installer
+// limited to that model; other sizes remain available as explicit downloads.
+runFetchModelScript("tiny");
 
 // Sanity-check the other resources this build depends on too, so a missing
 // one fails clearly here instead of producing a broken or online-only
 // installer that only surfaces the problem on a user's machine.
 requireResource(
-  path.join("models", "small", "model.bin"),
-  "Run `python worker/scripts/fetch_bundled_model.py` from artifacts/arabic-poetry/."
+  path.join("models", "tiny", "model.bin"),
+  "Run `python worker/scripts/fetch_bundled_model.py --model-size tiny` from artifacts/arabic-poetry/."
 );
 requireResource(
   path.join("worker", "diwan_worker.exe"),

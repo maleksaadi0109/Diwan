@@ -13,7 +13,7 @@ Windows Tauri bundle or run PyInstaller for a Windows target.
 | Python + worker code + faster-whisper + yt-dlp | Frozen into a single `diwan_worker.exe` (PyInstaller, one-dir mode) | `worker-dist/` resource dir |
 | FFmpeg | Static Windows binary, bundled as a resource | `bin/win/ffmpeg.exe` |
 | ffprobe | Static Windows binary, bundled as a resource | `bin/win/ffprobe.exe` |
-| Whisper "small" speech model (CTranslate2-converted) | Pre-downloaded/converted model folder, bundled as a resource | `models/small/` |
+| Whisper "tiny" speech model (CTranslate2-converted) | Pre-downloaded model folder, bundled as a resource | `models/tiny/` |
 
 yt-dlp does **not** need a separate binary: it's a pure-Python package
 already imported in-process by the worker (`import yt_dlp`), so freezing
@@ -40,8 +40,8 @@ workflows are unaffected.
 
 ### Why bundle the Whisper model too
 
-Without a bundled model, the very first transcription on a fresh install
-still needs to download the ~250MB "small" Whisper model from the Hugging
+Without the requested model, the very first transcription on a fresh install
+still needs to download its Whisper model from the Hugging
 Face Hub before it can run (subsequent runs use the cached copy under
 `~/.cache/diwan/models`, or `DIWAN_MODELS_DIR` if set). On a machine with
 no internet access, or a flaky one where the download itself keeps
@@ -55,7 +55,9 @@ handled.
 for a `<model_size>/model.bin` folder and, when present, passes that local
 directory straight to `WhisperModel(...)` -- faster-whisper only talks to
 the network when given a model name/ID, never when given an existing
-directory, so this path never touches the internet.
+directory, so this path never touches the internet. Import and unspecified
+transcription calls use `tiny`. Other sizes are only downloaded if explicitly
+requested; they are not included in the Windows installer.
 
 ## One-time or per-release steps (run on Windows)
 
@@ -100,14 +102,17 @@ LGPL/GPL depending on which codecs are enabled in the specific build).
 
 ### 3. Pre-download the Whisper AI Model for 100% Offline Use
 
-To ensure users never experience runtime downloads or Hugging Face errors on target PCs, pre-download the fast, compact `tiny` model (~75 MB) into the bundle resources:
+To ensure the import flows use their intended model without a runtime download,
+pre-download `tiny` on the Windows build machine:
 
 ```powershell
-# Run the helper script from artifacts/arabic-poetry:
-python scripts/bundle_model.py
+# From artifacts/arabic-poetry:
+python worker/scripts/fetch_bundled_model.py --model-size tiny
 ```
 
-This creates `src-tauri/windows-dist/models/tiny/` with all required weights and tokenizers.
+This creates `src-tauri/windows-dist/models/tiny/` with its weights and
+tokenizers. The `tauri:build:windows` command checks it automatically and
+downloads the model if missing.
 
 ### 4. Confirm the layout
 
@@ -127,16 +132,18 @@ src-tauri/windows-dist/
       vocabulary.txt
 ```
 
-`src-tauri/tauri.windows.conf.json` maps this `windows-dist/` folder onto
-the app's bundled resources only when building for Windows -- it does not
-affect Linux/macOS builds, and `windows-dist/` is git-ignored (these are
-large, platform-specific, regeneratable binaries, not source).
+`src-tauri/tauri.windows.conf.json` maps only `windows-dist/models/tiny/`
+into the Windows resources. If an older build left a
+`windows-dist/models/small/` folder on your machine, that folder is **not**
+included in the new installer; you may delete it manually to reclaim local
+disk space. `windows-dist/` is git-ignored because it holds large generated
+resources rather than source files.
 
 ### 5. Build the installer
 
 ```powershell
 pnpm install
-pnpm --filter @workspace/arabic-poetry tauri build -- --target x86_64-pc-windows-msvc
+pnpm --filter @workspace/arabic-poetry run tauri:build:windows
 ```
 
 This produces the NSIS installer under
@@ -144,19 +151,11 @@ This produces the NSIS installer under
 
 ## Bundle size / build-time tradeoff
 
-Bundling the "small" model adds roughly 500MB-1GB to the installer
-(faster-whisper's CTranslate2-converted "small" model is ~500MB on disk;
-exact size varies slightly by conversion/quantization). Combined with the
-already-bundled frozen worker exe and ffmpeg/ffprobe, this makes for a
-noticeably larger NSIS installer and a longer `tauri build` step (more
-files to compress into the bundle), plus one extra scripted download step
-per release. This is a deliberate tradeoff: it is what makes the app
-capable of transcribing offline on a brand-new install rather than only
-after a successful first download, which matters most for exactly the
-low-connectivity/flaky-network machines this feature targets. If installer
-size becomes a problem later, an alternative is to bundle only a smaller
-model size (e.g. "base") and let "small"/"medium" remain download-on-first-
-use.
+Only the `tiny` model (approximately 75 MB before compression) is bundled
+to keep the installer smaller while making current transcription flows
+work offline on first run. The frozen worker and FFmpeg binaries also
+contribute to installer size. Explicitly requesting a larger model will
+still download it on first use; it will not be available offline.
 
 ## Verifying on a real Windows machine (cannot be done from this sandbox)
 
