@@ -47,13 +47,13 @@ export const RecitationGuide: React.FC<RecitationGuideProps> = ({
           </div>
           <p className="mt-1 text-xs text-ink-500">
             {mode === "speech"
-              ? "اقرأ باتجاه الكلمة الذهبية؛ الكلمات التي يتعرّف عليها النظام تتحول إلى الأخضر."
+              ? "اقرأ باتجاه الكلمة الذهبية؛ التعرّف المباشر تقريبي، ولا تتحول الكلمة إلى الأخضر إلا بعد تأكيدها."
               : "يمكنك متابعة النص أثناء التسجيل، لكن التعرّف المباشر على الكلمات غير متاح على هذا الجهاز."}
           </p>
         </div>
         <div className="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-[11px] text-ink-400">
           <Mic className="h-3.5 w-3.5 text-accent-700" />
-          {mode === "speech" ? "تعرّف مباشر على الكلمات" : "دليل قراءة ثابت"}
+          {mode === "speech" ? "تعرّف تقريبي مباشر" : "دليل قراءة ثابت"}
         </div>
       </div>
 

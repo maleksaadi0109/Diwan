@@ -3,6 +3,10 @@ import { generateTimeline } from './timelineUtils';
 import { wrapArabicText } from './textLayoutUtils';
 import { Poem, Recording, Poet } from '@/types';
 import { useVideoExport } from './useVideoExport';
+import {
+  advanceRecitationProgress,
+  processFinalSpeechResults,
+} from './useLiveRecitationGuide';
 
 describe('timelineUtils', () => {
   const dummyPoet: Poet = { id: 'p1', name: 'Test', era: 'حديث' };
@@ -107,6 +111,41 @@ describe('timelineUtils', () => {
 
     expect(events[0]).toMatchObject({ type: 'intro', startMs: 0, endMs: 1000 });
     expect(events[1]).toMatchObject({ type: 'verse', startMs: 1000, endMs: 9000 });
+  });
+});
+
+describe('live recitation progress', () => {
+  it('advances repeated words one at a time without searching ahead', () => {
+    expect(advanceRecitationProgress(['يا', 'يا', 'ليل'], ['يا', 'يا', 'ليل'])).toBe(3);
+    expect(advanceRecitationProgress(['يا', 'ليل'], ['ليل'])).toBe(0);
+  });
+
+  it('does not turn a later matching word green when an earlier word was missed', () => {
+    expect(advanceRecitationProgress(['قلباه', 'واحر'], ['واحر'])).toBe(0);
+  });
+
+  it('accepts common Arabic orthographic variants after normalization', () => {
+    expect(advanceRecitationProgress(['إِلى', 'فتى', 'رحمة'], ['الى', 'فتي', 'رحمه'])).toBe(3);
+  });
+
+  it('keeps interim revisions from changing confirmed progress', () => {
+    const initial = { confirmedWordCount: 0, processedFinalResultCount: 0 };
+    const interimOnly = processFinalSpeechResults(initial, ['هذا', 'نص'], [
+      { isFinal: false, 0: { transcript: 'هذا نص' } },
+    ]);
+    expect(interimOnly).toEqual(initial);
+
+    const confirmed = processFinalSpeechResults(initial, ['هذا', 'نص'], [
+      { isFinal: true, 0: { transcript: 'هذا' } },
+      { isFinal: false, 0: { transcript: 'نص' } },
+    ]);
+    expect(confirmed.confirmedWordCount).toBe(1);
+
+    const revised = processFinalSpeechResults(confirmed, ['هذا', 'نص'], [
+      { isFinal: true, 0: { transcript: 'هذا' } },
+      { isFinal: false, 0: { transcript: 'نص مختلف' } },
+    ]);
+    expect(revised.confirmedWordCount).toBe(1);
   });
 });
 

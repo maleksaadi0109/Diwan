@@ -163,7 +163,7 @@ export const VideoMakerView: React.FC<VideoMakerViewProps> = ({
     return generateTimeline(timelinePoem, selectedRecording);
   }, [timelinePoem, selectedRecording]);
 
-  const state: VideoState = {
+  const state = useMemo<VideoState>(() => ({
     poem: timelinePoem,
     recording: selectedRecording,
     template,
@@ -176,7 +176,11 @@ export const VideoMakerView: React.FC<VideoMakerViewProps> = ({
     overlayOpacity,
     events,
     style: videoStyle,
-  };
+  }), [
+    timelinePoem, selectedRecording, template, aspectRatio, backgroundType,
+    backgroundImageUrl, backgroundImageElement, fontScale, overlayOpacity, events,
+    videoStyle,
+  ]);
 
   const {
     isExporting,
@@ -186,6 +190,7 @@ export const VideoMakerView: React.FC<VideoMakerViewProps> = ({
     startExport,
     cancelExport,
     exportTimeMsRef,
+    renderAtRef,
   } = useVideoExport();
 
   const handleApplyPreset = (preset: VideoPreset) => {
@@ -312,6 +317,7 @@ export const VideoMakerView: React.FC<VideoMakerViewProps> = ({
         canvas,
         selectedRecording.audioPath,
         durationMs,
+        renderAtRef,
         () => {},
         `${selectedPoem?.title || "فيديو قصيدة"}-${aspectRatio.replace(":", "x")}`
       );
@@ -663,6 +669,7 @@ export const VideoMakerView: React.FC<VideoMakerViewProps> = ({
       <VideoPreview 
         state={state} 
         exportTimeMsRef={exportTimeMsRef}
+        renderAtRef={renderAtRef}
         isExporting={isExporting}
         exportProgress={progress}
         isVoiceRecording={isRecording}

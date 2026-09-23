@@ -8,6 +8,7 @@ import { RecitationGuide } from "./RecitationGuide";
 interface VideoPreviewProps {
   state: VideoState;
   exportTimeMsRef: React.MutableRefObject<number | null>;
+  renderAtRef: React.MutableRefObject<((timeMs: number) => void) | null>;
   isExporting: boolean;
   exportProgress: number;
   isVoiceRecording?: boolean;
@@ -18,6 +19,7 @@ interface VideoPreviewProps {
 export const VideoPreview: React.FC<VideoPreviewProps> = ({ 
   state, 
   exportTimeMsRef, 
+  renderAtRef,
   isExporting,
   exportProgress,
   isVoiceRecording = false,
@@ -27,6 +29,7 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [audioElement, setAudioElement] = useState<HTMLAudioElement | null>(null);
   
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
@@ -39,9 +42,11 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
     const loadAudio = async () => {
       setAudioError(null);
       setCurrentTime(0);
+      setAudioElement(null);
       if (audioRef.current) {
         audioRef.current.pause();
-        audioRef.current.src = "";
+        audioRef.current.removeAttribute("src");
+        audioRef.current.load();
         audioRef.current = null;
       }
       
@@ -69,6 +74,7 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
         audio.onpause = () => setIsPlaying(false);
         
         audioRef.current = audio;
+        setAudioElement(audio);
         audio.load();
       } catch (err) {
         console.error("Failed to load audio for preview", err);
@@ -82,9 +88,18 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
       active = false;
       if (audioRef.current) {
         audioRef.current.pause();
+        audioRef.current.removeAttribute("src");
+        audioRef.current.load();
+        audioRef.current = null;
       }
     };
   }, [state.recording]);
+
+  // Export reads the recording file directly. Keep preview playback stopped
+  // so saving a video never requires listening to the full recording.
+  useEffect(() => {
+    if (isExporting) audioRef.current?.pause();
+  }, [isExporting]);
 
   // Handle preview play/pause
   const togglePlay = () => {
@@ -116,7 +131,7 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
   };
 
   // Render loop
-  useVideoRenderer(canvasRef, state, audioRef.current, exportTimeMsRef, isPlaying || isExporting);
+  useVideoRenderer(canvasRef, state, audioElement, exportTimeMsRef, isPlaying || isExporting, renderAtRef);
 
   const is169 = state.aspectRatio === '16:9';
   const canvasWidth = is169 ? 1920 : 1080;

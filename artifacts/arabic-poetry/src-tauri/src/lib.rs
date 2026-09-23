@@ -139,7 +139,9 @@ pub fn run() {
             hide_to_tray,
             show_from_tray,
             exit_app,
-            commands::worker::execute_worker_command
+            commands::worker::execute_worker_command,
+            commands::video::export_video_with_ffmpeg,
+            commands::video::cancel_video_export
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -2,13 +2,24 @@ import { useEffect } from 'react';
 import { VideoState } from './types';
 import { wrapArabicText } from './textLayoutUtils';
 import { DEFAULT_VIDEO_STYLE, getVideoFont, getVideoPalette } from './videoStyles';
+import { getVideoExportProfile, isWindowsDesktop } from './videoExportProfile';
+
+/** Synchronously paints one deterministic timeline frame through the renderer. */
+export function renderVideoFrame(
+  renderAtRef: React.MutableRefObject<((timeMs: number) => void) | null>,
+  timeMs: number,
+) {
+  if (!renderAtRef.current) throw new Error("Video renderer is not ready.");
+  renderAtRef.current(timeMs);
+}
 
 export function useVideoRenderer(
   canvasRef: React.RefObject<HTMLCanvasElement | null>,
   state: VideoState,
   audioElement: HTMLAudioElement | null,
   exportTimeMsRef: React.MutableRefObject<number | null>,
-  previewPlaying: boolean
+  previewPlaying: boolean,
+  renderAtRef?: React.MutableRefObject<((timeMs: number) => void) | null>,
 ) {
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -18,8 +29,17 @@ export function useVideoRenderer(
 
     let animationId: number;
     let lastTime = 0;
+    const windowsExportFrameInterval = isWindowsDesktop()
+      ? 1000 / getVideoExportProfile(true).frameRate
+      : 0;
 
-    const render = (now: number) => {
+    const render = (now: number, direct = false) => {
+      if (exportTimeMsRef.current !== null && windowsExportFrameInterval > 0
+          && !direct && now - lastTime < windowsExportFrameInterval) {
+        animationId = requestAnimationFrame(render);
+        return;
+      }
+      lastTime = now;
       const width = canvas.width;
       const height = canvas.height;
       const videoStyle = state.style || DEFAULT_VIDEO_STYLE;
@@ -278,13 +298,30 @@ export function useVideoRenderer(
 
       // Continue loop if exporting or playing
       // (Even if paused, running the loop at 60fps is fine for preview updates when changing styles)
-      animationId = requestAnimationFrame(render);
+      if (exportTimeMsRef.current === null) {
+        animationId = requestAnimationFrame(render);
+      }
     };
 
+    if (renderAtRef) {
+      renderAtRef.current = (timeMs: number) => {
+        if (timeMs < 0) {
+          exportTimeMsRef.current = null;
+          render(0, true);
+          animationId = requestAnimationFrame(render);
+          return;
+        }
+        exportTimeMsRef.current = timeMs;
+        render(0, true);
+      };
+    }
     animationId = requestAnimationFrame(render);
 
-    return () => cancelAnimationFrame(animationId);
-  }, [canvasRef, state, audioElement, exportTimeMsRef, previewPlaying]);
+    return () => {
+      cancelAnimationFrame(animationId);
+      if (renderAtRef) renderAtRef.current = null;
+    };
+  }, [canvasRef, state, audioElement, exportTimeMsRef, previewPlaying, renderAtRef]);
 }
 
 function drawTemplateBackdrop(

@@ -23,6 +23,38 @@ interface SpeechRecognitionLike {
 
 type SpeechRecognitionConstructor = new () => SpeechRecognitionLike;
 
+export interface RecitationProgressState {
+  confirmedWordCount: number;
+  processedFinalResultCount: number;
+}
+
+export function processFinalSpeechResults(
+  state: RecitationProgressState,
+  poemWords: string[],
+  results: ArrayLike<SpeechRecognitionResultLike>,
+): RecitationProgressState {
+  const finalWords: string[][] = [];
+  for (let index = 0; index < results.length; index += 1) {
+    const result = results[index];
+    if (!result?.isFinal) continue;
+    finalWords.push(tokenizeRecognizedText(result[0]?.transcript || ""));
+  }
+
+  // Final results are stable within one SpeechRecognition session. Only
+  // consume the suffix we have not seen; interim results are intentionally
+  // ignored because browsers revise them and they caused false green words.
+  const newFinalWords = finalWords.slice(state.processedFinalResultCount);
+  let confirmedWordCount = state.confirmedWordCount;
+  for (const words of newFinalWords) {
+    confirmedWordCount = advanceRecitationProgress(poemWords, words, confirmedWordCount);
+  }
+
+  return {
+    confirmedWordCount,
+    processedFinalResultCount: finalWords.length,
+  };
+}
+
 export function useLiveRecitationGuide(
   poem: Poem | null,
   isRecording: boolean
@@ -38,10 +70,18 @@ export function useLiveRecitationGuide(
   const [recognizedWordCount, setRecognizedWordCount] = useState(0);
   const [recognitionAvailable, setRecognitionAvailable] = useState(false);
   const activeRef = useRef(false);
+  const progressRef = useRef<RecitationProgressState>({
+    confirmedWordCount: 0,
+    processedFinalResultCount: 0,
+  });
 
   useEffect(() => {
     if (!isRecording || normalizedPoemWords.length === 0) {
       activeRef.current = false;
+      progressRef.current = {
+        confirmedWordCount: 0,
+        processedFinalResultCount: 0,
+      };
       setRecognizedWordCount(0);
       setRecognitionAvailable(false);
       return;
@@ -68,23 +108,24 @@ export function useLiveRecitationGuide(
     setRecognitionAvailable(true);
 
     recognition.onresult = (event) => {
-      const transcriptParts: string[] = [];
-      for (let index = 0; index < event.results.length; index += 1) {
-        transcriptParts.push(event.results[index][0]?.transcript || "");
-      }
-      const spokenWords = transcriptParts
-        .join(" ")
-        .trim()
-        .split(/\s+/)
-        .map(normalizeArabicWord)
-        .filter(Boolean);
-      setRecognizedWordCount(matchRecitationProgress(normalizedPoemWords, spokenWords));
+      progressRef.current = processFinalSpeechResults(
+        progressRef.current,
+        normalizedPoemWords,
+        event.results,
+      );
+      setRecognizedWordCount(progressRef.current.confirmedWordCount);
     };
     recognition.onerror = () => {
       setRecognitionAvailable(false);
     };
     recognition.onend = () => {
       if (!activeRef.current) return;
+      // A restarted recognition session has a fresh result list. Keep words
+      // already confirmed, but allow its first final result to be consumed.
+      progressRef.current = {
+        ...progressRef.current,
+        processedFinalResultCount: 0,
+      };
       try {
         recognition.start();
       } catch {
@@ -111,28 +152,34 @@ export function useLiveRecitationGuide(
   };
 }
 
-function matchRecitationProgress(poemWords: string[], spokenWords: string[]): number {
-  let poemIndex = 0;
+export function advanceRecitationProgress(
+  poemWords: string[],
+  spokenWords: string[],
+  startIndex = 0,
+): number {
+  let poemIndex = startIndex;
   for (const spokenWord of spokenWords) {
     if (!spokenWord) continue;
-    const searchEnd = Math.min(poemWords.length, poemIndex + 8);
-    for (let candidate = poemIndex; candidate < searchEnd; candidate += 1) {
-      if (wordsMatch(poemWords[candidate], spokenWord)) {
-        poemIndex = candidate + 1;
-        break;
-      }
-    }
+    // Deliberately require the next word. Skipping ahead or matching by
+    // substring makes a repeated/partially recognized word turn green early.
+    if (wordsMatch(
+      normalizeArabicWord(poemWords[poemIndex] || ""),
+      normalizeArabicWord(spokenWord),
+    )) poemIndex += 1;
   }
   return poemIndex;
 }
 
 function wordsMatch(poemWord: string, spokenWord: string): boolean {
-  if (poemWord === spokenWord) return true;
-  const shortestLength = Math.min(poemWord.length, spokenWord.length);
-  return shortestLength >= 3 && (
-    poemWord.includes(spokenWord) ||
-    spokenWord.includes(poemWord)
-  );
+  return poemWord === spokenWord;
+}
+
+function tokenizeRecognizedText(value: string): string[] {
+  return value
+    .trim()
+    .split(/\s+/)
+    .map(normalizeArabicWord)
+    .filter(Boolean);
 }
 
 function normalizeArabicWord(value: string): string {
