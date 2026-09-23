@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
 import { resolveAudioSrcAsync } from '@/lib/audio/fileManager';
+import { getVideoExportProfile } from './videoExportProfile';
 
 type SaveResult =
   | { status: "saved" }
@@ -26,6 +27,7 @@ export function useVideoExport() {
     defaultName: string
   ) => {
     if (isExporting) return;
+    const profile = getVideoExportProfile();
     setExportError(null);
     setExportMessage(null);
 
@@ -128,11 +130,11 @@ export function useVideoExport() {
       source.connect(dest);
       source.connect(audioCtx.destination);
       
-      const canvasStream = canvas.captureStream(30);
+      const canvasStream = canvas.captureStream(profile.frameRate);
       const tracks = [...canvasStream.getVideoTracks(), ...dest.stream.getAudioTracks()];
       stream = new MediaStream(tracks);
 
-      const mimeType = ['video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm'].find(
+      const mimeType = profile.mimeTypes.find(
         mime => MediaRecorder.isTypeSupported(mime)
       );
       if (!mimeType) throw new Error("unsupported-codec");
@@ -170,7 +172,7 @@ export function useVideoExport() {
 
         activeRecorder.onerror = () => reject(new Error("media-recorder-error"));
 
-        activeRecorder.start(100);
+        activeRecorder.start(profile.chunkIntervalMs);
         onPlaybackStatusChange(true);
         loadedAudio.currentTime = 0;
         exportTimeMsRef.current = 0;
@@ -194,7 +196,7 @@ export function useVideoExport() {
             if (interval) clearInterval(interval);
             if (recorder?.state !== 'inactive') recorder?.stop();
           }
-        }, 100);
+        }, profile.progressIntervalMs);
 
         stopRef.current = () => {
           cancelled = true;

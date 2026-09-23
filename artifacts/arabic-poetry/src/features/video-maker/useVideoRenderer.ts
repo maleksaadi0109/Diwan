@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { VideoState } from './types';
 import { wrapArabicText } from './textLayoutUtils';
 import { DEFAULT_VIDEO_STYLE, getVideoFont, getVideoPalette } from './videoStyles';
+import { getVideoExportProfile, isWindowsDesktop } from './videoExportProfile';
 
 export function useVideoRenderer(
   canvasRef: React.RefObject<HTMLCanvasElement | null>,
@@ -18,8 +19,17 @@ export function useVideoRenderer(
 
     let animationId: number;
     let lastTime = 0;
+    const windowsExportFrameInterval = isWindowsDesktop()
+      ? 1000 / getVideoExportProfile(true).frameRate
+      : 0;
 
     const render = (now: number) => {
+      if (exportTimeMsRef.current !== null && windowsExportFrameInterval > 0
+          && now - lastTime < windowsExportFrameInterval) {
+        animationId = requestAnimationFrame(render);
+        return;
+      }
+      lastTime = now;
       const width = canvas.width;
       const height = canvas.height;
       const videoStyle = state.style || DEFAULT_VIDEO_STYLE;
