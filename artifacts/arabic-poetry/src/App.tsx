@@ -24,7 +24,7 @@ import { UndoToastStack } from "./components/UndoToastStack";
 import { ShortcutsReferenceModal } from "./components/ShortcutsReferenceModal";
 import { markVerseBoundary } from "./lib/verseBoundary";
 import { shouldSyncDisplayedPoem } from "./lib/playerSync";
-import { TARANEEM_POEMS, TARANEEM_POETS, TARANEEM_PLAYLIST } from "./data/taraneemData";
+import { removeUnusedTaraneemSeeds } from "./lib/seededPoemCleanup";
 import { WritingStudioView } from "./features/writing-studio/WritingStudioView";
 import { VideoMakerView } from "./features/video-maker/VideoMakerView";
 
@@ -148,24 +148,13 @@ function AppShell() {
 
         let loadedPlaylists = await repository.getAllPlaylists();
 
-        // Ensure Taraneem 30-poem collection & playlist are seeded
-        const hasTaraneemPlaylist = loadedPlaylists.some(
-          (p) => p.id === TARANEEM_PLAYLIST.id || p.name.includes("ترنيم")
+        // Older releases preloaded audio-less sample poems. Remove only
+        // untouched copies; user recordings, edits and playlists stay intact.
+        const cleaned = await removeUnusedTaraneemSeeds(
+          repository, loadedPoems, loadedPlaylists,
         );
-        if (!hasTaraneemPlaylist) {
-          for (const poet of Object.values(TARANEEM_POETS)) {
-            await repository.savePoet(poet);
-          }
-          for (const poem of TARANEEM_POEMS) {
-            await repository.savePoem(poem);
-          }
-          const created = await repository.createPlaylist(TARANEEM_PLAYLIST.name, TARANEEM_PLAYLIST.id);
-          for (let i = 0; i < TARANEEM_PLAYLIST.poemIds.length; i++) {
-            await repository.addPoemToPlaylist(created.id, TARANEEM_PLAYLIST.poemIds[i]);
-          }
-          loadedPoems = await repository.getAllPoems();
-          loadedPlaylists = await repository.getAllPlaylists();
-        }
+        loadedPoems = cleaned.poems;
+        loadedPlaylists = cleaned.playlists;
 
         if (isMounted) {
           setPoems(loadedPoems);
