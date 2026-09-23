@@ -49,3 +49,18 @@ Octokit client hit the same Replit-side transport protection.
 **How to apply:** Stop retrying once the Cloudflare page appears; preserve the
 local merge and resume the write later. Reauthorizing GitHub does not fix this
 case because authenticated reads still succeed.
+
+When publishing a merged tree through the Git Data API, a blob that only
+exists in local Git (including a local main-only screenshot) must be uploaded
+first; GitHub cannot reference its local SHA until the blob exists remotely.
+Compare the tree returned by `createTree` against the local target tree before
+updating a ref.
+
+**Why:** A tree based on the remote feature branch may lack blobs from an
+unpublished local main commit, even when the local Git object ID is known.
+
+**How to apply:** Upload missing binary files with base64 encoding. When using
+CodeExecution shell output to assemble tree entries, do not parse Git's
+tab-delimited `--name-status` output directly: the callback can normalize
+tabs away and leave carriage returns. Get name-only and deleted-name lists
+separately, and trim every parsed hash and path.
