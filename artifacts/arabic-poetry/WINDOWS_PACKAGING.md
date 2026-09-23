@@ -13,7 +13,7 @@ Windows Tauri bundle or run PyInstaller for a Windows target.
 | Python + worker code + faster-whisper + yt-dlp | Frozen into a single `diwan_worker.exe` (PyInstaller, one-dir mode) | `worker-dist/` resource dir |
 | FFmpeg | Static Windows binary, bundled as a resource | `bin/win/ffmpeg.exe` |
 | ffprobe | Static Windows binary, bundled as a resource | `bin/win/ffprobe.exe` |
-| Whisper "small" speech model (CTranslate2-converted) | Pre-downloaded/converted model folder, bundled as a resource | `models/small/` |
+| Whisper "tiny" and "small" speech models (CTranslate2-converted) | Pre-downloaded model folders, bundled as resources | `models/tiny/` and `models/small/` |
 
 yt-dlp does **not** need a separate binary: it's a pure-Python package
 already imported in-process by the worker (`import yt_dlp`), so freezing
@@ -40,8 +40,8 @@ workflows are unaffected.
 
 ### Why bundle the Whisper model too
 
-Without a bundled model, the very first transcription on a fresh install
-still needs to download the ~250MB "small" Whisper model from the Hugging
+Without the requested model, the very first transcription on a fresh install
+still needs to download its Whisper model from the Hugging
 Face Hub before it can run (subsequent runs use the cached copy under
 `~/.cache/diwan/models`, or `DIWAN_MODELS_DIR` if set). On a machine with
 no internet access, or a flaky one where the download itself keeps
@@ -55,7 +55,8 @@ handled.
 for a `<model_size>/model.bin` folder and, when present, passes that local
 directory straight to `WhisperModel(...)` -- faster-whisper only talks to
 the network when given a model name/ID, never when given an existing
-directory, so this path never touches the internet.
+directory, so this path never touches the internet. Both models are needed:
+the import flows request `tiny`, while other worker calls default to `small`.
 
 ## One-time or per-release steps (run on Windows)
 
@@ -100,14 +101,18 @@ LGPL/GPL depending on which codecs are enabled in the specific build).
 
 ### 3. Pre-download the Whisper AI Model for 100% Offline Use
 
-To ensure users never experience runtime downloads or Hugging Face errors on target PCs, pre-download the fast, compact `tiny` model (~75 MB) into the bundle resources:
+To ensure the import flows use their intended model without a runtime download,
+pre-download both `tiny` and `small` on the Windows build machine:
 
 ```powershell
-# Run the helper script from artifacts/arabic-poetry:
-python scripts/bundle_model.py
+# From artifacts/arabic-poetry:
+python worker/scripts/fetch_bundled_model.py --model-size tiny
+python worker/scripts/fetch_bundled_model.py --model-size small
 ```
 
-This creates `src-tauri/windows-dist/models/tiny/` with all required weights and tokenizers.
+This creates `src-tauri/windows-dist/models/{tiny,small}/` with their
+weights and tokenizers. The `tauri:build:windows` command runs both checks
+automatically and downloads any missing model.
 
 ### 4. Confirm the layout
 
@@ -121,6 +126,11 @@ src-tauri/windows-dist/
     ... (PyInstaller-generated support files/DLLs)
   models/
     tiny/
+      model.bin
+      config.json
+      tokenizer.json
+      vocabulary.txt
+    small/
       model.bin
       config.json
       tokenizer.json
@@ -156,7 +166,8 @@ after a successful first download, which matters most for exactly the
 low-connectivity/flaky-network machines this feature targets. If installer
 size becomes a problem later, an alternative is to bundle only a smaller
 model size (e.g. "base") and let "small"/"medium" remain download-on-first-
-use.
+use. Bundling `tiny` in addition adds approximately 75 MB before compression
+and keeps the existing import flows offline.
 
 ## Verifying on a real Windows machine (cannot be done from this sandbox)
 

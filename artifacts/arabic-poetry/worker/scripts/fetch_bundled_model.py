@@ -6,10 +6,10 @@ access on its very first run (see WINDOWS_PACKAGING.md).
 This is the one part of Windows packaging that still needs an internet
 connection -- it runs once per release, on the build machine, not on the
 end user's machine. It is invoked automatically by
-`scripts/build-windows.ps1` / `scripts/build-windows.bat` before `tauri
-build`, and can also be run standalone:
+`scripts/prepare-windows-bundle.mjs` before `tauri build`, and can also
+be run standalone:
 
-    python worker/scripts/fetch_bundled_model.py
+    python worker/scripts/fetch_bundled_model.py --model-size tiny
 
 The revision is pinned to a specific Hugging Face Hub commit (not "main")
 so every release bundles an identical, reproducible model rather than
@@ -26,6 +26,10 @@ import sys
 # Bump the revision deliberately (and re-run this script) when intentionally
 # picking up a model update -- never silently float to "main".
 MODEL_SOURCES = {
+    "tiny": {
+        "repo_id": "Systran/faster-whisper-tiny",
+        "revision": "d90ca5fe260221311c53c58e660288d3deb8d356",
+    },
     "small": {
         "repo_id": "Systran/faster-whisper-small",
         "revision": "536b0662742c02347bc0e980a01041f333bce120",
@@ -87,15 +91,13 @@ def verify_model_dir(model_dir: str) -> list[str]:
 
     model_bin = os.path.join(model_dir, "model.bin")
     if os.path.isfile(model_bin):
-        # A real CTranslate2 Whisper "small" model.bin is on the order of a
-        # few hundred MB. Anything drastically smaller almost certainly
-        # means a truncated/failed download rather than a real model, so
-        # catch that loudly here instead of shipping a broken bundle.
+        # Even the "tiny" model is larger than 50 MB; a smaller file almost
+        # certainly means a truncated download, not a working model.
         size_mb = os.path.getsize(model_bin) / (1024 * 1024)
         if size_mb < 50:
             problems.append(
                 f"model.bin is only {size_mb:.1f}MB -- looks truncated/incomplete "
-                "(a real 'small' model is several hundred MB)"
+                "(expected at least 50MB)"
             )
 
     return problems
