@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use std::io::{BufRead, BufReader, Write};
+use std::io::{BufRead, BufReader, Read, Write};
 use std::path::PathBuf;
 use std::process::{Command, Stdio};
 use std::sync::Mutex;
@@ -284,6 +284,30 @@ fn spawn_worker_process(app: &AppHandle, worker_dir: &PathBuf) -> Result<std::pr
     ))
 }
 
+// Drain stderr while stdout is being read. A frozen worker can write enough
+// diagnostics to fill the pipe; leaving it unread can block the worker before
+// it has a chance to send its JSON response.
+fn collect_worker_stderr(stderr: impl Read + Send + 'static) -> std::thread::JoinHandle<String> {
+    std::thread::spawn(move || {
+        let mut reader = BufReader::new(stderr);
+        let mut chunk = [0_u8; 4096];
+        let mut tail = Vec::new();
+        loop {
+            match reader.read(&mut chunk) {
+                Ok(0) => break,
+                Ok(n) => {
+                    tail.extend_from_slice(&chunk[..n]);
+                    if tail.len() > 16_384 {
+                        tail.drain(..tail.len() - 16_384);
+                    }
+                }
+                Err(_) => break,
+            }
+        }
+        String::from_utf8_lossy(&tail).trim().to_string()
+    })
+}
+
 /// Fast native HTTP fetch using system curl for instant reliability
 fn fetch_url_native(req_id: &str, url: &str, headers: Option<&serde_json::Value>) -> Result<WorkerResponsePayload, String> {
     let mut cmd = Command::new("curl");
@@ -392,6 +416,7 @@ pub async fn execute_worker_command(
         .stdout
         .take()
         .ok_or_else(|| "Failed to open worker stdout".to_string())?;
+    let stderr_reader = child.stderr.take().map(collect_worker_stderr);
 
     // Write request line to stdin
     writeln!(stdin, "{}", req_json)
@@ -400,6 +425,7 @@ pub async fn execute_worker_command(
 
     let reader = BufReader::new(stdout);
     let mut final_response: Option<WorkerResponsePayload> = None;
+    let mut unexpected_stdout = None;
 
     for line_result in reader.lines() {
         let line = line_result.map_err(|e| format!("Failed to read worker line: {}", e))?;
@@ -416,13 +442,33 @@ pub async fn execute_worker_command(
                 final_response = Some(parsed);
                 break;
             }
+        } else if unexpected_stdout.is_none() {
+            unexpected_stdout = Some(trimmed.chars().take(500).collect::<String>());
         }
     }
 
-    // Reap the process in the background
-    std::thread::spawn(move || {
-        let _ = child.wait();
-    });
+    if let Some(response) = final_response {
+        // Do not delay a successful response waiting for Python's ML threads
+        // to exit. The background reaper also closes the stderr reader.
+        std::thread::spawn(move || {
+            let _ = child.wait();
+            if let Some(reader) = stderr_reader {
+                let _ = reader.join();
+            }
+        });
+        return Ok(response);
+    }
 
-    final_response.ok_or_else(|| "Worker finished without returning a final response".to_string())
+    let status = child.wait().map_err(|e| format!("Failed to wait for worker: {e}"))?;
+    let stderr = stderr_reader
+        .and_then(|reader| reader.join().ok())
+        .unwrap_or_default();
+    let mut details = format!("Worker exited ({status}) without returning a final response");
+    if !stderr.is_empty() {
+        details.push_str(&format!("; stderr: {stderr}"));
+    }
+    if let Some(stdout) = unexpected_stdout {
+        details.push_str(&format!("; unexpected stdout: {stdout}"));
+    }
+    Err(details)
 }
