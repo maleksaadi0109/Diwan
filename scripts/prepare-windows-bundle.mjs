@@ -61,21 +61,17 @@ function requireResource(relativePath, hint) {
   }
 }
 
-// Import paths explicitly request tiny, while the worker client also supports
-// small as its default. Bundle both rather than fetching tiny at runtime.
-for (const modelSize of ["tiny", "small"]) {
-  runFetchModelScript(modelSize);
-}
+// Every current transcription flow uses tiny. Keep the offline installer
+// limited to that model; other sizes remain available as explicit downloads.
+runFetchModelScript("tiny");
 
 // Sanity-check the other resources this build depends on too, so a missing
 // one fails clearly here instead of producing a broken or online-only
 // installer that only surfaces the problem on a user's machine.
-for (const modelSize of ["tiny", "small"]) {
-  requireResource(
-    path.join("models", modelSize, "model.bin"),
-    `Run \`python worker/scripts/fetch_bundled_model.py --model-size ${modelSize}\` from artifacts/arabic-poetry/.`
-  );
-}
+requireResource(
+  path.join("models", "tiny", "model.bin"),
+  "Run `python worker/scripts/fetch_bundled_model.py --model-size tiny` from artifacts/arabic-poetry/."
+);
 requireResource(
   path.join("worker", "diwan_worker.exe"),
   "Freeze the worker with PyInstaller -- see WINDOWS_PACKAGING.md step 1."

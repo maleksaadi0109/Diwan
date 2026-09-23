@@ -174,7 +174,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--model-size",
-        default="small",
+        default="tiny",
         choices=sorted(MODEL_SOURCES.keys()),
         help="Which model size to fetch (must match what the app requests, see transcriber.py).",
     )

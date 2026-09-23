@@ -34,3 +34,17 @@ the worker unexpectedly contacted Hugging Face before crashing on model load.
 **How to apply:** When changing a hard-coded import model or packaging policy,
 check both the import callers and the bundle's fetch/verification list. Keep
 each needed size pinned and present in the Windows resources.
+
+A lower-level optional default alone is not a reason to ship a large unused
+model. Align that default with the active transcription flows and limit the
+resource mapping to the selected model's subfolder, rather than a parent
+directory that may contain stale models from earlier builds.
+
+**Why:** Including both `tiny` and `small` to cover an unused default inflated
+the Windows installer. Changing the download gate alone would not help
+existing builders if the resource mapping still packaged their old `small`
+folder.
+
+**How to apply:** When trimming bundled models, check live call sites,
+fallback defaults, preparation gates, and resource mapping together. Do not
+automatically delete previously downloaded model files from users' machines.
