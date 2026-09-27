@@ -1,4 +1,28 @@
 @import url('https://fonts.googleapis.com/css2?family=Amiri:ital,wght@0,400;0,700;1,400;1,700&family=Cairo:wght@300;400;500;600;700;800;900&family=Scheherazade+New:wght@400;600;700&family=Noto+Naskh+Arabic:wght@400;500;600;700&family=Almarai:wght@300;400;700;800&display=swap');
+
+@font-face {
+  font-family: "Diwan Amiri";
+  src: url("../../public/fonts/amiri-bold.ttf") format("truetype");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Diwan Cairo";
+  src: url("../../public/fonts/cairo-bold.ttf") format("truetype");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Diwan Scheherazade";
+  src: url("../../public/fonts/scheherazade-new-bold.ttf") format("truetype");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
 @import "tailwindcss";
 
 @theme {

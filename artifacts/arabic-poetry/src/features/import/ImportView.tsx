@@ -16,6 +16,7 @@ import { TranscriptionModal } from "./TranscriptionModal";
 import { MizanImportView } from "./MizanImportView";
 import { YouTubeImportView } from "./YouTubeImportView";
 import { NewPoemWizard } from "./NewPoemWizard";
+import { PoetGeography, PoetGeographyFields } from "./PoetGeographyFields";
 
 interface ImportViewProps {
   onImportPoem: (poem: Poem) => void;
@@ -55,6 +56,7 @@ export const ImportView: React.FC<ImportViewProps> = ({ onImportPoem }) => {
   // Manual Tab Form State
   const [title, setTitle] = useState("");
   const [poetName, setPoetName] = useState("");
+  const [poetGeography, setPoetGeography] = useState<PoetGeography>({});
   const [era, setEra] = useState<Era>("عباسي");
   const [bahr, setBahr] = useState<Bahr>("البسيط");
   const [versesRaw, setVersesRaw] = useState("");
@@ -210,6 +212,7 @@ export const ImportView: React.FC<ImportViewProps> = ({ onImportPoem }) => {
           id: `poet-${Date.now()}`,
           name: poetName.trim(),
           era,
+          ...poetGeography,
         },
         era,
         bahr,
@@ -376,6 +379,8 @@ export const ImportView: React.FC<ImportViewProps> = ({ onImportPoem }) => {
                   className="w-full bg-charcoal-950 text-parchment-100 placeholder-ink-600 border border-white/5 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-accent-700 transition-colors shadow-inner"
                 />
               </div>
+
+              <PoetGeographyFields value={poetGeography} onChange={setPoetGeography} />
 
               <div>
                 <label className="block text-sm font-bold text-ink-500 mb-2">اسم الشاعر <span className="text-crimson-400">*</span></label>

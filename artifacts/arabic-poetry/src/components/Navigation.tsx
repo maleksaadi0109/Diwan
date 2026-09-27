@@ -1,5 +1,5 @@
 import React from "react";
-import { BookOpen, PlayCircle, PlusCircle, Settings, Feather, ListMusic, Keyboard, Library, ListChecks } from "lucide-react";
+import { BookOpen, PlayCircle, PlusCircle, Settings, Feather, ListMusic, Keyboard, Library, ListChecks, Map, PenTool, Film } from "lucide-react";
 import { ActiveTab } from "@/types";
 import { cn, toArabicDigits } from "@/lib/utils";
 import { useImportQueueContext } from "@/contexts/ImportQueueContext";
@@ -47,6 +47,25 @@ export const Navigation: React.FC<NavigationProps> = ({
       label: "مكتبة جاهزة",
       mobileLabel: "جاهزة",
       icon: Library,
+    },
+    {
+      id: "map" as ActiveTab,
+      label: "خريطة الشعر",
+      mobileLabel: "الخريطة",
+      icon: Map,
+    },
+    {
+      id: "studio" as ActiveTab,
+      label: "محترف الكتابة",
+      mobileLabel: "المحترف",
+      icon: PenTool,
+    },
+    {
+      id: "video" as ActiveTab,
+      label: "صانع الفيديو",
+      mobileLabel: "فيديو",
+      icon: Film,
+      desktopOnly: true,
     },
     {
       id: "playlists" as ActiveTab,
@@ -170,7 +189,7 @@ export const Navigation: React.FC<NavigationProps> = ({
         style={{ height: "calc(var(--mobile-nav-h) + env(safe-area-inset-bottom))", paddingBottom: "env(safe-area-inset-bottom)" }}
         aria-label="أقسام التطبيق"
       >
-        {navItems.map((item) => {
+        {navItems.filter(item => !(item as any).desktopOnly).map((item) => {
           const Icon = item.icon;
           const isActive = activeTab === item.id;
           return (

@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { Poem, Verse, VerseExplanationItem, VerseSegmentationSuggestion, WordDefinition } from "@/types";
+import { Poem, Poet, Verse, VerseExplanationItem, VerseSegmentationSuggestion, WordDefinition } from "@/types";
 import { VerseExplanationStatus, VerseItem } from "./VerseItem";
 import { AudioControlsBar } from "./AudioControlsBar";
 import { PoemMetadataDrawer } from "./PoemMetadataDrawer";
@@ -9,7 +9,7 @@ import { ImportExplanationModal } from "./ImportExplanationModal";
 import { FocusModeView } from "./FocusModeView";
 import { VerseShareModal } from "./VerseShareModal";
 import { usePoemPlayback } from "@/hooks/usePoemPlayback";
-import { Info, BookOpen, AlertCircle, Maximize2, ClipboardPaste, Keyboard, ChevronRight, SkipForward, SkipBack } from "lucide-react";
+import { Info, BookOpen, AlertCircle, Maximize2, ClipboardPaste, Keyboard, ChevronRight, SkipForward, SkipBack, Film } from "lucide-react";
 import { ParsedExplanationBlock } from "@/lib/import/pasteExplanationParser";
 import { analyzeVerseMeter } from "@/lib/arud/meterDetector";
 import { DiwanRepository } from "@/lib/db/repository";
@@ -20,12 +20,14 @@ interface PoemPlayerViewProps {
   poem: Poem;
   onSaveExplanations?: (verseId: string, items: VerseExplanationItem[]) => Promise<void>;
   onChangeCoverImage?: (coverImageUrl: string | null) => Promise<void> | void;
+  onUpdatePoet?: (poet: Poet) => Promise<void> | void;
   onDeleteVerse?: (verseId: string) => Promise<void> | void;
   onEditVerse?: (verseId: string, firstHemistich: string, secondHemistich: string) => Promise<void> | void;
   onImportExplanations?: (blocks: ParsedExplanationBlock[]) => Promise<void> | void;
   onApplySegmentationSuggestions?: (accepted: VerseSegmentationSuggestion[]) => Promise<void> | void;
   onMarkVerseBoundary?: (verseId: string, boundaryMs: number) => Promise<void> | void;
   onOpenShortcutsHelp?: () => void;
+  onCreateVideo?: () => void;
   // Playlist context navigation
   playlistName?: string | null;
   queueIndex?: number;
@@ -45,12 +47,14 @@ export const PoemPlayerView: React.FC<PoemPlayerViewProps> = ({
   poem,
   onSaveExplanations,
   onChangeCoverImage,
+  onUpdatePoet,
   onDeleteVerse,
   onEditVerse,
   onImportExplanations,
   onApplySegmentationSuggestions,
   onMarkVerseBoundary,
   onOpenShortcutsHelp,
+  onCreateVideo,
   playlistName,
   queueIndex,
   queueTotal,
@@ -328,6 +332,17 @@ export const PoemPlayerView: React.FC<PoemPlayerViewProps> = ({
         </div>
 
         <div className="flex flex-wrap items-center gap-2 shrink-0 font-sans">
+          {onCreateVideo && (
+            <button
+              onClick={onCreateVideo}
+              data-testid="button-create-poem-video"
+              className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 md:px-3.5 md:py-2 rounded-xl text-xs font-bold border border-accent-700/30 bg-accent-700/10 text-accent-500 hover:bg-accent-700/20 transition-all whitespace-nowrap cursor-pointer focus-visible:ring-2 focus-visible:ring-accent-700"
+              title="إنشاء فيديو لهذه القصيدة"
+            >
+              <Film className="w-3.5 h-3.5" />
+              <span>إنشاء فيديو</span>
+            </button>
+          )}
           {onOpenShortcutsHelp && (
             <button
               onClick={onOpenShortcutsHelp}
@@ -433,6 +448,7 @@ export const PoemPlayerView: React.FC<PoemPlayerViewProps> = ({
           isOpen={showMetadata}
           onToggle={() => setShowMetadata(!showMetadata)}
           onChangeCoverImage={onChangeCoverImage}
+          onUpdatePoet={onUpdatePoet}
         />
       </div>
 
