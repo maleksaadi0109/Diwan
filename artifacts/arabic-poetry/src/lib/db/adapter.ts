@@ -66,6 +66,12 @@ export class WebMemoryAdapter implements DatabaseAdapter {
           bio: p.bio || null,
           birth_year: p.birthYear || null,
           death_year: p.deathYear || null,
+          country: p.country || null,
+          city: p.city || null,
+          latitude: p.latitude ?? null,
+          longitude: p.longitude ?? null,
+          region_id: p.regionId || null,
+          school: p.school || null,
           created_at: new Date().toISOString(),
         });
         changed = true;
@@ -244,6 +250,12 @@ export class WebMemoryAdapter implements DatabaseAdapter {
         bio: p.bio || null,
         birth_year: p.birthYear || null,
         death_year: p.deathYear || null,
+        country: p.country || null,
+        city: p.city || null,
+        latitude: p.latitude ?? null,
+        longitude: p.longitude ?? null,
+        region_id: p.regionId || null,
+        school: p.school || null,
         created_at: new Date().toISOString(),
       });
     }
@@ -342,6 +354,12 @@ export class WebMemoryAdapter implements DatabaseAdapter {
         bio: params[3] ? String(params[3]) : null,
         birth_year: params[4] ? String(params[4]) : null,
         death_year: params[5] ? String(params[5]) : null,
+        country: params[6] ? String(params[6]) : null,
+        city: params[7] ? String(params[7]) : null,
+        latitude: params[8] == null ? null : Number(params[8]),
+        longitude: params[9] == null ? null : Number(params[9]),
+        region_id: params[10] ? String(params[10]) : null,
+        school: params[11] ? String(params[11]) : null,
         created_at: new Date().toISOString(),
       });
     } else if (trimmed.startsWith("INSERT OR REPLACE INTO poems") || trimmed.startsWith("INSERT INTO poems")) {

@@ -1,0 +1,60 @@
+modules = ["nodejs-24", "python-base-3.13", "rust-stable", "web"]
+
+[nix]
+channel = "stable-25_05"
+packages = ["pkg-config", "glib", "gtk3", "webkitgtk_4_1", "gdk-pixbuf", "pango", "cairo", "libsoup_3", "zlib", "ffmpeg", "libayatana-appindicator", "librsvg", "openssl", "gcc"]
+
+[deployment]
+router = "application"
+deploymentTarget = "autoscale"
+
+[deployment.postBuild]
+args = ["pnpm", "store", "prune"]
+env = { "CI" = "true" }
+
+[agent]
+stack = "PNPM_WORKSPACE"
+expertMode = true
+
+[postMerge]
+path = "scripts/post-merge.sh"
+timeoutMs = 20000
+
+[workflows]
+runButton = "Project"
+
+[[workflows.workflow]]
+name = "Project"
+mode = "parallel"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Start application"
+
+[[workflows.workflow]]
+name = "Start application"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "PORT=5000 pnpm --filter @workspace/arabic-poetry run dev"
+waitForPort = 5000
+
+[workflows.workflow.metadata]
+outputType = "webview"
+
+[[workflows.workflow]]
+name = "Diwan desktop"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "xrandr --output VNC-0 --mode 1280x960 && LIBRARY_PATH=\"$(pkg-config --variable=libdir zlib):${LIBRARY_PATH:-}\" LD_LIBRARY_PATH=\"$(dirname \"$(gcc -print-file-name=libstdc++.so.6)\"):${LD_LIBRARY_PATH:-}\" pnpm --filter @workspace/arabic-poetry run tauri:dev"
+
+[workflows.workflow.metadata]
+outputType = "vnc"
+
+[[ports]]
+localPort = 5000
+externalPort = 80

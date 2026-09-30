@@ -18,3 +18,6 @@
 - [Mizan Al-Arab API access](arabic-poetry-catalog-import.md) — mizanalarab.com's API returns 200 with no User-Agent required, but has no CORS allow-origin header so browser fetch fails (native mobile fetch is unaffected).
 - [Mobile/desktop parity scope](arabic-poetry-mobile-parity-scope.md) — what was ported to mobile vs. deliberately skipped (verse explanations, import queue) and why.
 - [Mobile audio-source picker (upload/record)](arabic-poetry-audio-source-upload.md) — YouTube/upload/record all converge on one align pipeline; uploads convert via direct Node ffmpeg, not the Python worker.
+- [Native desktop VNC viewport](native-desktop-vnc-viewport.md) — Replit's VNC display can start smaller than Tauri's minimum window and clip the UI despite a successful launch.
+- [Recording placeholders](arabic-poetry-recording-placeholders.md) — seeded poems may list recording metadata with an empty audio path; playback features must require or collect a real source.
+- [StrictMode media-capture lifecycle](react-strictmode-media-capture.md) — mounted refs used by microphone/camera hooks must reset during effect setup, not only initialize once.

@@ -7,6 +7,7 @@ import { LibraryView } from "./features/library/LibraryView";
 import { PoemPlayerView } from "./features/player/PoemPlayerView";
 import { ImportView } from "./features/import/ImportView";
 import { CatalogView } from "./features/catalog/CatalogView";
+import { PoetryMapView } from "./features/poetry-map/PoetryMapView";
 import { SettingsView } from "./features/settings/SettingsView";
 import { PlaylistsView } from "./features/playlists/PlaylistsView";
 import { PlaylistDetailView } from "./features/playlists/PlaylistDetailView";
@@ -22,7 +23,10 @@ import { UndoHistoryProvider, useUndoHistory } from "./contexts/UndoHistoryConte
 import { UndoToastStack } from "./components/UndoToastStack";
 import { ShortcutsReferenceModal } from "./components/ShortcutsReferenceModal";
 import { markVerseBoundary } from "./lib/verseBoundary";
+import { shouldSyncDisplayedPoem } from "./lib/playerSync";
 import { TARANEEM_POEMS, TARANEEM_POETS, TARANEEM_PLAYLIST } from "./data/taraneemData";
+import { WritingStudioView } from "./features/writing-studio/WritingStudioView";
+import { VideoMakerView } from "./features/video-maker/VideoMakerView";
 
 export function App() {
   return (
@@ -50,6 +54,7 @@ function AppShell() {
   const [activeTab, setActiveTab] = useState<ActiveTab>("library");
   const [playerReturnTab, setPlayerReturnTab] = useState<ActiveTab>("library");
   const [activePoem, setActivePoem] = useState<Poem | null>(null);
+  const pendingUserPoemSelectionRef = useRef<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [playlists, setPlaylists] = useState<Playlist[]>([]);
   const [activePlaylist, setActivePlaylist] = useState<Playlist | null>(null);
@@ -78,7 +83,21 @@ function AppShell() {
   // Automatically sync the active displayed poem with current playing poem
   // when navigating across tracks in a playlist queue while in player view.
   useEffect(() => {
-    if (activeTab === "player" && currentPoem && activePoem?.id !== currentPoem.id) {
+    const pendingSelectionId = pendingUserPoemSelectionRef.current;
+
+    if (pendingSelectionId && currentPoem?.id === pendingSelectionId) {
+      pendingUserPoemSelectionRef.current = null;
+    }
+
+    if (
+      shouldSyncDisplayedPoem(
+        activeTab,
+        activePoem?.id ?? null,
+        currentPoem?.id ?? null,
+        pendingSelectionId
+      ) &&
+      currentPoem
+    ) {
       setActivePoem(currentPoem);
     }
   }, [activeTab, currentPoem, activePoem?.id]);
@@ -190,9 +209,15 @@ function AppShell() {
 
   const handleOpenPoem = (poem: Poem) => {
     setPlayerReturnTab("library");
+    pendingUserPoemSelectionRef.current = poem.id;
     setActivePoem(poem);
     setActiveTab("player");
   };
+
+  const handleCreatePoemVideo = useCallback((poem: Poem) => {
+    setActivePoem(poem);
+    setActiveTab("video");
+  }, []);
 
   // Undo/redo history is scoped to the poem/playlist being edited -- once
   // the user navigates to a different one, that entry can no longer be
@@ -272,6 +297,19 @@ function AppShell() {
       setPoems((prev) => prev.map((p) => (p.id === updated.id ? updated : p)));
     },
     [repo, activePoem]
+  );
+
+  const handleUpdatePoet = useCallback(
+    async (poet: Poem["poet"]) => {
+      if (repo) await repo.savePoet(poet);
+      setPoems((current) =>
+        current.map((poem) => (poem.poet.id === poet.id ? { ...poem, poet, era: poet.era } : poem))
+      );
+      setActivePoem((current) =>
+        current?.poet.id === poet.id ? { ...current, poet, era: poet.era } : current
+      );
+    },
+    [repo]
   );
 
   const handleImportExplanations = useCallback(
@@ -815,17 +853,35 @@ function AppShell() {
                   }
                   onSaveExplanations={handleSaveExplanations}
                   onChangeCoverImage={handleChangeCoverImage}
+                  onUpdatePoet={handleUpdatePoet}
                   onDeleteVerse={handleDeleteVerse}
                   onEditVerse={handleEditVerse}
                   onImportExplanations={handleImportExplanations}
                   onApplySegmentationSuggestions={handleApplySegmentationSuggestions}
                   onMarkVerseBoundary={handleMarkVerseBoundary}
                   onOpenShortcutsHelp={() => setShowShortcutsHelp(true)}
+                   onCreateVideo={() => handleCreatePoemVideo(activePoem)}
                 />
               )}
 
               {activeTab === "import" && (
                 <ImportView onImportPoem={handleImportPoem} />
+              )}
+
+              {activeTab === "map" && (
+                <PoetryMapView poems={poems} onOpenPoem={handleOpenPoem} />
+              )}
+
+              {activeTab === "studio" && (
+                <WritingStudioView />
+              )}
+
+              {activeTab === "video" && (
+                <VideoMakerView
+                  poems={poems}
+                  repository={repo}
+                  initialPoemId={activePoem?.id}
+                />
               )}
 
               {activeTab === "catalog" && <CatalogView poems={poems} />}
@@ -881,7 +937,7 @@ function AppShell() {
         {/* Persistent mini player: visible whenever a poem is loaded but the
             full player view isn't showing (e.g. browsing the library while
             a poem keeps playing in the background). */}
-        {activeTab !== "player" && currentPoem && (
+        {activeTab !== "player" && activeTab !== "video" && currentPoem && (
           <MiniPlayer
             poem={currentPoem}
             playerState={playerState}

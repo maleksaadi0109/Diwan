@@ -30,6 +30,9 @@ describe("Navigation component", () => {
       "المكتبة",
       "المشغّل والمزامنة",
       "استيراد قصيدة",
+      "مكتبة جاهزة",
+      "خريطة الشعر",
+      "قوائم التشغيل",
       "الإعدادات",
     ]) {
       // Visible once in the desktop sidebar's text, and exposed as the
